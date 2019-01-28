@@ -1,0 +1,11 @@
+{
+    "docs": [
+        {
+            "_id": "services__spark-one",
+            "title": "Spark Controller 'spark-one'",
+            "order": 1,
+            "type": "Spark",
+            "config": {}
+        }
+    ]
+}

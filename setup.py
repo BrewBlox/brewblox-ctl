@@ -15,16 +15,16 @@ setup(
     ],
     keywords='brewblox deployment menu',
     packages=find_packages(exclude=['test']),
-    install_requires=[],
+    include_package_data=True,
+    install_requires=[
+        'requests',
+        'python-dotenv',
+    ],
     python_requires='>=3.5',
     setup_requires=['setuptools_scm'],
     entry_points={
         'console_scripts': [
-            'brewblox-menu = brewblox_menu.commands:main',
-            # 'bbt-distcopy = brewblox_tools.distcopy:main',
-            # 'bbt-bump = brewblox_tools.bump:main',
-            # 'bbt-deploy-docker = brewblox_tools.deploy_docker:main',
-            # 'bbt-localbuild = brewblox_tools.localbuild:main',
+            'brewblox-ctl = brewblox_menu.commands:main',
         ]
     }
 )

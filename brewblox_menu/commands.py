@@ -3,13 +3,58 @@ Entrypoint for the BrewBlox commands menu
 """
 
 import platform
+import shutil
 import sys
 from abc import ABC, abstractmethod
-from subprocess import STDOUT, CalledProcessError, check_call
+from distutils.util import strtobool
+from os import getenv, path
+from subprocess import STDOUT, CalledProcessError, check_call, check_output
+
+from dotenv import find_dotenv, load_dotenv
 
 
 def is_pi():
     return platform.machine().startswith('arm')
+
+
+def base_dir():
+    return path.dirname(__file__)
+
+
+def docker_tag():
+    return '{}{}'.format(
+        'rpi-' if is_pi() else '',
+        getenv('BREWBLOX_RELEASE', 'latest')
+    )
+
+
+def command_exists(cmd):
+    return bool(shutil.which(cmd))
+
+
+def confirm(question, default='y'):
+    print('{} [Y/n]'.format(question))
+    while True:
+        try:
+            return strtobool(input().lower() or default)
+        except ValueError:
+            print('Please respond with \'y(es)\' or \'n(o)\'.')
+
+
+def check_ok(cmd):
+    try:
+        check_output(cmd, shell=True, stderr=STDOUT)
+        return True
+    except CalledProcessError:
+        return False
+
+
+def is_root():
+    return check_ok('ls /root')
+
+
+def is_docker_user():
+    return check_ok('id -nG $USER | grep -qw "docker"')
 
 
 class Command(ABC):
@@ -80,6 +125,58 @@ class ComposeUpdateCommand(Command):
         self.run_all(shell_commands)
 
 
+class InstallCommand(Command):
+    def __init__(self):
+        super().__init__('Install a new BrewBlox system', 'install')
+
+    def ask_target_dir(self):
+        target_dir = input('In which directory do you want to install the BrewBlox configuration? [./brewblox]')
+        target_dir = target_dir or './brewblox'
+        target_dir = target_dir.rstrip('/')
+        return target_dir
+
+    def action(self):
+        reboot_required = False
+        shell_commands = [
+            'sudo apt update',
+            'sudo apt upgrade -y',
+        ]
+
+        if command_exists('docker'):
+            print('Docker is already installed, skipping...')
+        elif confirm('Do you want to install Docker?'):
+            shell_commands.append('curl -sSL https://get.docker.com | sh')
+            reboot_required = True
+
+        if is_docker_user():
+            print('{} already belongs to the Docker group, skipping...'.format(getenv('USER')))
+        elif confirm('Do you want to run Docker commands without sudo?'):
+            shell_commands.append('sudo usermod -aG docker $USER')
+            reboot_required = True
+
+        if command_exists('docker-compose'):
+            print('docker-compose is already installed, skipping...')
+        elif confirm('Do you want to install docker-compose (from pip)?'):
+            shell_commands.append('sudo pip install -U docker-compose')
+
+        source_dir = base_dir() + '/install_files'
+        target_dir = self.ask_target_dir()
+        source_compose = 'docker-compose_{}.yml'.format('armhf' if is_pi() else 'amd64')
+
+        shell_commands += [
+            'mkdir {}'.format(target_dir),
+            'mkdir {}/couchdb'.format(target_dir),
+            'mkdir {}/influxdb'.format(target_dir),
+            'cp {}/{} {}/docker-compose.yml'.format(source_dir, source_compose, target_dir),
+            'cp -r {}/traefik {}/'.format(source_dir, target_dir),
+        ]
+
+        if reboot_required and confirm('A reboot will be required, do you want to do so?'):
+            shell_commands.append('sudo reboot')
+
+        self.run_all(shell_commands)
+
+
 class SetupCommand(Command):
     def __init__(self):
         super().__init__('Run first-time setup', 'setup')
@@ -87,6 +184,7 @@ class SetupCommand(Command):
     def action(self):
         host = 'https://localhost/datastore'
         database = 'brewblox-ui-store'
+        presets_dir = '{}/presets'.format(base_dir())
         modules = ['services', 'dashboards', 'dashboard-items']
 
         shell_commands = [
@@ -103,7 +201,7 @@ class SetupCommand(Command):
             'curl -Sk -X PUT {}/_users'.format(host),
             'curl -Sk -X PUT {}/{}'.format(host, database),
             *[
-                'cat presets/{}.json '.format(mod) +
+                'cat {}/{}.json '.format(presets_dir, mod) +
                 '| curl -Sk -X POST ' +
                 '--header \'Content-Type: application/json\' ' +
                 '--header \'Accept: application/json\' ' +
@@ -120,14 +218,28 @@ class FirmwareFlashCommand(Command):
         super().__init__('Flash firmware on Spark', 'flash')
 
     def action(self):
-        tag = 'rpi-develop' if is_pi() else 'develop'
+        tag = docker_tag()
         shell_commands = [
             'docker-compose down',
             'docker pull brewblox/firmware-flasher:{}'.format(tag),
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} trigger-dfu'.format(tag),
             'sleep 2',
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} flash'.format(tag),
-            'sleep 5',
+        ]
+
+        input('Please press ENTER when your Spark is connected over USB')
+        self.run_all(shell_commands)
+
+
+class BootloaderCommand(Command):
+    def __init__(self):
+        super().__init__('Flash bootloader on Spark', 'bootloader')
+
+    def action(self):
+        tag = docker_tag()
+        shell_commands = [
+            'docker-compose down',
+            'docker pull brewblox/firmware-flasher:{}'.format(tag),
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} flash-bootloader'.format(tag),
         ]
 
@@ -140,7 +252,7 @@ class WiFiCommand(Command):
         super().__init__('Connect Spark to WiFi', 'wifi')
 
     def action(self):
-        tag = 'rpi-develop' if is_pi() else 'develop'
+        tag = docker_tag()
         shell_commands = [
             'docker-compose down',
             'docker pull brewblox/firmware-flasher:{}'.format(tag),
@@ -177,7 +289,7 @@ class LogFileCommand(Command):
 
 
 MENU = """
-index - name        description
+index - name         description
 ----------------------------------------------------------
 {}
 ----------------------------------------------------------
@@ -187,21 +299,28 @@ Press Ctrl+C to exit.
 
 
 def main(args=...):
+    load_dotenv(find_dotenv(usecwd=True))
     all_commands = [
         ComposeUpCommand(),
         ComposeDownCommand(),
         ComposeUpdateCommand(),
+        InstallCommand(),
         SetupCommand(),
         FirmwareFlashCommand(),
+        BootloaderCommand(),
         WiFiCommand(),
         CheckStatusCommand(),
         LogFileCommand(),
         ExitCommand(),
     ]
     command_descriptions = [
-        '{} - {}'.format(idx+1, cmd)
+        '{} - {}'.format(str(idx+1).rjust(2), cmd)
         for idx, cmd in enumerate(all_commands)
     ]
+
+    if is_root():
+        print('The BrewBlox menu should not be run as root.')
+        raise SystemExit
 
     if args is ...:
         args = sys.argv[1:]
@@ -225,8 +344,8 @@ def main(args=...):
             if command:
                 command.action()
 
-            if not args:
-                break
+                if not args:
+                    break
 
     except CalledProcessError as ex:
         print('\n' + 'Error:', str(ex))

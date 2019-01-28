@@ -1,0 +1,3 @@
+include README.md
+recursive-include brewblox_menu/install_files/ *
+recursive-include brewblox_menu/presets/ *
