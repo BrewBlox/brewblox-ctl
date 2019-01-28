@@ -1,0 +1,20 @@
+language: python
+python: '3.5'
+
+install:
+  - source .env
+  - pip install pipenv
+  - pipenv sync --dev
+
+script: pytest
+
+deploy:
+  # Deploy to PyPi on any push to an upstream branch
+  - provider: pypi
+    user: ${PYPI_USER}
+    password: ${PYPI_PASSWORD}
+    skip_existing: true
+    skip_cleanup: true
+    on:
+      repo: ${GITHUB_REPO}
+      all_branches: true
