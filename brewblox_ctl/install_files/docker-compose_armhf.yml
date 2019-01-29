@@ -1,0 +1,71 @@
+version: '3'
+
+services:
+
+  mdns:
+    image: brewblox/brewblox-mdns:rpi-${BREWBLOX_RELEASE:-latest}
+    network_mode: host
+    restart: unless-stopped
+
+  eventbus:
+    image: rabbitmq:alpine
+    restart: unless-stopped
+
+  influx:
+    image: influxdb
+    restart: unless-stopped
+    volumes:
+      - ./influxdb:/var/lib/influxdb
+    environment:
+      - INFLUXDB_HTTP_LOG_ENABLED=false
+      - INFLUXDB_LOGGING_LEVEL=warn
+
+  datastore:
+    image: treehouses/couchdb
+    restart: unless-stopped
+    labels:
+      - "traefik.port=5984"
+      - "traefik.frontend.rule=PathPrefixStrip: /datastore"
+    volumes:
+      - ./couchdb/:/opt/couchdb/data/
+
+  spark-one:
+    image: brewblox/brewblox-devcon-spark:rpi-${BREWBLOX_RELEASE:-latest}
+    privileged: true
+    depends_on:
+      - eventbus
+      - datastore
+    restart: unless-stopped
+    labels:
+      - "traefik.port=5000"
+      - "traefik.frontend.rule=PathPrefix: /spark-one"
+    command: >
+      --name=spark-one
+
+  history:
+    image: brewblox/brewblox-history:rpi-${BREWBLOX_RELEASE:-latest}
+    depends_on:
+      - influx
+      - eventbus
+    restart: unless-stopped
+    labels:
+      - "traefik.port=5000"
+      - "traefik.frontend.rule=PathPrefix: /history"
+
+  ui:
+    image: brewblox/brewblox-ui:rpi-${BREWBLOX_RELEASE:-latest}
+    restart: unless-stopped
+    labels:
+      - "traefik.port=80"
+      - "traefik.frontend.rule=PathPrefix: /"
+
+  traefik:
+    image: traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./traefik:/config
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -c /config/traefik.toml --docker --docker.domain=brewblox.local
