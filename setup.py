@@ -1,9 +1,9 @@
 from setuptools import find_packages, setup
 
 setup(
-    name='brewblox-menu',
+    name='brewblox-ctl',
     use_scm_version={'local_scheme': lambda v: ''},
-    url='https://github.com/BrewBlox/brewblox-menu',
+    url='https://github.com/BrewBlox/brewblox-ctl',
     author='BrewPi',
     author_email='development@brewpi.com',
     classifiers=[
@@ -24,7 +24,7 @@ setup(
     setup_requires=['setuptools_scm'],
     entry_points={
         'console_scripts': [
-            'brewblox-ctl = brewblox_menu.commands:main',
+            'brewblox-ctl = brewblox_ctl.__main__:main',
         ]
     }
 )

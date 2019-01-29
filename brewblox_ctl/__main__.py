@@ -12,9 +12,19 @@ from subprocess import STDOUT, CalledProcessError, check_call, check_output
 
 from dotenv import find_dotenv, load_dotenv
 
+from brewblox_ctl.migrate import CURRENT_VERSION
+
 
 def is_pi():
     return platform.machine().startswith('arm')
+
+
+def is_root():
+    return check_ok('ls /root')
+
+
+def is_docker_user():
+    return check_ok('id -nG $USER | grep -qw "docker"')
 
 
 def base_dir():
@@ -32,6 +42,14 @@ def command_exists(cmd):
     return bool(shutil.which(cmd))
 
 
+def check_ok(cmd):
+    try:
+        check_output(cmd, shell=True, stderr=STDOUT)
+        return True
+    except CalledProcessError:
+        return False
+
+
 def confirm(question, default='y'):
     print('{} [Y/n]'.format(question))
     while True:
@@ -41,26 +59,27 @@ def confirm(question, default='y'):
             print('Please respond with \'y(es)\' or \'n(o)\'.')
 
 
-def check_ok(cmd):
-    try:
-        check_output(cmd, shell=True, stderr=STDOUT)
-        return True
-    except CalledProcessError:
-        return False
+def select(question, default=''):
+    answer = input('{} {}'.format(question, '[{}]'.format(default) if default else ''))
+    return answer or default
 
 
-def is_root():
-    return check_ok('ls /root')
-
-
-def is_docker_user():
-    return check_ok('id -nG $USER | grep -qw "docker"')
+def choose(question, choices, default=''):
+    display_choices = ' / '.join(['[{}]'.format(c) if c == default else c for c in choices])
+    print(question, display_choices)
+    valid_answers = [c.lower() for c in choices]
+    while True:
+        answer = input().lower() or default.lower()
+        if answer in valid_answers:
+            return answer
+        print('Please choose one:', display_choices)
 
 
 class Command(ABC):
     def __init__(self, description, keyword):
         self.description = description
         self.keyword = keyword
+        self.optsudo = 'sudo ' if not is_docker_user() else ''
 
     def __str__(self):
         return '{} {}'.format(self.keyword.ljust(15), self.description)
@@ -99,7 +118,7 @@ class ComposeDownCommand(Command):
         super().__init__('Stop running services', 'down')
 
     def action(self):
-        cmd = 'docker-compose down'
+        cmd = '{}docker-compose down'.format(self.optsudo)
         self.run_all([cmd])
 
 
@@ -108,19 +127,20 @@ class ComposeUpCommand(Command):
         super().__init__('Start all services if not running', 'up')
 
     def action(self):
-        cmd = 'docker-compose up -d'
+        cmd = '{}docker-compose up -d'.format(self.optsudo)
         self.run_all([cmd])
 
 
-class ComposeUpdateCommand(Command):
+class UpdateCommand(Command):
     def __init__(self):
         super().__init__('Update all services', 'update')
 
     def action(self):
         shell_commands = [
-            'docker-compose down',
-            'docker-compose pull',
-            'docker-compose up -d',
+            '{}docker-compose down'.format(self.optsudo),
+            '{}docker-compose pull'.format(self.optsudo),
+            'sudo pip install -U brewblox-ctl'
+            '{}docker-compose up -d'.format(self.optsudo),
         ]
         self.run_all(shell_commands)
 
@@ -128,12 +148,6 @@ class ComposeUpdateCommand(Command):
 class InstallCommand(Command):
     def __init__(self):
         super().__init__('Install a new BrewBlox system', 'install')
-
-    def ask_target_dir(self):
-        target_dir = input('In which directory do you want to install the BrewBlox configuration? [./brewblox]')
-        target_dir = target_dir or './brewblox'
-        target_dir = target_dir.rstrip('/')
-        return target_dir
 
     def action(self):
         reboot_required = False
@@ -160,8 +174,12 @@ class InstallCommand(Command):
             shell_commands.append('sudo pip install -U docker-compose')
 
         source_dir = base_dir() + '/install_files'
-        target_dir = self.ask_target_dir()
+        target_dir = select(
+            'In which directory do you want to install the BrewBlox configuration?',
+            './brewblox'
+        ).rstrip('/')
         source_compose = 'docker-compose_{}.yml'.format('armhf' if is_pi() else 'amd64')
+        release = 'latest' if confirm('Do you want to wait for stable releases?') else 'edge'
 
         shell_commands += [
             'mkdir {}'.format(target_dir),
@@ -169,6 +187,8 @@ class InstallCommand(Command):
             'mkdir {}/influxdb'.format(target_dir),
             'cp {}/{} {}/docker-compose.yml'.format(source_dir, source_compose, target_dir),
             'cp -r {}/traefik {}/'.format(source_dir, target_dir),
+            'echo BREWBLOX_RELEASE={} >> {}/.env'.format(release, target_dir),
+            'echo BREWBLOX_CFG_VERSION={} >> {}/.env'.format(CURRENT_VERSION, target_dir),
         ]
 
         if reboot_required and confirm('A reboot will be required, do you want to do so?'):
@@ -188,14 +208,14 @@ class SetupCommand(Command):
         modules = ['services', 'dashboards', 'dashboard-items']
 
         shell_commands = [
-            'docker-compose down',
-            'docker-compose pull',
+            '{}docker-compose down'.format(self.optsudo),
+            '{}docker-compose pull'.format(self.optsudo),
             'sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 ' +
             '-keyout traefik/brewblox.key ' +
             '-out traefik/brewblox.crt',
             'sudo chmod 644 traefik/brewblox.crt',
             'sudo chmod 600 traefik/brewblox.key',
-            'docker-compose up -d datastore traefik',
+            '{}docker-compose up -d datastore traefik'.format(self.optsudo),
             'sleep 5',
             'curl -Sk -X GET --retry 10 --retry-delay 5 {} > /dev/null'.format(host),
             'curl -Sk -X PUT {}/_users'.format(host),
@@ -208,7 +228,7 @@ class SetupCommand(Command):
                 '--data "@-" {}/{}/_bulk_docs'.format(host, database)
                 for mod in modules
             ],
-            'docker-compose down',
+            '{}docker-compose down'.format(self.optsudo),
         ]
         self.run_all(shell_commands)
 
@@ -220,7 +240,7 @@ class FirmwareFlashCommand(Command):
     def action(self):
         tag = docker_tag()
         shell_commands = [
-            'docker-compose down',
+            '{}docker-compose down'.format(self.optsudo),
             'docker pull brewblox/firmware-flasher:{}'.format(tag),
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} trigger-dfu'.format(tag),
             'sleep 2',
@@ -238,7 +258,7 @@ class BootloaderCommand(Command):
     def action(self):
         tag = docker_tag()
         shell_commands = [
-            'docker-compose down',
+            '{}docker-compose down'.format(self.optsudo),
             'docker pull brewblox/firmware-flasher:{}'.format(tag),
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} flash-bootloader'.format(tag),
         ]
@@ -254,7 +274,7 @@ class WiFiCommand(Command):
     def action(self):
         tag = docker_tag()
         shell_commands = [
-            'docker-compose down',
+            '{}docker-compose down'.format(self.optsudo),
             'docker pull brewblox/firmware-flasher:{}'.format(tag),
             'sleep 2',
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} wifi'.format(tag),
@@ -269,7 +289,7 @@ class CheckStatusCommand(Command):
         super().__init__('Check system status', 'status')
 
     def action(self):
-        cmd = 'docker-compose ps'
+        cmd = '{}docker-compose ps'.format(self.optsudo)
         self.run_all([cmd])
 
 
@@ -280,8 +300,8 @@ class LogFileCommand(Command):
     def action(self):
         shell_commands = [
             'date > brewblox-log.txt',
-            'for svc in $(docker-compose ps --services | tr "\\n" " "); do ' +
-            'docker-compose logs -t --no-color --tail 200 ${svc} >> brewblox-log.txt; ' +
+            'for svc in $({}docker-compose ps --services | tr "\\n" " "); do '.format(self.optsudo) +
+            '{}docker-compose logs -t --no-color --tail 200 ${svc} >> brewblox-log.txt; '.format(self.optsudo) +
             'echo \'\\n\' >> brewblox-log.txt; ' +
             'done;'
         ]
@@ -303,7 +323,7 @@ def main(args=...):
     all_commands = [
         ComposeUpCommand(),
         ComposeDownCommand(),
-        ComposeUpdateCommand(),
+        UpdateCommand(),
         InstallCommand(),
         SetupCommand(),
         FirmwareFlashCommand(),
