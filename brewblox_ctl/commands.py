@@ -136,7 +136,7 @@ class UpdateCommand(Command):
         shell_commands = [
             '{}docker-compose down'.format(self.optsudo),
             '{}docker-compose pull'.format(self.optsudo),
-            'sudo pip install -U brewblox-ctl'
+            'sudo pip install -U brewblox-ctl',
             '{}docker-compose up -d'.format(self.optsudo),
         ]
         self.run_all(shell_commands)
