@@ -213,8 +213,8 @@ class SetupCommand(Command):
             'sudo chmod 644 traefik/brewblox.crt',
             'sudo chmod 600 traefik/brewblox.key',
             '{}docker-compose up -d datastore traefik'.format(self.optsudo),
-            'sleep 5',
-            'curl -Sk -X GET --retry 10 --retry-delay 5 {} > /dev/null'.format(host),
+            'sleep 30',
+            'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(host),
             'curl -Sk -X PUT {}/_users'.format(host),
             'curl -Sk -X PUT {}/{}'.format(host, database),
             *[
@@ -240,7 +240,6 @@ class FirmwareFlashCommand(Command):
             '{}docker-compose down'.format(self.optsudo),
             'docker pull brewblox/firmware-flasher:{}'.format(tag),
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} trigger-dfu'.format(tag),
-            'sleep 2',
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} flash'.format(tag),
         ]
 
@@ -273,7 +272,6 @@ class WiFiCommand(Command):
         shell_commands = [
             '{}docker-compose down'.format(self.optsudo),
             'docker pull brewblox/firmware-flasher:{}'.format(tag),
-            'sleep 2',
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} wifi'.format(tag),
         ]
 
