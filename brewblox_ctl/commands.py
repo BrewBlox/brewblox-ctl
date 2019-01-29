@@ -136,7 +136,7 @@ class UpdateCommand(Command):
         shell_commands = [
             '{}docker-compose down'.format(self.optsudo),
             '{}docker-compose pull'.format(self.optsudo),
-            'sudo pip install -U brewblox-ctl',
+            'sudo pip3 install -U brewblox-ctl',
             '{}docker-compose up -d'.format(self.optsudo),
         ]
         self.run_all(shell_commands)
@@ -168,7 +168,7 @@ class InstallCommand(Command):
         if command_exists('docker-compose'):
             print('docker-compose is already installed, skipping...')
         elif confirm('Do you want to install docker-compose (from pip)?'):
-            shell_commands.append('sudo pip install -U docker-compose')
+            shell_commands.append('sudo pip3 install -U docker-compose')
 
         source_dir = base_dir() + '/install_files'
         target_dir = select(
