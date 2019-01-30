@@ -3,7 +3,7 @@ version: '3'
 services:
 
   mdns:
-    image: brewblox/brewblox-mdns:${BREWBLOX_RELEASE:-latest}
+    image: brewblox/brewblox-mdns:${BREWBLOX_RELEASE:-stable}
     network_mode: host
     restart: unless-stopped
 
@@ -30,7 +30,7 @@ services:
       - ./couchdb/:/opt/couchdb/data/
 
   spark-one:
-    image: brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE:-latest}
+    image: brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE:-stable}
     privileged: true
     depends_on:
       - eventbus
@@ -43,7 +43,7 @@ services:
       --name=spark-one
 
   history:
-    image: brewblox/brewblox-history:${BREWBLOX_RELEASE:-latest}
+    image: brewblox/brewblox-history:${BREWBLOX_RELEASE:-stable}
     depends_on:
       - influx
       - eventbus
@@ -53,7 +53,7 @@ services:
       - "traefik.frontend.rule=PathPrefix: /history"
 
   ui:
-    image: brewblox/brewblox-ui:${BREWBLOX_RELEASE:-latest}
+    image: brewblox/brewblox-ui:${BREWBLOX_RELEASE:-stable}
     restart: unless-stopped
     labels:
       - "traefik.port=80"
