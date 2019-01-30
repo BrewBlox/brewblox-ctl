@@ -176,7 +176,11 @@ class InstallCommand(Command):
             './brewblox'
         ).rstrip('/')
         source_compose = 'docker-compose_{}.yml'.format('armhf' if is_pi() else 'amd64')
-        release = 'latest' if confirm('Do you want to wait for stable releases?') else 'edge'
+
+        if confirm('Do you want to wait for stable releases?'):
+            release = 'stable'
+        else:
+            release = 'edge'
 
         shell_commands += [
             'mkdir {}'.format(target_dir),
