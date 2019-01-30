@@ -68,3 +68,6 @@ target/
 
 # pytest
 .pytest_cache/
+
+# local testing
+dev/
