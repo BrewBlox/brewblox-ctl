@@ -33,12 +33,15 @@ def main(args=...):
     if args is ...:
         args = sys.argv[1:]
     print('Welcome to the BrewBlox menu!')
-    if args:
+    has_args = bool(args)
+    if has_args:
         print('Running commands: {}'.format(', '.join(args)))
 
     try:
         while True:
-            print(MENU.format('\n'.join(command_descriptions)))
+            if not has_args:
+                print(MENU.format('\n'.join(command_descriptions)))
+
             try:
                 arg = args.pop(0)
             except IndexError:

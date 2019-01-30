@@ -4,6 +4,7 @@ Brewblox-ctl command definitions
 
 import platform
 import shutil
+import sys
 from abc import ABC, abstractmethod
 from distutils.util import strtobool
 from os import getenv, path
@@ -305,6 +306,79 @@ class WiFiCommand(Command):
         self.run_all(shell_commands)
 
 
+class ImportCommand(Command):
+    def __init__(self):
+        super().__init__('Import database files', 'import')
+
+    def action(self):
+        host = 'https://localhost/datastore'
+
+        while True:
+            target_dir = select(
+                'In which directory can the exported files be found?',
+                './brewblox-export'
+            ).rstrip('/')
+
+            couchdb_target = target_dir + '/couchdb-snapshot'
+            influxdb_target = target_dir + '/influxdb-snapshot'
+
+            if not path.exists(couchdb_target):
+                print('"{}" not found'.format(couchdb_target))
+            elif not path.exists(influxdb_target):
+                print('"{}" not found'.format(influxdb_target))
+            else:
+                break
+
+        shell_commands = [
+            '{}docker-compose up -d influx datastore traefik'.format(self.optsudo),
+            'sleep 10',
+            'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(host),
+            '{} -m brewblox_ctl.import_data {}'.format(sys.executable, couchdb_target),
+            '{}docker cp {} $({}docker-compose ps -q influx):/tmp/'.format(
+                self.optsudo, influxdb_target, self.optsudo),
+            '{}docker-compose exec influx influxd restore -portable /tmp/influxdb-snapshot/'.format(self.optsudo),
+        ]
+        self.run_all(shell_commands)
+
+
+class ExportCommand(Command):
+    def __init__(self):
+        super().__init__('Export database files', 'export')
+
+    def action(self):
+        host = 'https://localhost/datastore'
+
+        target_dir = select(
+            'In which directory do you want to place the exported files?',
+            './brewblox-export'
+        ).rstrip('/')
+
+        couchdb_target = target_dir + '/couchdb-snapshot'
+        influxdb_target = target_dir + '/influxdb-snapshot'
+
+        shell_commands = []
+
+        if path.exists(couchdb_target) or path.exists(influxdb_target):
+            if confirm('This action will overwrite existing files. Do you want to continue?'):
+                shell_commands += [
+                    'rm -r {} {}'.format(couchdb_target, influxdb_target)
+                ]
+
+        shell_commands += [
+            'mkdir -p {}'.format(couchdb_target),
+            'mkdir -p {}'.format(influxdb_target),
+            '{}docker-compose up -d influx datastore traefik'.format(self.optsudo),
+            'sleep 10',
+            'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(host),
+            '{} -m brewblox_ctl.export_data {}'.format(sys.executable, couchdb_target),
+            '{}docker-compose exec influx rm -r /tmp/influxdb-snapshot/'.format(self.optsudo),
+            '{}docker-compose exec influx influxd backup -portable /tmp/influxdb-snapshot/'.format(self.optsudo),
+            '{}docker cp $({}docker-compose ps -q influx):/tmp/influxdb-snapshot/ {}/'.format(
+                self.optsudo, self.optsudo, target_dir),
+        ]
+        self.run_all(shell_commands)
+
+
 class CheckStatusCommand(Command):
     def __init__(self):
         super().__init__('Check system status', 'status')
@@ -339,6 +413,8 @@ ALL_COMMANDS = [
     BootloaderCommand(),
     WiFiCommand(),
     CheckStatusCommand(),
+    ImportCommand(),
+    ExportCommand(),
     LogFileCommand(),
     ExitCommand(),
 ]
