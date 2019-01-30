@@ -182,10 +182,32 @@ class InstallCommand(Command):
         else:
             release = 'edge'
 
+        if path.exists('{}/docker-compose.yml'.format(target_dir)):
+            if not confirm(
+                    '{} already contains a BrewBlox installation. Do you want to continue?'.format(target_dir)):
+                return
+
+            if confirm('Do you want to keep your existing dashboards?'):
+                shell_commands += [
+                    'sudo mv {} {}-bak'.format(target_dir, target_dir),
+                    'mkdir {}'.format(target_dir),
+                    'sudo cp -r {}-bak/couchdb {}/'.format(target_dir, target_dir),
+                    'sudo cp -r {}-bak/influxdb {}/'.format(target_dir, target_dir),
+                ]
+
+            else:
+                shell_commands += [
+                    'sudo rm -rf {}/*'.format(target_dir),
+                ]
+
+        else:
+            shell_commands += [
+                'mkdir {}'.format(target_dir),
+            ]
+
         shell_commands += [
-            'mkdir {}'.format(target_dir),
-            'mkdir {}/couchdb'.format(target_dir),
-            'mkdir {}/influxdb'.format(target_dir),
+            'mkdir -p {}/couchdb'.format(target_dir),
+            'mkdir -p {}/influxdb'.format(target_dir),
             'cp {}/{} {}/docker-compose.yml'.format(source_dir, source_compose, target_dir),
             'cp -r {}/traefik {}/'.format(source_dir, target_dir),
             'echo BREWBLOX_RELEASE={} >> {}/.env'.format(release, target_dir),
