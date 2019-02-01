@@ -444,7 +444,8 @@ class LogFileCommand(Command):
         reason = select('Why are you generating this log? (will be included in log)')
 
         shell_commands = [
-            'date > brewblox.log',
+            'echo "BREWBLOX DIAGNOSTIC DUMP" > brewblox.log',
+            'date >> brewblox.log',
             'echo \'{}\' >> brewblox.log'.format(reason),
             'echo "==============VARS==============" >> brewblox.log',
             'echo "$(uname -a)" >> brewblox.log',
@@ -454,14 +455,15 @@ class LogFileCommand(Command):
             'source .env; echo "BREWBLOX_CFG_VERSION=$BREWBLOX_CFG_VERSION" >> brewblox.log',
             'echo "==============CONFIG==============" >> brewblox.log',
             'cat docker-compose.yml >> brewblox.log',
-            'echo "==============INSPECT==============" >> brewblox.log',
-            'for cont in $({}docker-compose ps -q); do '.format(self.optsudo) +
-            'docker inspect -f \'{{ .Name }} {{ .Image }}\' "$cont" >> brewblox.log; ' +
-            'done;',
             'echo "==============LOGS==============" >> brewblox.log',
             'for svc in $({}docker-compose ps --services | tr "\\n" " "); do '.format(self.optsudo) +
-            '{}docker-compose logs -t --no-color --tail 200 ${{svc}} >> brewblox.log; '.format(self.optsudo) +
+            '{}docker-compose logs --timestamps --no-color --tail 200 ${{svc}} >> brewblox.log; '.format(self.optsudo) +
             'echo \'\\n\' >> brewblox.log; ' +
+            'done;',
+            'echo "==============INSPECT==============" >> brewblox.log',
+            'for cont in $({}docker-compose ps -q); do '.format(self.optsudo) +
+            '{}docker inspect $({}docker inspect --format \'{}\' "$cont") >> brewblox.log; '.format(
+                self.optsudo, self.optsudo, '{{ .Image }}') +
             'done;',
         ]
 
