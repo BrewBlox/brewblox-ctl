@@ -436,18 +436,50 @@ class CheckStatusCommand(Command):
 
 class LogFileCommand(Command):
     def __init__(self):
-        super().__init__('Write service logs to brewblox-log.txt', 'log')
+        super().__init__('Generate and share log file for bug reports', 'log')
 
     def action(self):
         self.check_required_config()
+
+        reason = select('Why are you generating this log? (will be included in log)')
+
         shell_commands = [
-            'date > brewblox-log.txt',
+            'echo "BREWBLOX DIAGNOSTIC DUMP" > brewblox.log',
+            'date >> brewblox.log',
+            'echo \'{}\' >> brewblox.log'.format(reason),
+            'echo "==============VARS==============" >> brewblox.log',
+            'echo "$(uname -a)" >> brewblox.log',
+            'echo "$(docker --version)" >> brewblox.log',
+            'echo "$(docker-compose --version)" >> brewblox.log',
+            'source .env; echo "BREWBLOX_RELEASE=$BREWBLOX_RELEASE" >> brewblox.log',
+            'source .env; echo "BREWBLOX_CFG_VERSION=$BREWBLOX_CFG_VERSION" >> brewblox.log',
+            'echo "==============CONFIG==============" >> brewblox.log',
+            'cat docker-compose.yml >> brewblox.log',
+            'echo "==============LOGS==============" >> brewblox.log',
             'for svc in $({}docker-compose ps --services | tr "\\n" " "); do '.format(self.optsudo) +
-            '{}docker-compose logs -t --no-color --tail 200 ${svc} >> brewblox-log.txt; '.format(self.optsudo) +
-            'echo \'\\n\' >> brewblox-log.txt; ' +
-            'done;'
+            '{}docker-compose logs --timestamps --no-color --tail 200 ${{svc}} >> brewblox.log; '.format(self.optsudo) +
+            'echo \'\\n\' >> brewblox.log; ' +
+            'done;',
+            'echo "==============INSPECT==============" >> brewblox.log',
+            'for cont in $({}docker-compose ps -q); do '.format(self.optsudo) +
+            '{}docker inspect $({}docker inspect --format \'{}\' "$cont") >> brewblox.log; '.format(
+                self.optsudo, self.optsudo, '{{ .Image }}') +
+            'done;',
         ]
+
         self.run_all(shell_commands)
+
+        if confirm('Do you want to view your log file at <this computer>:9999/brewblox.log?'):
+            try:
+                self.run('{} -m http.server 9999'.format(sys.executable))
+            except KeyboardInterrupt:
+                pass
+
+        if confirm('Do you want to upload your log file - and get a shareable link?'):
+            share_commands = [
+                'cat brewblox.log | nc termbin.com 9999',
+            ]
+            self.run_all(share_commands)
 
 
 ALL_COMMANDS = [
