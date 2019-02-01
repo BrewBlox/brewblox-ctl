@@ -7,10 +7,12 @@ import shutil
 import sys
 from abc import ABC, abstractmethod
 from distutils.util import strtobool
-from os import getenv, path
+from os import getcwd, getenv, path
 from subprocess import STDOUT, CalledProcessError, check_call, check_output
 
 from brewblox_ctl.migrate import CURRENT_VERSION
+
+DATASTORE = 'https://localhost/datastore'
 
 
 def is_pi():
@@ -82,6 +84,21 @@ class Command(ABC):
     def __str__(self):
         return '{} {}'.format(self.keyword.ljust(15), self.description)
 
+    def check_required_config(self):
+        if not path.exists('./docker-compose.yml'):
+            print('Please run brewblox-ctl in the same directory as your docker-compose.yml file.')
+            raise SystemExit(1)
+
+    def check_optional_config(self):
+        if path.exists('./docker-compose.yml'):
+            return True
+        elif confirm(
+            'No configuration file (docker-compose.yml) found in current directory ({}). '.format(getcwd()) +
+                'Are you sure you want to continue?'):
+            return False
+        else:
+            raise SystemExit(0)
+
     def announce(self, shell_cmds):
         print('The following shell commands will be used: \n')
         for cmd in shell_cmds:
@@ -116,8 +133,11 @@ class ComposeDownCommand(Command):
         super().__init__('Stop running services', 'down')
 
     def action(self):
-        cmd = '{}docker-compose down'.format(self.optsudo)
-        self.run_all([cmd])
+        self.check_required_config()
+        shell_commands = [
+            '{}docker-compose down'.format(self.optsudo),
+        ]
+        self.run_all(shell_commands)
 
 
 class ComposeUpCommand(Command):
@@ -125,8 +145,11 @@ class ComposeUpCommand(Command):
         super().__init__('Start all services if not running', 'up')
 
     def action(self):
-        cmd = '{}docker-compose up -d'.format(self.optsudo)
-        self.run_all([cmd])
+        self.check_required_config()
+        shell_commands = [
+            '{}docker-compose up -d'.format(self.optsudo),
+        ]
+        self.run_all(shell_commands)
 
 
 class UpdateCommand(Command):
@@ -134,6 +157,7 @@ class UpdateCommand(Command):
         super().__init__('Update all services', 'update')
 
     def action(self):
+        self.check_required_config()
         shell_commands = [
             '{}docker-compose down'.format(self.optsudo),
             '{}docker-compose pull'.format(self.optsudo),
@@ -226,7 +250,8 @@ class SetupCommand(Command):
         super().__init__('Run first-time setup', 'setup')
 
     def action(self):
-        host = 'https://localhost/datastore'
+        self.check_required_config()
+
         database = 'brewblox-ui-store'
         presets_dir = '{}/presets'.format(base_dir())
         modules = ['services', 'dashboards', 'dashboard-items']
@@ -241,15 +266,15 @@ class SetupCommand(Command):
             'sudo chmod 600 traefik/brewblox.key',
             '{}docker-compose up -d datastore traefik'.format(self.optsudo),
             'sleep 30',
-            'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(host),
-            'curl -Sk -X PUT {}/_users'.format(host),
-            'curl -Sk -X PUT {}/{}'.format(host, database),
+            'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(DATASTORE),
+            'curl -Sk -X PUT {}/_users'.format(DATASTORE),
+            'curl -Sk -X PUT {}/{}'.format(DATASTORE, database),
             *[
                 'cat {}/{}.json '.format(presets_dir, mod) +
                 '| curl -Sk -X POST ' +
                 '--header \'Content-Type: application/json\' ' +
                 '--header \'Accept: application/json\' ' +
-                '--data "@-" {}/{}/_bulk_docs'.format(host, database)
+                '--data "@-" {}/{}/_bulk_docs'.format(DATASTORE, database)
                 for mod in modules
             ],
             '{}docker-compose down'.format(self.optsudo),
@@ -263,8 +288,14 @@ class FirmwareFlashCommand(Command):
 
     def action(self):
         tag = docker_tag()
-        shell_commands = [
-            '{}docker-compose down'.format(self.optsudo),
+        shell_commands = []
+
+        if self.check_optional_config():
+            shell_commands += [
+                '{}docker-compose down'.format(self.optsudo),
+            ]
+
+        shell_commands += [
             'docker pull brewblox/firmware-flasher:{}'.format(tag),
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} trigger-dfu'.format(tag),
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} flash'.format(tag),
@@ -280,8 +311,14 @@ class BootloaderCommand(Command):
 
     def action(self):
         tag = docker_tag()
-        shell_commands = [
-            '{}docker-compose down'.format(self.optsudo),
+        shell_commands = []
+
+        if self.check_optional_config():
+            shell_commands += [
+                '{}docker-compose down'.format(self.optsudo),
+            ]
+
+        shell_commands += [
             'docker pull brewblox/firmware-flasher:{}'.format(tag),
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} flash-bootloader'.format(tag),
         ]
@@ -296,8 +333,14 @@ class WiFiCommand(Command):
 
     def action(self):
         tag = docker_tag()
-        shell_commands = [
-            '{}docker-compose down'.format(self.optsudo),
+        shell_commands = []
+
+        if self.check_optional_config():
+            shell_commands += [
+                '{}docker-compose down'.format(self.optsudo),
+            ]
+
+        shell_commands += [
             'docker pull brewblox/firmware-flasher:{}'.format(tag),
             'docker run -it --rm --privileged brewblox/firmware-flasher:{} wifi'.format(tag),
         ]
@@ -311,7 +354,7 @@ class ImportCommand(Command):
         super().__init__('Import database files', 'import')
 
     def action(self):
-        host = 'https://localhost/datastore'
+        self.check_required_config()
 
         while True:
             target_dir = select(
@@ -332,7 +375,7 @@ class ImportCommand(Command):
         shell_commands = [
             '{}docker-compose up -d influx datastore traefik'.format(self.optsudo),
             'sleep 10',
-            'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(host),
+            'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(DATASTORE),
             '{} -m brewblox_ctl.import_data {}'.format(sys.executable, couchdb_target),
             '{}docker cp {} $({}docker-compose ps -q influx):/tmp/'.format(
                 self.optsudo, influxdb_target, self.optsudo),
@@ -346,7 +389,7 @@ class ExportCommand(Command):
         super().__init__('Export database files', 'export')
 
     def action(self):
-        host = 'https://localhost/datastore'
+        self.check_required_config()
 
         target_dir = select(
             'In which directory do you want to place the exported files?',
@@ -369,9 +412,9 @@ class ExportCommand(Command):
             'mkdir -p {}'.format(influxdb_target),
             '{}docker-compose up -d influx datastore traefik'.format(self.optsudo),
             'sleep 10',
-            'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(host),
+            'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(DATASTORE),
             '{} -m brewblox_ctl.export_data {}'.format(sys.executable, couchdb_target),
-            '{}docker-compose exec influx rm -r /tmp/influxdb-snapshot/'.format(self.optsudo),
+            '{}docker-compose exec influx rm -r /tmp/influxdb-snapshot/ || true'.format(self.optsudo),
             '{}docker-compose exec influx influxd backup -portable /tmp/influxdb-snapshot/'.format(self.optsudo),
             '{}docker cp $({}docker-compose ps -q influx):/tmp/influxdb-snapshot/ {}/'.format(
                 self.optsudo, self.optsudo, target_dir),
@@ -384,8 +427,11 @@ class CheckStatusCommand(Command):
         super().__init__('Check system status', 'status')
 
     def action(self):
-        cmd = '{}docker-compose ps'.format(self.optsudo)
-        self.run_all([cmd])
+        self.check_required_config()
+        shell_commands = [
+            '{}docker-compose ps'.format(self.optsudo),
+        ]
+        self.run_all(shell_commands)
 
 
 class LogFileCommand(Command):
@@ -393,6 +439,7 @@ class LogFileCommand(Command):
         super().__init__('Write service logs to brewblox-log.txt', 'log')
 
     def action(self):
+        self.check_required_config()
         shell_commands = [
             'date > brewblox-log.txt',
             'for svc in $({}docker-compose ps --services | tr "\\n" " "); do '.format(self.optsudo) +
