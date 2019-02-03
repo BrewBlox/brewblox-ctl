@@ -13,6 +13,7 @@ from subprocess import STDOUT, CalledProcessError, check_call, check_output
 from brewblox_ctl.migrate import CURRENT_VERSION
 
 DATASTORE = 'https://localhost/datastore'
+HISTORY = 'https://localhost/history'
 
 
 def is_pi():
@@ -50,11 +51,11 @@ def check_ok(cmd):
         return False
 
 
-def confirm(question, default='y'):
+def confirm(question):
     print('{} [Y/n]'.format(question))
     while True:
         try:
-            return strtobool(input().lower() or default)
+            return strtobool(input().lower() or 'y')
         except ValueError:
             print('Please respond with \'y(es)\' or \'n(o)\'.')
 
@@ -162,7 +163,7 @@ class UpdateCommand(Command):
             '{}docker-compose down'.format(self.optsudo),
             '{}docker-compose pull'.format(self.optsudo),
             'sudo pip3 install -U brewblox-ctl',
-            '{}docker-compose up -d'.format(self.optsudo),
+            '{} -m brewblox_ctl.migrate'.format(sys.executable),
         ]
         self.run_all(shell_commands)
 
@@ -181,19 +182,25 @@ class InstallCommand(Command):
         if command_exists('docker'):
             print('Docker is already installed, skipping...')
         elif confirm('Do you want to install Docker?'):
-            shell_commands.append('curl -sSL https://get.docker.com | sh')
             reboot_required = True
+            shell_commands += [
+                'curl -sSL https://get.docker.com | sh',
+            ]
 
         if is_docker_user():
             print('{} already belongs to the Docker group, skipping...'.format(getenv('USER')))
         elif confirm('Do you want to run Docker commands without sudo?'):
-            shell_commands.append('sudo usermod -aG docker $USER')
             reboot_required = True
+            shell_commands += [
+                'sudo usermod -aG docker $USER'
+            ]
 
         if command_exists('docker-compose'):
             print('docker-compose is already installed, skipping...')
         elif confirm('Do you want to install docker-compose (from pip)?'):
-            shell_commands.append('sudo pip3 install -U docker-compose')
+            shell_commands += [
+                'sudo pip3 install -U docker-compose'
+            ]
 
         source_dir = base_dir() + '/install_files'
         target_dir = select(
@@ -256,29 +263,55 @@ class SetupCommand(Command):
         presets_dir = '{}/presets'.format(base_dir())
         modules = ['services', 'dashboards', 'dashboard-items']
 
+        # Update dependencies
         shell_commands = [
             '{}docker-compose down'.format(self.optsudo),
             '{}docker-compose pull'.format(self.optsudo),
+            'sudo pip3 install -U brewblox-ctl',
+        ]
+
+        # Generate self-signed SSH certificate
+        shell_commands += [
             'sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 ' +
             '-keyout traefik/brewblox.key ' +
             '-out traefik/brewblox.crt',
             'sudo chmod 644 traefik/brewblox.crt',
             'sudo chmod 600 traefik/brewblox.key',
-            '{}docker-compose up -d datastore traefik'.format(self.optsudo),
+        ]
+
+        # Bring system online. Wait for datastore to be available
+        shell_commands += [
+            '{}docker-compose up -d datastore influx history traefik'.format(self.optsudo),
             'sleep 30',
             'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(DATASTORE),
+        ]
+
+        # Basic datastore setup
+        shell_commands += [
             'curl -Sk -X PUT {}/_users'.format(DATASTORE),
             'curl -Sk -X PUT {}/{}'.format(DATASTORE, database),
-            *[
-                'cat {}/{}.json '.format(presets_dir, mod) +
-                '| curl -Sk -X POST ' +
-                '--header \'Content-Type: application/json\' ' +
-                '--header \'Accept: application/json\' ' +
-                '--data "@-" {}/{}/_bulk_docs'.format(DATASTORE, database)
-                for mod in modules
-            ],
+        ]
+
+        # Load presets
+        shell_commands += [
+            'cat {}/{}.json '.format(presets_dir, mod) +
+            '| curl -Sk -X POST ' +
+            '--header \'Content-Type: application/json\' ' +
+            '--header \'Accept: application/json\' ' +
+            '--data "@-" {}/{}/_bulk_docs'.format(DATASTORE, database)
+            for mod in modules
+        ]
+
+        # Configure history / influx
+        shell_commands += [
+            'curl -Sk -X POST {}/query/configure',
+        ]
+
+        # Shut it down - we're done
+        shell_commands += [
             '{}docker-compose down'.format(self.optsudo),
         ]
+
         self.run_all(shell_commands)
 
 
@@ -447,19 +480,33 @@ class LogFileCommand(Command):
             'echo "BREWBLOX DIAGNOSTIC DUMP" > brewblox.log',
             'date >> brewblox.log',
             'echo \'{}\' >> brewblox.log'.format(reason),
+        ]
+
+        shell_commands += [
             'echo "==============VARS==============" >> brewblox.log',
             'echo "$(uname -a)" >> brewblox.log',
             'echo "$(docker --version)" >> brewblox.log',
             'echo "$(docker-compose --version)" >> brewblox.log',
             'source .env; echo "BREWBLOX_RELEASE=$BREWBLOX_RELEASE" >> brewblox.log',
             'source .env; echo "BREWBLOX_CFG_VERSION=$BREWBLOX_CFG_VERSION" >> brewblox.log',
-            'echo "==============CONFIG==============" >> brewblox.log',
-            'cat docker-compose.yml >> brewblox.log',
+        ]
+
+        if confirm('Can we include your docker-compose file? ' +
+                   'You should choose "no" if it contains any passwords or other sensitive information'):
+            shell_commands += [
+                'echo "==============CONFIG==============" >> brewblox.log',
+                'cat docker-compose.yml >> brewblox.log',
+            ]
+
+        shell_commands += [
             'echo "==============LOGS==============" >> brewblox.log',
             'for svc in $({}docker-compose ps --services | tr "\\n" " "); do '.format(self.optsudo) +
             '{}docker-compose logs --timestamps --no-color --tail 200 ${{svc}} >> brewblox.log; '.format(self.optsudo) +
             'echo \'\\n\' >> brewblox.log; ' +
             'done;',
+        ]
+
+        shell_commands += [
             'echo "==============INSPECT==============" >> brewblox.log',
             'for cont in $({}docker-compose ps -q); do '.format(self.optsudo) +
             '{}docker inspect $({}docker inspect --format \'{}\' "$cont") >> brewblox.log; '.format(
