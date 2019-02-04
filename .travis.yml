@@ -15,6 +15,7 @@ script: pytest
 
 before_deploy:
   docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWORD};
+  export CLEAN_TRAVIS_BRANCH=$(echo "${TRAVIS_BRANCH}" | tr '/' '-' | tr '[:upper:]' '[:lower:]');
   export TAG_VERSION=$(git describe --tags);
   bash ./build-docker.sh;
 
@@ -31,7 +32,7 @@ deploy:
 
   # Deploy images with tag branch name on any non-tagged push to an upstream branch
   - provider: script
-    script: bash ./build-docker.sh && bash ./push-docker.sh
+    script: bash ./push-docker.sh ${CLEAN_TRAVIS_BRANCH}
     skip_cleanup: true
     on:
       tags: false
@@ -40,7 +41,7 @@ deploy:
 
   # Deploy images tagged with git tag on tagged commits
   - provider: script
-    script: bash ./build-docker.sh && bash ./push-docker.sh ${TAG_VERSION}
+    script: bash ./push-docker.sh ${TAG_VERSION}
     skip_cleanup: true
     on:
       tags: true
