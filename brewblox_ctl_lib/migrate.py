@@ -41,6 +41,8 @@ class MigrateCommand(Command):
                 'curl -Sk -X POST {}/query/configure'.format(HISTORY),
             ]
 
+        return shell_commands
+
     def action(self):
         check_config()
         self.prev_version = StrictVersion(getenv('BREWBLOX_CFG_VERSION', '0.0.0'))
