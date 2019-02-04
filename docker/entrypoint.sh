@@ -1,4 +1,4 @@
 #! /bin/sh
 
-rm -rf ./*
-cp /app/source/* ./
+rm -rf /output/*
+cp -rf /app/source/* /output/

@@ -6,7 +6,9 @@ import sys
 from os import path
 
 from brewblox_ctl.commands import Command
-from brewblox_ctl.utils import base_dir, check_config, confirm, select
+from brewblox_ctl.utils import (check_config, confirm, is_pi, path_exists,
+                                select)
+from brewblox_ctl_lib.migrate import CURRENT_VERSION, MigrateCommand
 
 DATASTORE = 'https://localhost/datastore'
 HISTORY = 'https://localhost/history'
@@ -19,57 +21,114 @@ class SetupCommand(Command):
     def action(self):
         check_config()
 
-        database = 'brewblox-ui-store'
-        presets_dir = '{}/presets'.format(base_dir())
-        modules = ['services', 'dashboards', 'dashboard-items']
+        source_dir = './brewblox_ctl_lib/config_files'
+        setup_images = ['traefik']
+        shell_commands = []
+
+        # Check for compose file
+        setup_compose = \
+            not path_exists('./docker-compose.yml') \
+            or not confirm('This directory already contains a docker-compose.yml file. ' +
+                           'Do you want to keep it?')
+
+        if setup_compose:
+            source_compose = 'docker-compose_{}.yml'.format('armhf' if is_pi() else 'amd64')
+            shell_commands += [
+                'cp -f {}/{} ./docker-compose.yml'.format(source_dir, source_compose),
+            ]
 
         # Update dependencies
-        shell_commands = [
+        shell_commands += [
             '{}docker-compose down'.format(self.optsudo),
             '{}docker-compose pull'.format(self.optsudo),
             'sudo pip3 install -U brewblox-ctl',
+            *self.lib_commands(),
         ]
 
-        # Generate self-signed SSH certificate
-        shell_commands += [
-            'sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 ' +
-            '-keyout traefik/brewblox.key ' +
-            '-out traefik/brewblox.crt',
-            'sudo chmod 644 traefik/brewblox.crt',
-            'sudo chmod 600 traefik/brewblox.key',
-        ]
+        # Check whether we need to setup the datastore
+        setup_datastore = \
+            not path_exists('./couchdb/') \
+            or not confirm('This directory already contains datastore files. ' +
+                           'Do you want to keep them?')
 
-        # Bring system online. Wait for datastore to be available
-        shell_commands += [
-            '{}docker-compose up -d datastore influx history traefik'.format(self.optsudo),
-            'sleep 30',
-            'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(DATASTORE),
-        ]
+        if setup_datastore:
+            setup_images += ['datastore']
+            shell_commands += [
+                'sudo rm -rf ./couchdb/; mkdir ./couchb/',
+            ]
 
-        # Basic datastore setup
-        shell_commands += [
-            'curl -Sk -X PUT {}/_users'.format(DATASTORE),
-            'curl -Sk -X PUT {}/{}'.format(DATASTORE, database),
-        ]
+        # Check whether we need to setup the history service
+        setup_history = \
+            not path_exists('./influxdb/') \
+            or not confirm('This directory already contains history files. ' +
+                           'Do you want to keep them?')
 
-        # Load presets
-        shell_commands += [
-            'cat {}/{}.json '.format(presets_dir, mod) +
-            '| curl -Sk -X POST ' +
-            '--header \'Content-Type: application/json\' ' +
-            '--header \'Accept: application/json\' ' +
-            '--data "@-" {}/{}/_bulk_docs'.format(DATASTORE, database)
-            for mod in modules
-        ]
+        if setup_history:
+            setup_images += ['influx', 'history']
+            shell_commands += [
+                'sudo rm -rf ./influxdb; mkdir ./influxdb/',
+            ]
 
-        # Configure history / influx
-        shell_commands += [
-            'curl -Sk -X POST {}/query/configure',
-        ]
+        # Check whether we need to setup Traefik configuration
+        setup_traefik = \
+            not path_exists('./traefik/') \
+            or not confirm('This directory already contains Traefik files. ' +
+                           'Do you want to keep them?')
+
+        if setup_traefik:
+            # Copy Traefik config, generate self-signed SSH certificate
+            shell_commands += [
+                'sudo rm -rf ./traefik; mkdir ./traefik/',
+                'cp -rf {}/traefik/* ./traefik/'.format(source_dir),
+                'sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 ' +
+                '-keyout traefik/brewblox.key ' +
+                '-out traefik/brewblox.crt',
+                'sudo chmod 644 traefik/brewblox.crt',
+                'sudo chmod 600 traefik/brewblox.key',
+            ]
+
+        if setup_history or setup_datastore:
+            # Bring system online. Wait for datastore to be available
+            shell_commands += [
+                '{}docker-compose up -d {}'.format(self.optsudo, ' '.join(setup_images)),
+                'sleep 30',
+            ]
+
+        if setup_datastore:
+            database = 'brewblox-ui-store'
+            modules = ['services', 'dashboards', 'dashboard-items']
+            # Basic datastore setup
+            shell_commands += [
+                'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(DATASTORE),
+                'curl -Sk -X PUT {}/_users'.format(DATASTORE),
+                'curl -Sk -X PUT {}/{}'.format(DATASTORE, database),
+            ]
+
+            # Load presets
+            shell_commands += [
+                'cat {}/presets/{}.json '.format(source_dir, mod) +
+                '| curl -Sk -X POST ' +
+                '--header \'Content-Type: application/json\' ' +
+                '--header \'Accept: application/json\' ' +
+                '--data "@-" {}/{}/_bulk_docs'.format(DATASTORE, database)
+                for mod in modules
+            ]
+
+        if setup_history:
+            # Configure history
+            shell_commands += [
+                'curl -Sk -X GET --retry 60 --retry-delay 10 {}/_service/status > /dev/null'.format(HISTORY),
+                'curl -Sk -X POST {}/query/configure'.format(HISTORY),
+            ]
 
         # Shut it down - we're done
+        if setup_history or setup_datastore:
+            shell_commands += [
+                '{}docker-compose down'.format(self.optsudo),
+            ]
+
         shell_commands += [
-            '{}docker-compose down'.format(self.optsudo),
+            'dotenv set BREWBLOX_CFG_VERSION {}'.format(CURRENT_VERSION),
         ]
 
         self.run_all(shell_commands)
@@ -77,7 +136,7 @@ class SetupCommand(Command):
 
 class UpdateCommand(Command):
     def __init__(self):
-        super().__init__('Update all services', 'update')
+        super().__init__('Update services and scripts', 'update')
 
     def action(self):
         check_config()
@@ -85,9 +144,13 @@ class UpdateCommand(Command):
             '{}docker-compose down'.format(self.optsudo),
             '{}docker-compose pull'.format(self.optsudo),
             'sudo pip3 install -U brewblox-ctl',
-            '{} -m brewblox_ctl.migrate'.format(sys.executable),
+            *self.lib_commands(),
+            'brewblox-ctl migrate',
         ]
         self.run_all(shell_commands)
+
+        print('Scripts were updated - brewblox-ctl must shut down now')
+        raise SystemExit(0)
 
 
 class ImportCommand(Command):
@@ -117,7 +180,8 @@ class ImportCommand(Command):
             '{}docker-compose up -d influx datastore traefik'.format(self.optsudo),
             'sleep 10',
             'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(DATASTORE),
-            '{} -m brewblox_ctl.import_data {}'.format(sys.executable, couchdb_target),
+            'export PYTHONPATH="./brewblox_ctl_lib/"; {} -m brewblox_ctl_lib.couchdb_backup import {}'.format(
+                sys.executable, couchdb_target),
             '{}docker cp {} $({}docker-compose ps -q influx):/tmp/'.format(
                 self.optsudo, influxdb_target, self.optsudo),
             '{}docker-compose exec influx influxd restore -portable /tmp/influxdb-snapshot/'.format(self.optsudo),
@@ -154,11 +218,24 @@ class ExportCommand(Command):
             '{}docker-compose up -d influx datastore traefik'.format(self.optsudo),
             'sleep 10',
             'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(DATASTORE),
-            '{} -m brewblox_ctl.export_data {}'.format(sys.executable, couchdb_target),
+            'export PYTHONPATH="./brewblox_ctl_lib/"; {} -m brewblox_ctl_lib.couchdb_backup export {}'.format(
+                sys.executable, couchdb_target),
             '{}docker-compose exec influx rm -r /tmp/influxdb-snapshot/ || true'.format(self.optsudo),
             '{}docker-compose exec influx influxd backup -portable /tmp/influxdb-snapshot/'.format(self.optsudo),
             '{}docker cp $({}docker-compose ps -q influx):/tmp/influxdb-snapshot/ {}/'.format(
                 self.optsudo, self.optsudo, target_dir),
+        ]
+        self.run_all(shell_commands)
+
+
+class CheckStatusCommand(Command):
+    def __init__(self):
+        super().__init__('Check system status', 'status')
+
+    def action(self):
+        check_config()
+        shell_commands = [
+            '{}docker-compose ps'.format(self.optsudo),
         ]
         self.run_all(shell_commands)
 
@@ -227,8 +304,10 @@ class LogFileCommand(Command):
 
 ALL_COMMANDS = [
     UpdateCommand(),
+    MigrateCommand(),
     SetupCommand(),
     ImportCommand(),
     ExportCommand(),
+    CheckStatusCommand(),
     LogFileCommand(),
 ]

@@ -32,8 +32,13 @@ def is_brewblox_cwd():
 def docker_tag():
     return '{}{}'.format(
         'rpi-' if is_pi() else '',
-        getenv('BREWBLOX_RELEASE', 'latest')
+        getenv('BREWBLOX_RELEASE', 'stable')
     )
+
+
+def ctl_lib_tag():
+    release = getenv('BREWBLOX_CTL_LIB_RELEASE') or getenv('BREWBLOX_RELEASE', 'stable')
+    return '{}{}'.format('rpi-' if is_pi() else '', release)
 
 
 def command_exists(cmd):

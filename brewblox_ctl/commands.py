@@ -3,13 +3,12 @@ Brewblox-ctl command definitions
 """
 
 from abc import ABC, abstractmethod
-from os import getenv, path
+from os import getenv
 from subprocess import STDOUT, check_call
 
-from brewblox_ctl.migrate import CURRENT_VERSION
-from brewblox_ctl.utils import (base_dir, check_config, command_exists,
-                                confirm, docker_tag, is_docker_user, is_pi,
-                                select)
+from brewblox_ctl.utils import (check_config, command_exists, confirm,
+                                ctl_lib_tag, docker_tag, is_docker_user,
+                                path_exists, select)
 
 
 class Command(ABC):
@@ -36,6 +35,16 @@ class Command(ABC):
         if announce:
             self.announce(shell_cmds)
         return [self.run(cmd) for cmd in shell_cmds]
+
+    def lib_commands(self):
+        lib_dir = './brewblox_ctl_lib/'
+        tag = ctl_lib_tag()
+        return [
+            '{}docker pull brewblox/brewblox-ctl-lib:{} || true'.format(self.optsudo, tag),
+            '{}docker run --rm -v $(pwd)/{}:/output/ brewblox/brewblox-ctl-lib:{}'.format(
+                self.optsudo, lib_dir, tag),
+            'sudo chown -R $USER {}'.format(lib_dir),
+        ]
 
     @abstractmethod
     def action(self):
@@ -100,48 +109,26 @@ class InstallCommand(Command):
                 'sudo pip3 install -U docker-compose'
             ]
 
-        source_dir = base_dir() + '/install_files'
         target_dir = select(
             'In which directory do you want to install the BrewBlox configuration?',
             './brewblox'
         ).rstrip('/')
-        source_compose = 'docker-compose_{}.yml'.format('armhf' if is_pi() else 'amd64')
+
+        if path_exists(target_dir):
+            if not confirm('{} already exists. Do you want to continue?'.format(target_dir)):
+                return
 
         if confirm('Do you want to wait for stable releases?'):
             release = 'stable'
         else:
             release = 'edge'
 
-        if path.exists('{}/docker-compose.yml'.format(target_dir)):
-            if not confirm(
-                    '{} already contains a BrewBlox installation. Do you want to continue?'.format(target_dir)):
-                return
-
-            if confirm('Do you want to keep your existing dashboards?'):
-                shell_commands += [
-                    'sudo mv {} {}-bak'.format(target_dir, target_dir),
-                    'mkdir {}'.format(target_dir),
-                    'sudo cp -r {}-bak/couchdb {}/'.format(target_dir, target_dir),
-                    'sudo cp -r {}-bak/influxdb {}/'.format(target_dir, target_dir),
-                ]
-
-            else:
-                shell_commands += [
-                    'sudo rm -rf {}/*'.format(target_dir),
-                ]
-
-        else:
-            shell_commands += [
-                'mkdir {}'.format(target_dir),
-            ]
-
         shell_commands += [
-            'mkdir -p {}/couchdb'.format(target_dir),
-            'mkdir -p {}/influxdb'.format(target_dir),
-            'cp {}/{} {}/docker-compose.yml'.format(source_dir, source_compose, target_dir),
-            'cp -r {}/traefik {}/'.format(source_dir, target_dir),
-            'echo BREWBLOX_RELEASE={} >> {}/.env'.format(release, target_dir),
-            'echo BREWBLOX_CFG_VERSION={} >> {}/.env'.format(CURRENT_VERSION, target_dir),
+            'mkdir -p {}'.format(target_dir),
+            'touch {}/.env'.format(target_dir),
+            'dotenv -f {}/.env set BREWBLOX_RELEASE {}'.format(target_dir, release),
+            'dotenv -f {}/.env set BREWBLOX_CFG_VERSION 0.0.0'.format(target_dir),
+            'cd {} && brewblox-ctl setup'.format(target_dir),
         ]
 
         if reboot_required and confirm('A reboot will be required, do you want to do so?'):
@@ -217,18 +204,6 @@ class WiFiCommand(Command):
         self.run_all(shell_commands)
 
 
-class CheckStatusCommand(Command):
-    def __init__(self):
-        super().__init__('Check system status', 'status')
-
-    def action(self):
-        check_config()
-        shell_commands = [
-            '{}docker-compose ps'.format(self.optsudo),
-        ]
-        self.run_all(shell_commands)
-
-
 ALL_COMMANDS = [
     ComposeUpCommand(),
     ComposeDownCommand(),
@@ -236,5 +211,4 @@ ALL_COMMANDS = [
     FirmwareFlashCommand(),
     BootloaderCommand(),
     WiFiCommand(),
-    CheckStatusCommand(),
 ]

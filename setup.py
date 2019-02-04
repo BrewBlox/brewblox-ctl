@@ -14,11 +14,11 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     keywords='brewblox deployment menu',
-    packages=find_packages(exclude=['test']),
+    packages=find_packages(exclude=['test', 'brewblox_ctl_lib']),
     include_package_data=True,
     install_requires=[
         'requests',
-        'python-dotenv',
+        'python-dotenv[cli]',
     ],
     python_requires='>=3.5',
     setup_requires=['setuptools_scm'],

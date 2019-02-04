@@ -8,8 +8,7 @@ from subprocess import CalledProcessError
 from dotenv import find_dotenv, load_dotenv
 
 from brewblox_ctl import commands
-from brewblox_ctl.utils import (docker_tag, is_brewblox_cwd, is_root,
-                                path_exists)
+from brewblox_ctl.utils import confirm, is_brewblox_cwd, is_root, path_exists
 
 MENU = """
 index - name         description
@@ -27,15 +26,10 @@ class CheckLibCommand(commands.Command):
 
     def action(self):
         lib_dir = './brewblox_ctl_lib/'
-        if is_brewblox_cwd():
-            if not path_exists(lib_dir + '__init__.py'):
-                print('Installing required scrips...')
-                shell_commands = [
-                    '{}docker run --rm -v $(pwd)/{}:/output/ brewblox/brewblox-ctl-lib:{}'.format(
-                        self.optsudo, lib_dir, docker_tag()),
-                    'sudo chown -R $USER {}'.format(lib_dir),
-                ]
-                self.run_all(shell_commands)
+        if is_brewblox_cwd() \
+            and not path_exists(lib_dir + '__init__.py') \
+                and confirm('brewblox-ctl scripts are not yet installed in this directory. Do you want to do so now?'):
+            self.run_all(self.lib_commands())
 
             if lib_dir not in sys.path:
                 sys.path.append(lib_dir)
@@ -57,21 +51,23 @@ def main(args=...):
         print('The BrewBlox menu should not be run as root.')
         raise SystemExit(1)
 
-    try:
-        CheckLibCommand().action()
-    except KeyboardInterrupt:
-        pass
-
-    try:
-        from brewblox_ctl_lib import config_commands
-        all_commands += [
-            *config_commands.ALL_COMMANDS,
-        ]
-    except ImportError:
-        print('No BrewBlox configuration found in current directory')
-
     all_commands += [
         *commands.ALL_COMMANDS,
+    ]
+
+    if is_brewblox_cwd():
+        try:
+            CheckLibCommand().action()
+            from brewblox_ctl_lib import config_commands
+            all_commands += [
+                *config_commands.ALL_COMMANDS,
+            ]
+        except ImportError:
+            print('No BrewBlox scripts found in current directory')
+        except KeyboardInterrupt:
+            raise SystemExit(0)
+
+    all_commands += [
         ExitCommand(),
     ]
 

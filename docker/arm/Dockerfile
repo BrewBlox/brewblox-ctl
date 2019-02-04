@@ -1,7 +1,7 @@
 FROM arm32v6/alpine
-WORKDIR /output
+WORKDIR /app
 
-COPY ./brewblox_ctl_lib/* /app/source/
+COPY ./source /app/source
 COPY ./entrypoint.sh /app/
 
 CMD [ "sh", "/app/entrypoint.sh" ]
