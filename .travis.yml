@@ -29,7 +29,7 @@ deploy:
 
   # Deploy images with tag branch name on any non-tagged push to an upstream branch
   - provider: script
-    script: bash ./push-docker.sh
+    script: bash ./build-docker.sh && bash ./push-docker.sh
     skip_cleanup: true
     on:
       tags: false
@@ -38,8 +38,7 @@ deploy:
 
   # Deploy images tagged with git tag on tagged commits
   - provider: script
-    script:
-      bash ./push-docker.sh ${TAG_VERSION}
+    script: bash ./build-docker.sh && bash ./push-docker.sh ${TAG_VERSION}
     skip_cleanup: true
     on:
       tags: true
