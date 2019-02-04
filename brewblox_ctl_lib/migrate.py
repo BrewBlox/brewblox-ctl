@@ -29,7 +29,7 @@ class MigrateCommand(Command):
         ]
 
         shell_commands += [
-            'dotenv set BREWBLOX_CFG_VERSION {}'.format(CURRENT_VERSION),
+            'dotenv --quote never set BREWBLOX_CFG_VERSION {}'.format(CURRENT_VERSION),
         ]
 
         self.run_all(shell_commands)

@@ -127,8 +127,8 @@ class InstallCommand(Command):
         shell_commands += [
             'mkdir -p {}'.format(target_dir),
             'touch {}/.env'.format(target_dir),
-            'dotenv -f {}/.env set BREWBLOX_RELEASE {}'.format(target_dir, release),
-            'dotenv -f {}/.env set BREWBLOX_CFG_VERSION 0.0.0'.format(target_dir),
+            'dotenv --quote never -f {}/.env set BREWBLOX_RELEASE {}'.format(target_dir, release),
+            'dotenv --quote never -f {}/.env set BREWBLOX_CFG_VERSION 0.0.0'.format(target_dir),
             'cd {} && brewblox-ctl setup'.format(target_dir),
         ]
 
