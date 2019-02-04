@@ -16,3 +16,4 @@ docker tag ${REPO}:rpi-local ${REPO}:rpi-${TAG}
 
 docker push ${REPO}:${TAG}
 docker push ${REPO}:rpi-${TAG}
+echo "pushed ${TAG} / rpi-${TAG}"

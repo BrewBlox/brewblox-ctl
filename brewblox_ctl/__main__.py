@@ -65,6 +65,9 @@ def main(args=...):
             print('No BrewBlox scripts found in current directory')
         except KeyboardInterrupt:
             raise SystemExit(0)
+        except CalledProcessError as ex:
+            print('\n' + 'Error:', str(ex))
+            raise SystemExit(1)
 
     all_commands += [
         ExitCommand(),
