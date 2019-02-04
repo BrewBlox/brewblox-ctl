@@ -41,7 +41,9 @@ deploy:
 
   # Deploy images tagged with git tag on tagged commits
   - provider: script
-    script: bash ./push-docker.sh ${TAG_VERSION}
+    script: 
+      bash ./push-docker.sh ${TAG_VERSION};
+      bash ./push-docker.sh newest-tag;
     skip_cleanup: true
     on:
       tags: true
