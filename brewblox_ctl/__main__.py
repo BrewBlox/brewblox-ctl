@@ -3,7 +3,7 @@ Entrypoint for the BrewBlox commands menu
 """
 
 import sys
-from os import path
+from os import getcwd
 from subprocess import CalledProcessError
 
 from dotenv import find_dotenv, load_dotenv
@@ -26,10 +26,8 @@ class CheckLibCommand(commands.Command):
         super().__init__('Check for brewblox_ctl_lib', 'lib')
 
     def action(self):
-        lib_dir = path.abspath('./brewblox_ctl_lib')
-        sys.path.append(lib_dir)
         if is_brewblox_cwd() \
-            and not path_exists(lib_dir + '/__init__.py') \
+            and not path_exists('./brewblox_ctl_lib/__init__.py') \
                 and confirm('brewblox-ctl scripts are not yet installed in this directory. Do you want to do so now?'):
             self.run_all(self.lib_commands())
 
@@ -57,6 +55,7 @@ def main(args=...):
     if is_brewblox_cwd():
         try:
             CheckLibCommand().action()
+            sys.path.append(getcwd())
             from brewblox_ctl_lib import config_commands
             all_commands += [
                 *config_commands.ALL_COMMANDS,

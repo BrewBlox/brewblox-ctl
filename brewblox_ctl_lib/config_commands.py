@@ -180,7 +180,7 @@ class ImportCommand(Command):
             '{}docker-compose up -d influx datastore traefik'.format(self.optsudo),
             'sleep 10',
             'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(DATASTORE),
-            'export PYTHONPATH="./brewblox_ctl_lib/"; {} -m brewblox_ctl_lib.couchdb_backup import {}'.format(
+            'export PYTHONPATH="./"; {} -m brewblox_ctl_lib.couchdb_backup import {}'.format(
                 sys.executable, couchdb_target),
             '{}docker cp {} $({}docker-compose ps -q influx):/tmp/'.format(
                 self.optsudo, influxdb_target, self.optsudo),
@@ -218,7 +218,7 @@ class ExportCommand(Command):
             '{}docker-compose up -d influx datastore traefik'.format(self.optsudo),
             'sleep 10',
             'curl -Sk -X GET --retry 60 --retry-delay 10 {} > /dev/null'.format(DATASTORE),
-            'export PYTHONPATH="./brewblox_ctl_lib/"; {} -m brewblox_ctl_lib.couchdb_backup export {}'.format(
+            'export PYTHONPATH="./"; {} -m brewblox_ctl_lib.couchdb_backup export {}'.format(
                 sys.executable, couchdb_target),
             '{}docker-compose exec influx rm -r /tmp/influxdb-snapshot/ || true'.format(self.optsudo),
             '{}docker-compose exec influx influxd backup -portable /tmp/influxdb-snapshot/'.format(self.optsudo),
