@@ -7,7 +7,9 @@ from subprocess import CalledProcessError
 
 from dotenv import find_dotenv, load_dotenv
 
-from brewblox_ctl.commands import ALL_COMMANDS, is_root
+from brewblox_ctl import commands
+from brewblox_ctl.utils import (docker_tag, is_brewblox_cwd, is_root,
+                                path_exists)
 
 MENU = """
 index - name         description
@@ -19,16 +21,64 @@ Press Ctrl+C to exit.
 """
 
 
+class CheckLibCommand(commands.Command):
+    def __init__(self):
+        super().__init__('Check for brewblox_ctl_lib', 'lib')
+
+    def action(self):
+        lib_dir = './brewblox_ctl_lib/'
+        if is_brewblox_cwd():
+            if not path_exists(lib_dir + '__init__.py'):
+                print('Installing required scrips...')
+                shell_commands = [
+                    '{}docker run --rm -v $(pwd)/{}:/output/ brewblox/brewblox-ctl-lib:{}'.format(
+                        self.optsudo, lib_dir, docker_tag()),
+                    'sudo chown -R $USER {}'.format(lib_dir),
+                ]
+                self.run_all(shell_commands)
+
+            if lib_dir not in sys.path:
+                sys.path.append(lib_dir)
+
+
+class ExitCommand(commands.Command):
+    def __init__(self):
+        super().__init__('Exit this menu', 'exit')
+
+    def action(self):
+        raise SystemExit()
+
+
 def main(args=...):
+    all_commands = []
     load_dotenv(find_dotenv(usecwd=True))
-    command_descriptions = [
-        '{} - {}'.format(str(idx+1).rjust(2), cmd)
-        for idx, cmd in enumerate(ALL_COMMANDS)
-    ]
 
     if is_root():
         print('The BrewBlox menu should not be run as root.')
         raise SystemExit(1)
+
+    try:
+        CheckLibCommand().action()
+    except KeyboardInterrupt:
+        pass
+
+    try:
+        from brewblox_ctl_lib import config_commands
+        all_commands += [
+            *config_commands.ALL_COMMANDS,
+        ]
+    except ImportError:
+        print('No BrewBlox configuration found in current directory')
+
+    all_commands += [
+        *commands.ALL_COMMANDS,
+        ExitCommand(),
+    ]
+
+    command_descriptions = [
+        '{} - {}'.format(str(idx+1).rjust(2), cmd)
+        for idx, cmd in enumerate(all_commands)
+    ]
 
     if args is ...:
         args = sys.argv[1:]
@@ -48,7 +98,7 @@ def main(args=...):
                 arg = input('Please type a command name or index, and press ENTER. ')
 
             command = next(
-                (cmd for idx, cmd in enumerate(ALL_COMMANDS) if arg in [cmd.keyword, str(idx+1)]),
+                (cmd for idx, cmd in enumerate(all_commands) if arg in [cmd.keyword, str(idx+1)]),
                 None,
             )
 
