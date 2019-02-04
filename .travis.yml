@@ -1,4 +1,6 @@
+sudo: required
 language: python
+dist: xenial
 python: '3.5'
 
 services:

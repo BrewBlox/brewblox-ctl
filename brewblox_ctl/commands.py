@@ -37,13 +37,13 @@ class Command(ABC):
         return [self.run(cmd) for cmd in shell_cmds]
 
     def lib_commands(self):
-        lib_dir = './brewblox_ctl_lib/'
         tag = ctl_lib_tag()
         return [
+            '{}docker rm ctl-lib || true'.format(self.optsudo),
             '{}docker pull brewblox/brewblox-ctl-lib:{} || true'.format(self.optsudo, tag),
-            '{}docker run --rm -v $(pwd)/{}:/output/ brewblox/brewblox-ctl-lib:{}'.format(
-                self.optsudo, lib_dir, tag),
-            'sudo chown -R $USER {}'.format(lib_dir),
+            '{}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{}'.format(self.optsudo, tag),
+            'rm -rf ./brewblox_ctl_lib; {}docker cp ctl-lib:/brewblox_ctl_lib ./'.format(self.optsudo),
+            '{}docker rm ctl-lib'.format(self.optsudo),
         ]
 
     @abstractmethod
