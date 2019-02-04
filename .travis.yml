@@ -12,8 +12,9 @@ install:
 script: pytest
 
 before_deploy:
-  bash ./build-docker.sh;
   docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWORD};
+  export TAG_VERSION=$(git describe --tags);
+  bash ./build-docker.sh;
 
 deploy:
   # Deploy to PyPi on any push to an upstream branch
@@ -38,7 +39,6 @@ deploy:
   # Deploy images tagged with git tag on tagged commits
   - provider: script
     script:
-      export TAG_VERSION=$(git describe --tags);
       bash ./push-docker.sh ${TAG_VERSION}
     skip_cleanup: true
     on:
