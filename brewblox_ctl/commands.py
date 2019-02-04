@@ -39,10 +39,10 @@ class Command(ABC):
     def lib_commands(self):
         tag = ctl_lib_tag()
         return [
-            '{}docker rm ctl-lib || true'.format(self.optsudo),
-            '{}docker pull brewblox/brewblox-ctl-lib:{} || true'.format(self.optsudo, tag),
+            '{}docker rm ctl-lib || echo "you can ignore this error"'.format(self.optsudo),
+            '{}docker pull brewblox/brewblox-ctl-lib:{} || echo "you can ignore this error"'.format(self.optsudo, tag),
             '{}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{}'.format(self.optsudo, tag),
-            'rm -rf ./brewblox_ctl_lib || true',
+            'rm -rf ./brewblox_ctl_lib || echo "you can ignore this error"',
             '{}docker cp ctl-lib:/brewblox_ctl_lib ./'.format(self.optsudo),
             '{}docker rm ctl-lib'.format(self.optsudo),
         ]

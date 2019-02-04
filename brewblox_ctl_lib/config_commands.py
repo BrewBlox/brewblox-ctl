@@ -42,7 +42,6 @@ class SetupCommand(Command):
             '{}docker-compose down'.format(self.optsudo),
             '{}docker-compose pull'.format(self.optsudo),
             'sudo pip3 install -U brewblox-ctl',
-            *self.lib_commands(),
         ]
 
         # Check whether we need to setup the datastore
