@@ -8,10 +8,8 @@ from os import path
 from brewblox_ctl.commands import Command
 from brewblox_ctl.utils import (check_config, confirm, is_pi, path_exists,
                                 select)
+from brewblox_ctl_lib.const import DATASTORE, HISTORY
 from brewblox_ctl_lib.migrate import CURRENT_VERSION, MigrateCommand
-
-DATASTORE = 'https://localhost/datastore'
-HISTORY = 'https://localhost/history'
 
 
 class SetupCommand(Command):
