@@ -129,8 +129,6 @@ class InstallCommand(Command):
             'touch {}/.env'.format(target_dir),
             'dotenv --quote never -f {}/.env set BREWBLOX_RELEASE {}'.format(target_dir, release),
             'dotenv --quote never -f {}/.env set BREWBLOX_CFG_VERSION 0.0.0'.format(target_dir),
-            'cd {} && brewblox-ctl setup'.format(target_dir),
-            'echo "run \\"cd {}\\" to start using your system"'.format(target_dir),
         ]
 
         if reboot_required and confirm('A reboot will be required, do you want to do so?'):
