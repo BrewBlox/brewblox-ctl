@@ -2,6 +2,7 @@
 Migration scripts
 """
 
+import sys
 from distutils.version import StrictVersion
 from os import getenv
 
@@ -51,6 +52,10 @@ class MigrateCommand(Command):
             print('This configuration was never set up. Please run brewblox-ctl setup first')
             raise SystemExit(1)
 
+        if self.prev_version == StrictVersion(CURRENT_VERSION):
+            print('Your system already is running the latest version ({})'.format(CURRENT_VERSION))
+            return
+
         shell_commands = [
             '{}docker-compose down'.format(self.optsudo),
         ]
@@ -65,7 +70,7 @@ class MigrateCommand(Command):
         shell_commands += self.upped_commands()
 
         shell_commands += [
-            'dotenv --quote never set BREWBLOX_CFG_VERSION {}'.format(CURRENT_VERSION),
+            '{} -m dotenv.cli --quote never set BREWBLOX_CFG_VERSION {}'.format(sys.executable, CURRENT_VERSION),
         ]
 
         self.run_all(shell_commands)

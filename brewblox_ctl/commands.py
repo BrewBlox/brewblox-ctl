@@ -2,6 +2,7 @@
 Brewblox-ctl command definitions
 """
 
+import sys
 from abc import ABC, abstractmethod
 from os import getenv
 from subprocess import STDOUT, check_call
@@ -82,10 +83,13 @@ class InstallCommand(Command):
 
     def action(self):
         reboot_required = False
-        shell_commands = [
-            'sudo apt update',
-            'sudo apt upgrade -y',
-        ]
+        shell_commands = []
+
+        if command_exists('apt') and confirm('Do you want to upgrade apt packages?'):
+            shell_commands += [
+                'sudo apt update',
+                'sudo apt upgrade -y',
+            ]
 
         if command_exists('docker'):
             print('Docker is already installed, skipping...')
@@ -107,7 +111,7 @@ class InstallCommand(Command):
             print('docker-compose is already installed, skipping...')
         elif confirm('Do you want to install docker-compose (from pip)?'):
             shell_commands += [
-                'sudo pip3 install -U docker-compose'
+                'sudo {} -m pip install -U docker-compose'.format(sys.executable)
             ]
 
         target_dir = select(
@@ -127,8 +131,10 @@ class InstallCommand(Command):
         shell_commands += [
             'mkdir -p {}'.format(target_dir),
             'touch {}/.env'.format(target_dir),
-            'dotenv --quote never -f {}/.env set BREWBLOX_RELEASE {}'.format(target_dir, release),
-            'dotenv --quote never -f {}/.env set BREWBLOX_CFG_VERSION 0.0.0'.format(target_dir),
+            '{} -m dotenv.cli --quote never -f {}/.env set BREWBLOX_RELEASE {}'.format(
+                sys.executable, target_dir, release),
+            '{} -m dotenv.cli --quote never -f {}/.env set BREWBLOX_CFG_VERSION 0.0.0'.format(
+                sys.executable, target_dir),
         ]
 
         if reboot_required and confirm('A reboot will be required, do you want to do so?'):
@@ -145,7 +151,7 @@ class FirmwareFlashCommand(Command):
         tag = docker_tag()
         shell_commands = []
 
-        if check_config(required=False):
+        if path_exists('./docker-compose.yml'):
             shell_commands += [
                 '{}docker-compose down'.format(self.optsudo),
             ]
@@ -168,7 +174,7 @@ class BootloaderCommand(Command):
         tag = docker_tag()
         shell_commands = []
 
-        if check_config(required=False):
+        if path_exists('./docker-compose.yml'):
             shell_commands += [
                 '{}docker-compose down'.format(self.optsudo),
             ]
@@ -190,7 +196,7 @@ class WiFiCommand(Command):
         tag = docker_tag()
         shell_commands = []
 
-        if check_config(required=False):
+        if path_exists('./docker-compose.yml'):
             shell_commands += [
                 '{}docker-compose down'.format(self.optsudo),
             ]
