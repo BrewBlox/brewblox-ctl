@@ -8,6 +8,7 @@ from os import path
 from brewblox_ctl.commands import Command
 from brewblox_ctl.utils import (check_config, confirm, is_pi, path_exists,
                                 select)
+
 from brewblox_ctl_lib.const import DATASTORE, HISTORY
 from brewblox_ctl_lib.migrate import CURRENT_VERSION, MigrateCommand
 
@@ -39,7 +40,7 @@ class SetupCommand(Command):
         shell_commands += [
             '{}docker-compose down'.format(self.optsudo),
             '{}docker-compose pull'.format(self.optsudo),
-            'sudo pip3 install -U brewblox-ctl',
+            'sudo {} -m pip install -U brewblox-ctl'.format(sys.executable),
         ]
 
         # Check whether we need to setup the datastore
@@ -51,7 +52,7 @@ class SetupCommand(Command):
         if setup_datastore:
             setup_images += ['datastore']
             shell_commands += [
-                'sudo rm -rf ./couchdb/; mkdir ./couchb/',
+                'sudo rm -rf ./couchdb/; mkdir ./couchdb/',
             ]
 
         # Check whether we need to setup the history service
@@ -125,7 +126,7 @@ class SetupCommand(Command):
             ]
 
         shell_commands += [
-            'dotenv --quote never set BREWBLOX_CFG_VERSION {}'.format(CURRENT_VERSION),
+            '{} -m dotenv.cli --quote never set BREWBLOX_CFG_VERSION {}'.format(sys.executable, CURRENT_VERSION),
         ]
 
         self.run_all(shell_commands)
@@ -140,9 +141,9 @@ class UpdateCommand(Command):
         shell_commands = [
             '{}docker-compose down'.format(self.optsudo),
             '{}docker-compose pull'.format(self.optsudo),
-            'sudo pip3 install -U brewblox-ctl',
+            'sudo {} -m pip install -U brewblox-ctl'.format(sys.executable),
             *self.lib_commands(),
-            'brewblox-ctl migrate',
+            '{} -m brewblox_ctl migrate'.format(sys.executable),
         ]
         self.run_all(shell_commands)
 
