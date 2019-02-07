@@ -14,7 +14,7 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     keywords='brewblox deployment menu',
-    packages=find_packages(exclude=['test', 'brewblox_ctl_lib']),
+    packages=find_packages(exclude=['test']),
     include_package_data=True,
     install_requires=[
         'requests',

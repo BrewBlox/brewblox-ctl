@@ -3,21 +3,12 @@ language: python
 dist: xenial
 python: '3.5'
 
-services:
-  - docker
-
 install:
   - source .env
   - pip install pipenv
   - pipenv sync --dev
 
 script: pytest
-
-before_deploy:
-  docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWORD};
-  export CLEAN_TRAVIS_BRANCH=$(echo "${TRAVIS_BRANCH}" | tr '/' '-' | tr '[:upper:]' '[:lower:]');
-  export TAG_VERSION=$(git describe --tags);
-  bash ./build-docker.sh;
 
 deploy:
   # Deploy to PyPi on any push to an upstream branch
@@ -29,21 +20,3 @@ deploy:
     on:
       repo: ${GITHUB_REPO}
       all_branches: true
-
-  # Deploy images with tag branch name on any non-tagged push to an upstream branch
-  - provider: script
-    script: bash ./push-docker.sh ${CLEAN_TRAVIS_BRANCH}
-    skip_cleanup: true
-    on:
-      tags: false
-      repo: ${GITHUB_REPO}
-      all_branches: true
-
-  # Deploy images tagged with git tag on tagged commits
-  - provider: script
-    script: 
-      bash ./push-docker.sh ${TAG_VERSION};
-      bash ./push-docker.sh newest-tag;
-    skip_cleanup: true
-    on:
-      tags: true
