@@ -123,10 +123,12 @@ class InstallCommand(Command):
             if not confirm('{} already exists. Do you want to continue?'.format(target_dir)):
                 return
 
-        if confirm('Do you want to wait for stable releases?'):
-            release = 'stable'
-        else:
-            release = 'edge'
+        # TODO(Bob) Wait until stable is actually stable before offering new users a choice
+        release = 'edge'
+        # if confirm('Do you want to wait for stable releases?'):
+        #     release = 'stable'
+        # else:
+        #     release = 'edge'
 
         shell_commands += [
             'mkdir -p {}'.format(target_dir),
