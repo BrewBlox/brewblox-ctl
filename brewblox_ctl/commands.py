@@ -41,7 +41,7 @@ class Command(ABC):
         tag = ctl_lib_tag()
         return [
             '{}docker rm ctl-lib || echo "you can ignore this error"'.format(self.optsudo),
-            '{}docker pull brewblox/brewblox-ctl-lib:{} || echo "you can ignore this error"'.format(self.optsudo, tag),
+            '{}docker pull brewblox/brewblox-ctl-lib:{} || true'.format(self.optsudo, tag),
             '{}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{}'.format(self.optsudo, tag),
             'rm -rf ./brewblox_ctl_lib || echo "you can ignore this error"',
             '{}docker cp ctl-lib:/brewblox_ctl_lib ./'.format(self.optsudo),

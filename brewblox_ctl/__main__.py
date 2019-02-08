@@ -6,10 +6,9 @@ import sys
 from os import getcwd
 from subprocess import CalledProcessError
 
-from dotenv import find_dotenv, load_dotenv
-
 from brewblox_ctl import commands
 from brewblox_ctl.utils import confirm, is_brewblox_cwd, is_root, path_exists
+from dotenv import find_dotenv, load_dotenv
 
 MENU = """
 index - name         description
@@ -40,15 +39,8 @@ class ExitCommand(commands.Command):
         raise SystemExit()
 
 
-def main(args=...):
-    all_commands = []
-    load_dotenv(find_dotenv(usecwd=True))
-
-    if is_root():
-        print('The BrewBlox menu should not be run as root.')
-        raise SystemExit(1)
-
-    all_commands += [
+def get_commands():
+    all_commands = [
         *commands.ALL_COMMANDS,
     ]
 
@@ -71,16 +63,27 @@ def main(args=...):
     all_commands += [
         ExitCommand(),
     ]
+    return all_commands
 
+
+def main(args=...):
+    load_dotenv(find_dotenv(usecwd=True))
+
+    if is_root():
+        print('The BrewBlox menu should not be run as root.')
+        raise SystemExit(1)
+
+    print('Welcome to the BrewBlox menu!')
+
+    args = sys.argv[1:] if args is ... else args
+    has_args = bool(args)
+
+    all_commands = get_commands()
     command_descriptions = [
         '{} - {}'.format(str(idx+1).rjust(2), cmd)
         for idx, cmd in enumerate(all_commands)
     ]
 
-    if args is ...:
-        args = sys.argv[1:]
-    print('Welcome to the BrewBlox menu!')
-    has_args = bool(args)
     if has_args:
         print('Running commands: {}'.format(', '.join(args)))
 
