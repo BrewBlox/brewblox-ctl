@@ -52,7 +52,7 @@ class Command(ABC):
 
     @abstractmethod
     def action(self):
-        pass
+        """To be implemented by subclasses"""
 
 
 class ComposeDownCommand(Command):
@@ -182,8 +182,9 @@ class BootloaderCommand(Command):
             ]
 
         shell_commands += [
-            'docker pull brewblox/firmware-flasher:{}'.format(tag),
-            'docker run -it --rm --privileged brewblox/firmware-flasher:{} flash-bootloader'.format(tag),
+            '{}docker pull brewblox/firmware-flasher:{}'.format(self.optsudo, tag),
+            '{}docker run -it --rm --privileged brewblox/firmware-flasher:{} flash-bootloader'.format(
+                self.optsudo, tag),
         ]
 
         self.prompt_usb()
@@ -204,8 +205,8 @@ class WiFiCommand(Command):
             ]
 
         shell_commands += [
-            'docker pull brewblox/firmware-flasher:{}'.format(tag),
-            'docker run -it --rm --privileged brewblox/firmware-flasher:{} wifi'.format(tag),
+            '{}docker pull brewblox/firmware-flasher:{}'.format(self.optsudo, tag),
+            '{}docker run -it --rm --privileged brewblox/firmware-flasher:{} wifi'.format(self.optsudo, tag),
         ]
 
         self.prompt_usb()

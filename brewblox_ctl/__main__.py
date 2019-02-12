@@ -39,19 +39,13 @@ class ExitCommand(commands.Command):
         raise SystemExit()
 
 
-def get_commands():
-    all_commands = [
-        *commands.ALL_COMMANDS,
-    ]
-
+def local_commands():  # pragma: no cover
     if is_brewblox_cwd():
         try:
             CheckLibCommand().action()
             sys.path.append(getcwd())
             from brewblox_ctl_lib import config_commands
-            all_commands += [
-                *config_commands.ALL_COMMANDS,
-            ]
+            return config_commands.ALL_COMMANDS
         except ImportError:
             print('No BrewBlox scripts found in current directory')
         except KeyboardInterrupt:
@@ -60,25 +54,12 @@ def get_commands():
             print('\n' + 'Error:', str(ex))
             raise SystemExit(1)
 
-    all_commands += [
-        ExitCommand(),
-    ]
-    return all_commands
+    return []
 
 
-def main(args=...):
-    load_dotenv(find_dotenv(usecwd=True))
-
-    if is_root():
-        print('The BrewBlox menu should not be run as root.')
-        raise SystemExit(1)
-
-    print('Welcome to the BrewBlox menu!')
-
-    args = sys.argv[1:] if args is ... else args
+def run_commands(args, all_commands):
     has_args = bool(args)
 
-    all_commands = get_commands()
     command_descriptions = [
         '{} - {}'.format(str(idx+1).rjust(2), cmd)
         for idx, cmd in enumerate(all_commands)
@@ -113,6 +94,26 @@ def main(args=...):
 
     except KeyboardInterrupt:
         pass
+
+
+def main(args=...):
+    load_dotenv(find_dotenv(usecwd=True))
+
+    if is_root():
+        print('The BrewBlox menu should not be run as root.')
+        raise SystemExit(1)
+
+    print('Welcome to the BrewBlox menu!')
+
+    args = sys.argv[1:] if args is ... else args
+
+    all_commands = [
+        *commands.ALL_COMMANDS,
+        *local_commands(),
+        ExitCommand(),
+    ]
+
+    run_commands(args, all_commands)
 
 
 if __name__ == '__main__':
