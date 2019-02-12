@@ -6,10 +6,9 @@ import sys
 from os import getcwd
 from subprocess import CalledProcessError
 
-from dotenv import find_dotenv, load_dotenv
-
 from brewblox_ctl import commands
 from brewblox_ctl.utils import confirm, is_brewblox_cwd, is_root, path_exists
+from dotenv import find_dotenv, load_dotenv
 
 MENU = """
 index - name         description
@@ -40,26 +39,13 @@ class ExitCommand(commands.Command):
         raise SystemExit()
 
 
-def main(args=...):
-    all_commands = []
-    load_dotenv(find_dotenv(usecwd=True))
-
-    if is_root():
-        print('The BrewBlox menu should not be run as root.')
-        raise SystemExit(1)
-
-    all_commands += [
-        *commands.ALL_COMMANDS,
-    ]
-
+def local_commands():  # pragma: no cover
     if is_brewblox_cwd():
         try:
             CheckLibCommand().action()
             sys.path.append(getcwd())
             from brewblox_ctl_lib import config_commands
-            all_commands += [
-                *config_commands.ALL_COMMANDS,
-            ]
+            return config_commands.ALL_COMMANDS
         except ImportError:
             print('No BrewBlox scripts found in current directory')
         except KeyboardInterrupt:
@@ -68,19 +54,17 @@ def main(args=...):
             print('\n' + 'Error:', str(ex))
             raise SystemExit(1)
 
-    all_commands += [
-        ExitCommand(),
-    ]
+    return []
+
+
+def run_commands(args, all_commands):
+    has_args = bool(args)
 
     command_descriptions = [
         '{} - {}'.format(str(idx+1).rjust(2), cmd)
         for idx, cmd in enumerate(all_commands)
     ]
 
-    if args is ...:
-        args = sys.argv[1:]
-    print('Welcome to the BrewBlox menu!')
-    has_args = bool(args)
     if has_args:
         print('Running commands: {}'.format(', '.join(args)))
 
@@ -110,6 +94,26 @@ def main(args=...):
 
     except KeyboardInterrupt:
         pass
+
+
+def main(args=...):
+    load_dotenv(find_dotenv(usecwd=True))
+
+    if is_root():
+        print('The BrewBlox menu should not be run as root.')
+        raise SystemExit(1)
+
+    print('Welcome to the BrewBlox menu!')
+
+    args = sys.argv[1:] if args is ... else args
+
+    all_commands = [
+        *commands.ALL_COMMANDS,
+        *local_commands(),
+        ExitCommand(),
+    ]
+
+    run_commands(args, all_commands)
 
 
 if __name__ == '__main__':

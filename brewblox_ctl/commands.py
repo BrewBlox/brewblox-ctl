@@ -2,14 +2,13 @@
 Brewblox-ctl command definitions
 """
 
-import sys
 from abc import ABC, abstractmethod
-from os import getenv
 from subprocess import STDOUT, check_call
 
+from brewblox_ctl.const import CFG_VERSION_KEY, PY, RELEASE_KEY
 from brewblox_ctl.utils import (check_config, command_exists, confirm,
-                                ctl_lib_tag, docker_tag, is_docker_user,
-                                path_exists, select)
+                                ctl_lib_tag, docker_tag, getenv,
+                                is_docker_user, path_exists, select)
 
 
 class Command(ABC):
@@ -20,6 +19,9 @@ class Command(ABC):
 
     def __str__(self):
         return '{} {}'.format(self.keyword.ljust(15), self.description)
+
+    def prompt_usb(self):
+        input('Please press ENTER when your Spark is connected over USB')
 
     def announce(self, shell_cmds):
         print('The following shell commands will be used: \n')
@@ -41,7 +43,7 @@ class Command(ABC):
         tag = ctl_lib_tag()
         return [
             '{}docker rm ctl-lib || echo "you can ignore this error"'.format(self.optsudo),
-            '{}docker pull brewblox/brewblox-ctl-lib:{} || echo "you can ignore this error"'.format(self.optsudo, tag),
+            '{}docker pull brewblox/brewblox-ctl-lib:{} || true'.format(self.optsudo, tag),
             '{}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{}'.format(self.optsudo, tag),
             'rm -rf ./brewblox_ctl_lib || echo "you can ignore this error"',
             '{}docker cp ctl-lib:/brewblox_ctl_lib ./'.format(self.optsudo),
@@ -50,7 +52,7 @@ class Command(ABC):
 
     @abstractmethod
     def action(self):
-        pass
+        """To be implemented by subclasses"""
 
 
 class ComposeDownCommand(Command):
@@ -111,7 +113,7 @@ class InstallCommand(Command):
             print('docker-compose is already installed, skipping...')
         elif confirm('Do you want to install docker-compose (from pip)?'):
             shell_commands += [
-                'sudo {} -m pip install -U docker-compose'.format(sys.executable)
+                'sudo {} -m pip install -U docker-compose'.format(PY)
             ]
 
         target_dir = select(
@@ -133,10 +135,8 @@ class InstallCommand(Command):
         shell_commands += [
             'mkdir -p {}'.format(target_dir),
             'touch {}/.env'.format(target_dir),
-            '{} -m dotenv.cli --quote never -f {}/.env set BREWBLOX_RELEASE {}'.format(
-                sys.executable, target_dir, release),
-            '{} -m dotenv.cli --quote never -f {}/.env set BREWBLOX_CFG_VERSION 0.0.0'.format(
-                sys.executable, target_dir),
+            '{} -m dotenv.cli --quote never -f {}/.env set {} {}'.format(PY, target_dir, RELEASE_KEY, release),
+            '{} -m dotenv.cli --quote never -f {}/.env set {} 0.0.0'.format(PY, target_dir, CFG_VERSION_KEY),
         ]
 
         if reboot_required and confirm('A reboot will be required, do you want to do so?'):
@@ -164,7 +164,7 @@ class FirmwareFlashCommand(Command):
             '{}docker run -it --rm --privileged brewblox/firmware-flasher:{} flash'.format(self.optsudo, tag),
         ]
 
-        input('Please press ENTER when your Spark is connected over USB')
+        self.prompt_usb()
         self.run_all(shell_commands)
 
 
@@ -182,11 +182,12 @@ class BootloaderCommand(Command):
             ]
 
         shell_commands += [
-            'docker pull brewblox/firmware-flasher:{}'.format(tag),
-            'docker run -it --rm --privileged brewblox/firmware-flasher:{} flash-bootloader'.format(tag),
+            '{}docker pull brewblox/firmware-flasher:{}'.format(self.optsudo, tag),
+            '{}docker run -it --rm --privileged brewblox/firmware-flasher:{} flash-bootloader'.format(
+                self.optsudo, tag),
         ]
 
-        input('Please press ENTER when your Spark is connected over USB')
+        self.prompt_usb()
         self.run_all(shell_commands)
 
 
@@ -204,11 +205,11 @@ class WiFiCommand(Command):
             ]
 
         shell_commands += [
-            'docker pull brewblox/firmware-flasher:{}'.format(tag),
-            'docker run -it --rm --privileged brewblox/firmware-flasher:{} wifi'.format(tag),
+            '{}docker pull brewblox/firmware-flasher:{}'.format(self.optsudo, tag),
+            '{}docker run -it --rm --privileged brewblox/firmware-flasher:{} wifi'.format(self.optsudo, tag),
         ]
 
-        input('Please press ENTER when your Spark is connected over USB')
+        self.prompt_usb()
         self.run_all(shell_commands)
 
 

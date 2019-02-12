@@ -1,0 +1,10 @@
+"""
+Const values
+"""
+import sys
+
+PY = sys.executable
+
+CFG_VERSION_KEY = 'BREWBLOX_CFG_VERSION'
+LIB_RELEASE_KEY = 'BREWBLOX_CTL_LIB_RELEASE'
+RELEASE_KEY = 'BREWBLOX_RELEASE'
