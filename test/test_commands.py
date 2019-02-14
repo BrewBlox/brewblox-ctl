@@ -6,6 +6,7 @@ from subprocess import STDOUT
 from unittest.mock import call
 
 import pytest
+
 from brewblox_ctl import commands
 from brewblox_ctl.const import CFG_VERSION_KEY, RELEASE_KEY
 
@@ -304,6 +305,28 @@ def test_install_all(mocked_run_all, mocked_utils, mocked_py):
         '/py -m dotenv.cli --quote never -f ./brewey/.env set {} edge'.format(RELEASE_KEY),
         '/py -m dotenv.cli --quote never -f ./brewey/.env set {} 0.0.0'.format(CFG_VERSION_KEY),
         'sudo reboot',
+    ]
+
+
+def test_kill(mocked_utils, mocked_run_all):
+    mocked_utils['confirm'].side_effect = [
+        False,
+        True,
+    ]
+
+    cmd = commands.KillCommand()
+    cmd.optsudo = 'SUDO '
+    cmd.action()
+
+    assert mocked_run_all.call_count == 0
+
+    cmd.action()
+    assert mocked_utils['check_config'].call_count == 0
+    assert mocked_run_all.call_count == 1
+    args = mocked_run_all.call_args_list[0][0][0]
+
+    assert args == [
+        'SUDO docker rm --force $(SUDO docker ps -aq) 2> /dev/null || echo "No containers found"',
     ]
 
 

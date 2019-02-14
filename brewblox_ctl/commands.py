@@ -145,6 +145,24 @@ class InstallCommand(Command):
         self.run_all(shell_commands)
 
 
+class KillCommand(Command):
+    def __init__(self):
+        super().__init__('Stop and remove all containers on this machine', 'kill')
+
+    def action(self):
+        if not confirm('This will stop and remove ALL docker containers on your system. ' +
+                       'This includes those not from BrewBlox. ' +
+                       'Do you want to continue?'):
+            return
+
+        shell_commands = [
+            '{}docker rm --force $({}docker ps -aq) 2> /dev/null '.format(self.optsudo, self.optsudo) +
+            '|| echo "No containers found"',
+        ]
+
+        self.run_all(shell_commands)
+
+
 class FirmwareFlashCommand(Command):
     def __init__(self):
         super().__init__('Flash firmware on Spark', 'flash')
@@ -217,6 +235,7 @@ ALL_COMMANDS = [
     ComposeUpCommand(),
     ComposeDownCommand(),
     InstallCommand(),
+    KillCommand(),
     FirmwareFlashCommand(),
     BootloaderCommand(),
     WiFiCommand(),
