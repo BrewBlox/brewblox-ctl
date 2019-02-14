@@ -307,6 +307,29 @@ def test_install_all(mocked_run_all, mocked_utils, mocked_py):
     ]
 
 
+def test_kill(mocked_utils, mocked_run_all):
+    mocked_utils['confirm'].side_effect = [
+        False,
+        True,
+    ]
+
+    cmd = commands.KillCommand()
+    cmd.optsudo = 'SUDO '
+    cmd.action()
+
+    assert mocked_run_all.call_count == 0
+
+    cmd.action()
+    assert mocked_utils['check_config'].call_count == 0
+    assert mocked_run_all.call_count == 1
+    args = mocked_run_all.call_args_list[0][0][0]
+
+    assert args == [
+        'SUDO docker kill $(SUDO docker ps -aq)',
+        'SUDO docker rm $(SUDO docker ps -aq)',
+    ]
+
+
 def test_flash(mocked_run_all, mocked_utils):
     mocked_utils['docker_tag'].side_effect = [
         'tag',
