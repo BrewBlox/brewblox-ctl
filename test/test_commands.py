@@ -6,6 +6,7 @@ from subprocess import STDOUT
 from unittest.mock import call
 
 import pytest
+
 from brewblox_ctl import commands
 from brewblox_ctl.const import CFG_VERSION_KEY, RELEASE_KEY
 
@@ -325,8 +326,7 @@ def test_kill(mocked_utils, mocked_run_all):
     args = mocked_run_all.call_args_list[0][0][0]
 
     assert args == [
-        'SUDO docker kill $(SUDO docker ps -aq)',
-        'SUDO docker rm $(SUDO docker ps -aq)',
+        'SUDO docker rm --force $(SUDO docker ps -aq) 2> /dev/null || echo "No containers found"',
     ]
 
 

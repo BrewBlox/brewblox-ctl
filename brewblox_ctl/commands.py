@@ -156,8 +156,8 @@ class KillCommand(Command):
             return
 
         shell_commands = [
-            '{}docker kill $({}docker ps -aq)'.format(self.optsudo, self.optsudo),
-            '{}docker rm $({}docker ps -aq)'.format(self.optsudo, self.optsudo),
+            '{}docker rm --force $({}docker ps -aq) 2> /dev/null '.format(self.optsudo, self.optsudo) +
+            '|| echo "No containers found"',
         ]
 
         self.run_all(shell_commands)
