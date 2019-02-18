@@ -115,6 +115,7 @@ def test_command_lib_commands(mocked_utils):
         'rm -rf ./brewblox_ctl_lib || echo "you can ignore this error"',
         'SUDO docker cp ctl-lib:/brewblox_ctl_lib ./',
         'SUDO docker rm ctl-lib',
+        'sudo chown -R $USER ./brewblox_ctl_lib/',
     ]
 
 
