@@ -15,6 +15,7 @@ pytest-cov = "*"
 "autopep8" = "*"
 pytest-mock = "*"
 pytest-sugar = "*"
+"pathlib2" = "*"
 
 [requires]
 python_version = "3.5"
