@@ -1,26 +1,21 @@
 [[source]]
-
 url = "https://pypi.python.org/simple"
 verify_ssl = true
 name = "pypi"
 
-
 [packages]
-
 python-dotenv = "*"
 requests = "*"
-
+click = "*"
 
 [dev-packages]
-
 pytest-cov = "*"
 "pytest-flake8" = "*"
 "flake8" = "*"
 "autopep8" = "*"
 pytest-mock = "*"
 pytest-sugar = "*"
-
+"pathlib2" = "*"
 
 [requires]
-
 python_version = "3.5"
