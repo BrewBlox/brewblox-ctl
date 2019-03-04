@@ -1,18 +1,14 @@
 [[source]]
-
 url = "https://pypi.python.org/simple"
 verify_ssl = true
 name = "pypi"
 
-
 [packages]
-
 python-dotenv = "*"
 requests = "*"
-
+click = "*"
 
 [dev-packages]
-
 pytest-cov = "*"
 "pytest-flake8" = "*"
 "flake8" = "*"
@@ -20,7 +16,5 @@ pytest-cov = "*"
 pytest-mock = "*"
 pytest-sugar = "*"
 
-
 [requires]
-
 python_version = "3.5"

@@ -18,6 +18,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'requests',
+        'click',
         'python-dotenv[cli]',
     ],
     python_requires='>=3.5',
