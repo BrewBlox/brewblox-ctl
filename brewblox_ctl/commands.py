@@ -98,7 +98,7 @@ class InstallCommand(Command):
             shell_commands += [
                 'sudo apt update',
                 'sudo apt upgrade -y',
-                'sudo apt install -y libssl-dev',
+                'sudo apt install -y libssl-dev libffi-dev',
             ]
 
         if command_exists('docker'):
