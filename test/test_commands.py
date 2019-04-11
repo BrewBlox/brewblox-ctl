@@ -298,6 +298,7 @@ def test_install_all(mocked_run_all, mocked_utils, mocked_py):
     assert args == [
         'sudo apt update',
         'sudo apt upgrade -y',
+        'sudo apt install -y libssl-dev',
         'curl -sSL https://get.docker.com | sh',
         'sudo usermod -aG docker $USER',
         'sudo /py -m pip install -U docker-compose',
