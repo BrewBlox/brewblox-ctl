@@ -94,10 +94,11 @@ class InstallCommand(Command):
         reboot_required = False
         shell_commands = []
 
-        if command_exists('apt') and confirm('Do you want to upgrade apt packages?'):
+        if command_exists('apt') and confirm('Do you want to install and upgrade apt packages?'):
             shell_commands += [
                 'sudo apt update',
                 'sudo apt upgrade -y',
+                'sudo apt install -y libssl-dev',
             ]
 
         if command_exists('docker'):
