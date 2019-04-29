@@ -10,14 +10,16 @@ from platform import machine
 from shutil import which
 from subprocess import STDOUT, CalledProcessError, check_output
 
-from brewblox_ctl.const import CFG_VERSION_KEY, LIB_RELEASE_KEY, RELEASE_KEY
+from brewblox_ctl.const import (CFG_VERSION_KEY, LIB_RELEASE_KEY, RELEASE_KEY,
+                                SKIP_CONFIRM_KEY)
 
 
-def confirm(question):
-    print('{} [Y/n]'.format(question))
+def confirm(question, default=True):
+    prompt = '{} [Y/n]' if default else '{} [y/N]'
+    print(prompt.format(question))
     while True:
         try:
-            return bool(strtobool(input().lower() or 'y'))
+            return bool(strtobool(input().lower() or str(default)))
         except ValueError:
             print('Please respond with \'y(es)\' or \'n(o)\'.')
 
@@ -61,6 +63,10 @@ def is_docker_user():
 
 def is_brewblox_cwd():
     return bool(getenv(CFG_VERSION_KEY))
+
+
+def skipping_confirm():
+    return bool(strtobool(getenv(SKIP_CONFIRM_KEY, 'false')))
 
 
 def docker_tag():

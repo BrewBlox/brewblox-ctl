@@ -5,10 +5,12 @@ Brewblox-ctl command definitions
 from abc import ABC, abstractmethod
 from subprocess import STDOUT, check_call
 
-from brewblox_ctl.const import CFG_VERSION_KEY, PY, RELEASE_KEY
+from brewblox_ctl.const import (CFG_VERSION_KEY, PY, RELEASE_KEY,
+                                SKIP_CONFIRM_KEY)
 from brewblox_ctl.utils import (check_config, command_exists, confirm,
                                 ctl_lib_tag, docker_tag, getenv,
-                                is_docker_user, path_exists, select)
+                                is_docker_user, path_exists, select,
+                                skipping_confirm)
 
 
 class Command(ABC):
@@ -35,7 +37,7 @@ class Command(ABC):
         return check_call(shell_cmd, shell=True, stderr=STDOUT)
 
     def run_all(self, shell_cmds, announce=True):
-        if announce:
+        if announce and not skipping_confirm():
             self.announce(shell_cmds)
         return [self.run(cmd) for cmd in shell_cmds]
 
@@ -239,6 +241,25 @@ class WiFiCommand(Command):
         self.run_all(shell_commands)
 
 
+class CtlSettingsCommand(Command):
+    def __init__(self):
+        super().__init__('brewblox-ctl settings', 'settings')
+
+    def action(self):
+        check_config()
+        current_skip_setting = skipping_confirm()
+        new_skip_setting = confirm(
+            'Do you want to skip confirmation prompts when running commands? (is {})'.format(current_skip_setting),
+            current_skip_setting)
+
+        shell_commands = [
+            '{} -m dotenv.cli --quote never -f .env set {} {}'.format(
+                PY, SKIP_CONFIRM_KEY, str(new_skip_setting)),
+        ]
+
+        self.run_all(shell_commands, not new_skip_setting)
+
+
 ALL_COMMANDS = [
     ComposeUpCommand(),
     ComposeDownCommand(),
@@ -247,4 +268,5 @@ ALL_COMMANDS = [
     FirmwareFlashCommand(),
     BootloaderCommand(),
     WiFiCommand(),
+    CtlSettingsCommand(),
 ]
