@@ -8,7 +8,7 @@ from unittest.mock import call
 import pytest
 
 from brewblox_ctl import commands
-from brewblox_ctl.const import CFG_VERSION_KEY, RELEASE_KEY
+from brewblox_ctl.const import CFG_VERSION_KEY, RELEASE_KEY, SKIP_CONFIRM_KEY
 
 TESTED = commands.__name__
 
@@ -55,6 +55,7 @@ def mocked_utils(mocker):
         'select',
         'input',
         'check_call',
+        'skipping_confirm',
     ]
     return {k: mocker.patch(TESTED + '.' + k) for k in mocked}
 
@@ -93,6 +94,17 @@ def test_command_run_all(mocked_announce, mocked_run):
 def test_command_run_all_silent(mocked_announce, mocked_run):
     cmd = DummyCommand()
     cmd.run_all(['cmd1', 'cmd2'], announce=False)
+    assert mocked_announce.call_count == 0
+    assert mocked_run.call_args_list == [
+        call('cmd1'),
+        call('cmd2')
+    ]
+
+
+def test_command_run_all_skipped(mocked_announce, mocked_run, mocked_utils):
+    mocked_utils['skipping_confirm'].return_value = True
+    cmd = DummyCommand()
+    cmd.run_all(['cmd1', 'cmd2'])
     assert mocked_announce.call_count == 0
     assert mocked_run.call_args_list == [
         call('cmd1'),
@@ -424,3 +436,24 @@ def test_wifi(mocked_run_all, mocked_utils):
     ]
 
     assert args2 == args1[1:]
+
+
+def test_ctl_settings(mocked_run_all, mocked_utils, mocked_py):
+    mocked_utils['confirm'].side_effect = [
+        True,
+        False,
+    ]
+    cmd = commands.CtlSettingsCommand()
+    cmd.action()
+    cmd.action()
+
+    args1 = mocked_run_all.call_args_list[0][0][0]
+    args2 = mocked_run_all.call_args_list[1][0][0]
+
+    assert args1 == [
+        '/py -m dotenv.cli --quote never -f .env set {} True'.format(SKIP_CONFIRM_KEY)
+    ]
+
+    assert args2 == [
+        '/py -m dotenv.cli --quote never -f .env set {} False'.format(SKIP_CONFIRM_KEY)
+    ]
