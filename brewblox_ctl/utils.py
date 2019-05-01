@@ -8,7 +8,7 @@ from os import getenv as getenv_
 from os import path
 from platform import machine
 from shutil import which
-from subprocess import STDOUT, CalledProcessError, check_output
+from subprocess import STDOUT, CalledProcessError, check_call, check_output
 
 from brewblox_ctl.const import (CFG_VERSION_KEY, LIB_RELEASE_KEY, RELEASE_KEY,
                                 SKIP_CONFIRM_KEY)
@@ -76,6 +76,10 @@ def docker_tag():
     )
 
 
+def optsudo():
+    'sudo ' if not is_docker_user() else ''
+
+
 def ctl_lib_tag():
     release = getenv(LIB_RELEASE_KEY) or getenv(RELEASE_KEY, 'stable')
     return '{}{}'.format('rpi-' if is_pi() else '', release)
@@ -93,3 +97,46 @@ def check_config(required=True):
         return False
     else:
         raise SystemExit(0)
+
+
+def prompt_usb():
+    input('Please press ENTER when your Spark is connected over USB')
+
+
+def announce(shell_cmds):
+    print('The following shell commands will be used: \n')
+    for cmd in shell_cmds:
+        print('\t', cmd)
+    print('')
+    input('Press ENTER to continue, Ctrl+C to cancel')
+
+
+def run(shell_cmd):
+    print('\n' + 'Running command: \n\t', shell_cmd, '\n')
+    return check_call(shell_cmd, shell=True, stderr=STDOUT)
+
+
+def run_all(shell_cmds, announce=True):
+    if announce and not skipping_confirm():
+        announce(shell_cmds)
+    return [run(cmd) for cmd in shell_cmds]
+
+
+def lib_commands():
+    tag = ctl_lib_tag()
+    sudo = optsudo()
+    shell_commands = [
+        '{}docker rm ctl-lib 2> /dev/null || true'.format(sudo),
+        '{}docker pull brewblox/brewblox-ctl-lib:{} || true'.format(sudo, tag),
+        '{}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{}'.format(sudo, tag),
+        'rm -rf ./brewblox_ctl_lib 2> /dev/null || true ',
+        '{}docker cp ctl-lib:/brewblox_ctl_lib ./'.format(sudo),
+        '{}docker rm ctl-lib'.format(sudo),
+    ]
+
+    if sudo:
+        shell_commands += [
+            'sudo chown -R $USER ./brewblox_ctl_lib/',
+        ]
+
+    return shell_commands
