@@ -42,7 +42,7 @@ def local_commands():  # pragma: no cover
         raise SystemExit(1)
 
 
-def main(args=...):
+def main():
     load_dotenv(find_dotenv(usecwd=True))
 
     if utils.is_root():

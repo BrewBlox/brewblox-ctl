@@ -69,15 +69,15 @@ def skipping_confirm():
     return bool(strtobool(getenv(SKIP_CONFIRM_KEY, 'false')))
 
 
+def optsudo():
+    return 'sudo ' if not is_docker_user() else ''
+
+
 def docker_tag():
     return '{}{}'.format(
         'rpi-' if is_pi() else '',
         getenv(RELEASE_KEY, 'stable')
     )
-
-
-def optsudo():
-    'sudo ' if not is_docker_user() else ''
 
 
 def ctl_lib_tag():
@@ -116,8 +116,9 @@ def run(shell_cmd):
     return check_call(shell_cmd, shell=True, stderr=STDOUT)
 
 
-def run_all(shell_cmds, announce=True):
-    if announce and not skipping_confirm():
+def run_all(shell_cmds, prompt=True):
+    if prompt and not skipping_confirm():
+        print('announce')
         announce(shell_cmds)
     return [run(cmd) for cmd in shell_cmds]
 
