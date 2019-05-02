@@ -123,7 +123,7 @@ def run_all(shell_cmds, prompt=True):
     return [run(cmd) for cmd in shell_cmds]
 
 
-def lib_commands():
+def lib_loading_commands():
     tag = ctl_lib_tag()
     sudo = optsudo()
     shell_commands = [

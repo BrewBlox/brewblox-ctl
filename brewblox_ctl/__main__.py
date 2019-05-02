@@ -8,7 +8,7 @@ from subprocess import CalledProcessError
 
 from dotenv import find_dotenv, load_dotenv
 
-from brewblox_ctl import click_helpers, commands, utils
+from brewblox_ctl import click_helpers, commands, http, utils
 
 HELPTEXT = """
 The BrewBlox management tool.
@@ -33,7 +33,7 @@ def check_lib():
             and utils.confirm(
                 'brewblox-ctl requires extensions that match your BrewBlox release. ' +
                 'Do you want to download them now?'):
-        utils.run_all(utils.lib_commands())
+        utils.run_all(utils.lib_loading_commands())
 
 
 def local_commands():  # pragma: no cover
@@ -43,8 +43,8 @@ def local_commands():  # pragma: no cover
     try:
         check_lib()
         sys.path.append(getcwd())
-        from brewblox_ctl_lib import config_commands
-        return [config_commands.cli]
+        from brewblox_ctl_lib import loader
+        return loader.cli_sources()
 
     except ImportError:
         print('No brewblox-ctl extensions found in current directory')
@@ -69,6 +69,7 @@ def main():
         help=HELPTEXT,
         sources=[
             commands.cli,
+            http.cli,
             *local_commands(),
         ])
 

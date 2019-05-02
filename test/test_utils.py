@@ -234,7 +234,7 @@ def test_run_all(mocked_ext, mocker):
     ]
 
 
-def test_lib_command(mocker):
+def test_lib_loading_command(mocker):
     ctl_lib_tag = mocker.patch(TESTED + '.ctl_lib_tag')
     optsudo = mocker.patch(TESTED + '.optsudo')
 
@@ -248,10 +248,10 @@ def test_lib_command(mocker):
         'sudo ',
     ]
 
-    cmds = utils.lib_commands()
+    cmds = utils.lib_loading_commands()
     assert len(cmds) == 6  # no chown
     assert 'sudo' not in ' '.join(cmds)
 
-    cmds = utils.lib_commands()
+    cmds = utils.lib_loading_commands()
     assert len(cmds) == 7  # sudo requires a chown
     assert 'sudo' in ' '.join(cmds)
