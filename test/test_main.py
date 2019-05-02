@@ -48,7 +48,7 @@ def test_check_lib(mocked_utils):
 
 
 def test_main(mocked_utils, mocker):
-    mock_cli = mocker.patch(TESTED + '.click.CommandCollection')
+    mock_cli = mocker.patch(TESTED + '.click_helpers.OrderedCommandCollection')
     mocked_utils.is_root.return_value = False
     main.main()
     assert mock_cli.return_value.call_count == 1

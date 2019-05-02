@@ -6,17 +6,33 @@ import sys
 from os import getcwd
 from subprocess import CalledProcessError
 
-import click
 from dotenv import find_dotenv, load_dotenv
 
-from brewblox_ctl import commands, utils
+from brewblox_ctl import click_helpers, commands, utils
+
+HELPTEXT = """
+The BrewBlox management tool.
+
+It can be used to create and control BrewBlox configurations.
+When used from a BrewBlox installation directory, it will automatically load additional commands.
+
+If the command you're looking for was not found, please check if your current directory
+is a BrewBlox installation directory.
+
+By default, BrewBlox is installed to ~/brewblox.
+
+Example use:
+
+    brewblox-ctl install
+"""
 
 
 def check_lib():
     if utils.is_brewblox_cwd() \
         and not utils.path_exists('./brewblox_ctl_lib/__init__.py') \
             and utils.confirm(
-                'brewblox-ctl scripts are not yet installed in this directory. Do you want to do so now?'):
+                'brewblox-ctl requires extensions that match your BrewBlox release. ' +
+                'Do you want to download them now?'):
         utils.run_all(utils.lib_commands())
 
 
@@ -31,7 +47,7 @@ def local_commands():  # pragma: no cover
         return [config_commands.cli]
 
     except ImportError:
-        print('No BrewBlox scripts found in current directory')
+        print('No brewblox-ctl extensions found in current directory')
         return []
 
     except KeyboardInterrupt:
@@ -49,7 +65,8 @@ def main():
         print('brewblox-ctl should not be run as root.')
         raise SystemExit(1)
 
-    cli = click.CommandCollection(
+    cli = click_helpers.OrderedCommandCollection(
+        help=HELPTEXT,
         sources=[
             commands.cli,
             *local_commands(),

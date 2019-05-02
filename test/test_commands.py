@@ -32,7 +32,7 @@ def test_compose_down(mocked_utils):
 
     assert mocked_utils.run_all.call_args_list == [
         call([
-            'SUDO docker-compose down'
+            'SUDO docker-compose down --remove-orphans'
         ])
     ]
 
@@ -44,7 +44,7 @@ def test_compose_up(mocked_utils):
 
     assert mocked_utils.run_all.call_args_list == [
         call([
-            'SUDO docker-compose up -d'
+            'SUDO docker-compose up -d --remove-orphans'
         ])
     ]
 

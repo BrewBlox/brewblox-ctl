@@ -4,12 +4,12 @@ Brewblox-ctl command definitions
 
 import click
 
-from brewblox_ctl import utils
+from brewblox_ctl import click_helpers, utils
 from brewblox_ctl.const import (CFG_VERSION_KEY, PY, RELEASE_KEY,
                                 SKIP_CONFIRM_KEY)
 
 
-@click.group()
+@click.group(cls=click_helpers.OrderedGroup)
 def cli():
     """Command collector"""
 
@@ -19,7 +19,7 @@ def down():
     """Stop running services"""
     utils.check_config()
     shell_commands = [
-        '{}docker-compose down'.format(utils.optsudo()),
+        '{}docker-compose down --remove-orphans'.format(utils.optsudo()),
     ]
     utils.run_all(shell_commands)
 
@@ -29,7 +29,7 @@ def up():
     """Start all services if not running"""
     utils.check_config()
     shell_commands = [
-        '{}docker-compose up -d'.format(utils.optsudo()),
+        '{}docker-compose up -d --remove-orphans'.format(utils.optsudo()),
     ]
     utils.run_all(shell_commands)
 
