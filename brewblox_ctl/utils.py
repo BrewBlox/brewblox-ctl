@@ -122,7 +122,6 @@ def run(shell_cmd):
 
 def run_all(shell_cmds, prompt=True):
     if prompt and not skipping_confirm():
-        print('announce')
         announce(shell_cmds)
     return [run(cmd) for cmd in shell_cmds]
 
