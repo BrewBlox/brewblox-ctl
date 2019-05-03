@@ -65,6 +65,11 @@ def main():
         print('brewblox-ctl should not be run as root.')
         raise SystemExit(1)
 
+    if utils.is_v6() \
+        and not utils.confirm(
+            'Raspberry Pi models 1 and 0 are not supported. Do you want to continue?', False):
+        raise SystemExit(0)
+
     cli = click_helpers.OrderedCommandCollection(
         help=HELPTEXT,
         sources=[

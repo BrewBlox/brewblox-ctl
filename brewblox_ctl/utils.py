@@ -53,6 +53,10 @@ def is_pi():
     return machine().startswith('arm')
 
 
+def is_v6():
+    return machine().startswith('armv6')
+
+
 def is_root():
     return check_ok('ls /root')
 

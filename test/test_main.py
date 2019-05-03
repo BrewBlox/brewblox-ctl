@@ -50,9 +50,30 @@ def test_check_lib(mocked_utils):
 def test_main(mocked_utils, mocker):
     mock_cli = mocker.patch(TESTED + '.click_helpers.OrderedCommandCollection')
     mocked_utils.is_root.return_value = False
+    mocked_utils.is_v6.return_value = False
     main.main()
     assert mock_cli.return_value.call_count == 1
 
+
+def test_is_root(mocked_utils):
     mocked_utils.is_root.return_value = True
+    mocked_utils.is_v6.return_value = False
     with pytest.raises(SystemExit):
         main.main()
+
+
+def test_is_v6(mocked_utils, mocker):
+    mock_cli = mocker.patch(TESTED + '.click_helpers.OrderedCommandCollection')
+    mocked_utils.is_root.return_value = False
+    mocked_utils.is_v6.return_value = True
+
+    mocked_utils.confirm.side_effect = [
+        False,
+        True,
+    ]
+
+    with pytest.raises(SystemExit):
+        main.main()
+
+    main.main()
+    assert mock_cli.return_value.call_count == 1

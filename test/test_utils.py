@@ -80,18 +80,28 @@ def test_command_exists(mocked_ext):
     assert utils.command_exists('pizza')
 
 
-def test_is_pi(mocked_ext):
-    mocked_ext['machine'].side_effect = [
-        'armv7hf',
-        'armv6hf',
-        'amd64',
-        'x86-64',
-    ]
+@pytest.mark.parametrize('combo', [
+    ('armv7hf', True),
+    ('armv6hf', True),
+    ('amd64', False),
+    ('x86-64', False)
+])
+def test_is_pi(combo, mocked_ext):
+    machine, result = combo
+    mocked_ext['machine'].return_value = machine
+    assert utils.is_pi() is result
 
-    assert utils.is_pi()
-    assert utils.is_pi()
-    assert not utils.is_pi()
-    assert not utils.is_pi()
+
+@pytest.mark.parametrize('combo', [
+    ('armv7hf', False),
+    ('armv6hf', True),
+    ('amd64', False),
+    ('x86-64', False)
+])
+def test_is_v6(combo, mocked_ext):
+    machine, result = combo
+    mocked_ext['machine'].return_value = machine
+    assert utils.is_v6() is result
 
 
 def test_is_root(mocked_ext):
