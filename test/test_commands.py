@@ -25,7 +25,23 @@ def mocked_utils(mocker):
     return m
 
 
-def test_compose_down(mocked_utils):
+@pytest.fixture
+def mocked_release_tag(mocker):
+    m = mocker.patch(TESTED + '.release_tag')
+    m.side_effect = lambda r: r or 'tag'
+    return m
+
+
+def test_release_tag(mocked_utils):
+    mocked_utils.is_brewblox_cwd.return_value = False
+    mocked_utils.docker_tag.side_effect = lambda r: r
+
+    assert commands.release_tag('release') == 'release'
+    with pytest.raises(SystemExit):
+        commands.release_tag(None)
+
+
+def test_down(mocked_utils):
     runner = CliRunner()
     result = runner.invoke(commands.down)
     assert result.exit_code == 0
@@ -37,7 +53,7 @@ def test_compose_down(mocked_utils):
     ]
 
 
-def test_compose_up(mocked_utils):
+def test_up(mocked_utils):
     runner = CliRunner()
     result = runner.invoke(commands.up)
     assert result.exit_code == 0
@@ -228,11 +244,7 @@ def test_kill(mocked_utils):
     ]
 
 
-def test_flash(mocked_utils):
-    mocked_utils.docker_tag.side_effect = [
-        'tag',
-        'tag',
-    ]
+def test_flash(mocked_utils, mocked_release_tag):
     mocked_utils.path_exists.side_effect = [
         True,
         False,
@@ -240,7 +252,7 @@ def test_flash(mocked_utils):
 
     runner = CliRunner()
     assert runner.invoke(commands.flash).exit_code == 0
-    assert runner.invoke(commands.flash).exit_code == 0
+    assert runner.invoke(commands.flash, '--release=taggart').exit_code == 0
 
     assert mocked_utils.check_config.call_count == 0
     assert mocked_utils.prompt_usb.call_count == 2
@@ -256,7 +268,11 @@ def test_flash(mocked_utils):
         'SUDO docker run -it --rm --privileged brewblox/firmware-flasher:tag flash',
     ]
 
-    assert args2 == args1[1:]
+    assert args2 == [
+        'SUDO docker pull brewblox/firmware-flasher:taggart',
+        'SUDO docker run -it --rm --privileged brewblox/firmware-flasher:taggart trigger-dfu',
+        'SUDO docker run -it --rm --privileged brewblox/firmware-flasher:taggart flash',
+    ]
 
 
 def test_bootloader(mocked_utils):

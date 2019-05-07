@@ -150,16 +150,23 @@ def test_optsudo(mocker):
 
 
 @pytest.mark.parametrize('combo', [
-    ('armv7hf', 'edge', 'rpi-edge'),
-    ('amd64', 'stable', 'stable'),
-    ('deep-thought', 'stable', 'stable'),
+    ('armv6', 'rpi-'),
+    ('armv7hf', 'rpi-'),
+    ('amd64', ''),
+    ('deep-thought', ''),
 ])
-def test_docker_tag(combo, mocked_ext):
-    machine, env, result = combo
-
+def test_tag_prefix(combo, mocked_ext):
+    machine, result = combo
     mocked_ext['machine'].return_value = machine
-    mocked_ext['getenv_'].return_value = env
-    assert utils.docker_tag() == result
+    assert utils.tag_prefix() == result
+
+
+def test_docker_tag(mocker):
+    mocker.patch(TESTED + '.tag_prefix').return_value = 'prefix'
+    mocker.patch(TESTED + '.getenv').return_value = 'value'
+
+    assert utils.docker_tag() == 'prefixvalue'
+    assert utils.docker_tag('release') == 'prefixrelease'
 
 
 @pytest.mark.parametrize('combo', [
