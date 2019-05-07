@@ -9,6 +9,14 @@ from brewblox_ctl.const import (CFG_VERSION_KEY, PY, RELEASE_KEY,
                                 SKIP_CONFIRM_KEY)
 
 
+def release_tag(release):
+    if not release and not utils.is_brewblox_cwd():
+        print('Please run this command in a BrewBlox directory, or use the --release argument')
+        raise SystemExit(1)
+
+    return utils.docker_tag(release)
+
+
 @click.group(cls=click_helpers.OrderedGroup)
 def cli():
     """Command collector"""
@@ -117,11 +125,12 @@ def kill():
 
 
 @cli.command()
-def flash():
+@click.option('--release', default=None, help='BrewBlox release track')
+def flash(release):
     """Flash firmware on Spark"""
-    tag = utils.docker_tag()
-    shell_commands = []
+    tag = release_tag(release)
     sudo = utils.optsudo()
+    shell_commands = []
 
     if utils.path_exists('./docker-compose.yml'):
         shell_commands += [
@@ -139,9 +148,10 @@ def flash():
 
 
 @cli.command()
-def bootloader():
+@click.option('--release', default=None, help='BrewBlox release track')
+def bootloader(release):
     """Flash bootloader on Spark"""
-    tag = utils.docker_tag()
+    tag = release_tag(release)
     sudo = utils.optsudo()
     shell_commands = []
 
@@ -161,9 +171,10 @@ def bootloader():
 
 
 @cli.command()
-def wifi():
+@click.option('--release', default=None, help='BrewBlox release track')
+def wifi(release):
     """Connect Spark to Wifi"""
-    tag = utils.docker_tag()
+    tag = release_tag(release)
     sudo = utils.optsudo()
     shell_commands = []
 

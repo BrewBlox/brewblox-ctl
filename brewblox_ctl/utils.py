@@ -77,16 +77,20 @@ def optsudo():
     return 'sudo ' if not is_docker_user() else ''
 
 
-def docker_tag():
+def tag_prefix():
+    return 'rpi-' if is_pi() else ''
+
+
+def docker_tag(release=None):
     return '{}{}'.format(
-        'rpi-' if is_pi() else '',
-        getenv(RELEASE_KEY, 'stable')
+        tag_prefix(),
+        release or getenv(RELEASE_KEY, 'stable')
     )
 
 
 def ctl_lib_tag():
     release = getenv(LIB_RELEASE_KEY) or getenv(RELEASE_KEY, 'stable')
-    return '{}{}'.format('rpi-' if is_pi() else '', release)
+    return '{}{}'.format(tag_prefix(), release)
 
 
 def check_config(required=True):
