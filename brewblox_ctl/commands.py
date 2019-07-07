@@ -60,7 +60,7 @@ def install():
     elif utils.confirm('Do you want to install Docker?'):
         reboot_required = True
         shell_commands += [
-            'curl -sSL https://get.docker.com | sh',
+            "curl -sL get.docker.com | sed 's/9)/9|10)/' | sh",
         ]
 
     if utils.is_docker_user():
