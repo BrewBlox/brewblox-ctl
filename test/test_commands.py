@@ -212,7 +212,7 @@ def test_install_all(mocked_utils, mocked_py):
         'sudo apt update',
         'sudo apt upgrade -y',
         'sudo apt install -y libssl-dev libffi-dev',
-        "curl -sL get.docker.com | sed 's/9)/9|10)/' | sh",
+        "curl -sL get.docker.com | sh",
         'sudo usermod -aG docker $USER',
         'sudo /py -m pip install -U docker-compose',
         'mkdir -p ./brewey',
