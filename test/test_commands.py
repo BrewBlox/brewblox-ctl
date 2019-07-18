@@ -248,18 +248,21 @@ def test_flash(mocked_utils, mocked_release_tag):
     mocked_utils.path_exists.side_effect = [
         True,
         False,
+        False,
     ]
 
     runner = CliRunner()
     assert runner.invoke(commands.flash).exit_code == 0
     assert runner.invoke(commands.flash, '--release=taggart').exit_code == 0
+    assert runner.invoke(commands.flash, '--no-pull').exit_code == 0
 
     assert mocked_utils.check_config.call_count == 0
-    assert mocked_utils.prompt_usb.call_count == 2
-    assert mocked_utils.run_all.call_count == 2
+    assert mocked_utils.prompt_usb.call_count == 3
+    assert mocked_utils.run_all.call_count == 3
 
     args1 = mocked_utils.run_all.call_args_list[0][0][0]
     args2 = mocked_utils.run_all.call_args_list[1][0][0]
+    args3 = mocked_utils.run_all.call_args_list[2][0][0]
 
     assert args1 == [
         'SUDO docker-compose down',
@@ -272,6 +275,11 @@ def test_flash(mocked_utils, mocked_release_tag):
         'SUDO docker pull brewblox/firmware-flasher:taggart',
         'SUDO docker run -it --rm --privileged brewblox/firmware-flasher:taggart trigger-dfu',
         'SUDO docker run -it --rm --privileged brewblox/firmware-flasher:taggart flash',
+    ]
+
+    assert args3 == [
+        'SUDO docker run -it --rm --privileged brewblox/firmware-flasher:tag trigger-dfu',
+        'SUDO docker run -it --rm --privileged brewblox/firmware-flasher:tag flash',
     ]
 
 
