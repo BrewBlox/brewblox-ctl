@@ -126,7 +126,8 @@ def kill():
 
 @cli.command()
 @click.option('--release', default=None, help='BrewBlox release track')
-def flash(release):
+@click.option('--pull/--no-pull', default=True)
+def flash(release, pull):
     """Flash firmware on Spark"""
     tag = release_tag(release)
     sudo = utils.optsudo()
@@ -137,8 +138,12 @@ def flash(release):
             '{}docker-compose down'.format(sudo),
         ]
 
+    if pull:
+        shell_commands += [
+            '{}docker pull brewblox/firmware-flasher:{}'.format(sudo, tag),
+        ]
+
     shell_commands += [
-        '{}docker pull brewblox/firmware-flasher:{}'.format(sudo, tag),
         '{}docker run -it --rm --privileged brewblox/firmware-flasher:{} trigger-dfu'.format(sudo, tag),
         '{}docker run -it --rm --privileged brewblox/firmware-flasher:{} flash'.format(sudo, tag),
     ]
