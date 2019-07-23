@@ -82,4 +82,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as ex:
+        print('brewblox-ctl error:', str(ex), file=sys.stderr)
+        exit(1)
