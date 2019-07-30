@@ -78,7 +78,7 @@ def main():
             *local_commands(),
         ])
 
-    cli()
+    cli(standalone_mode=False)
 
 
 if __name__ == '__main__':
@@ -86,4 +86,4 @@ if __name__ == '__main__':
         main()
     except Exception as ex:
         print('brewblox-ctl error:', str(ex), file=sys.stderr)
-        exit(1)
+        raise SystemExit(1)
