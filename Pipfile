@@ -8,6 +8,7 @@ python-dotenv = "*"
 requests = "*"
 click = "*"
 pyyaml = "*"
+pprint = "*"
 
 [dev-packages]
 pytest-cov = "*"

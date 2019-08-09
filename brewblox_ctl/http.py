@@ -4,6 +4,7 @@ HTTP convenience commands
 
 import json
 from contextlib import suppress
+from pprint import pprint
 from time import sleep
 
 import click
@@ -43,7 +44,8 @@ def cli():
 @click.option('-d', '--data', help='Request body')
 @click.option('-H', '--header', multiple=True, type=(str, str))
 @click.option('-p', '--param', help='URL parameter', multiple=True, type=(str, str))
-def http(method, url, json_body, file, data, header, param):
+@click.option('--pretty', is_flag=True, help='Pretty-print JSON output')
+def http(method, url, json_body, file, data, header, param, pretty):
     """Send HTTP requests (debugging tool)"""
     urllib3.disable_warnings()
 
@@ -73,7 +75,10 @@ def http(method, url, json_body, file, data, header, param):
 
     resp = getattr(requests, method)(url, **kwargs)
     try:
-        print(resp.text)
+        if pretty and json_body:
+            pprint(resp.json())
+        else:
+            print(resp.text)
         resp.raise_for_status()
     except Exception as ex:
         print('Error:', ex)

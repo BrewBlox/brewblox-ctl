@@ -21,6 +21,7 @@ setup(
         'click',
         'python-dotenv[cli]',
         'pyyaml',
+        'pprint'
     ],
     python_requires='>=3.5',
     setup_requires=['setuptools_scm'],
