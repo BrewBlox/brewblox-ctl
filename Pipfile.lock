@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "6e8cfbdc94ca6313b27d098f4cc2a15492a3b91f1fc604e20f3fed34f714906e"
+            "sha256": "4ea5a4e2d86f0685f7636945a330fbca9f9e59c6a6fa565a1500521e7b46c990"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -31,6 +31,9 @@
             "version": "==3.0.4"
         },
         "click": {
+            "extras": [
+                "cli"
+            ],
             "hashes": [
                 "sha256:2335065e6395b9e67ca716de5f7526736bfa6ceead690adf616d925bdc622b13",
                 "sha256:5b94b49521f6456670fdb30cd82a4eca9412788a93fa6dd6df72c94d5a8ff2d7"
