@@ -62,7 +62,8 @@ def test_http_methods(mock_requests):
     assert result.exit_code == 0
     assert mock_requests.post.call_count == 0
 
-    runner.invoke(http.http, ['post', 'url'])
+    runner.invoke(http.http, ['post', 'url', '--pretty'])
+    assert result.exit_code == 0
     assert mock_requests.post.call_args_list == [
         call('url', headers={}, params={}, verify=False)
     ]
