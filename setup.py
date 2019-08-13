@@ -18,7 +18,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'requests',
-        'click[cli]',
+        'click',
         'python-dotenv[cli]',
         'pyyaml',
         'pprint'

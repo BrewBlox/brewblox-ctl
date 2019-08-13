@@ -6,9 +6,9 @@ name = "pypi"
 [packages]
 python-dotenv = "*"
 requests = "*"
-click = {extras = ["cli"],version = "*"}
 pyyaml = "*"
 pprint = "*"
+click = "*"
 
 [dev-packages]
 pytest-cov = "*"
