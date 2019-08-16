@@ -77,3 +77,15 @@ def test_is_v6(mocked_utils, mocker):
 
     main.main()
     assert mock_cli.return_value.call_count == 1
+
+
+def test_exception(mocked_utils, mocker):
+    mock_cli = mocker.patch(TESTED + '.click_helpers.OrderedCommandCollection')
+    mock_cli.return_value.side_effect = RuntimeError
+    mocked_utils.is_root.return_value = False
+    mocked_utils.is_v6.return_value = False
+
+    with pytest.raises(SystemExit):
+        main.main()
+
+    assert mock_cli.return_value.call_count == 1

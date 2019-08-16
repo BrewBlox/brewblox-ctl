@@ -82,7 +82,7 @@ def main():
         cli(standalone_mode=False)
 
     except Exception as ex:
-        print('brewblox-ctl error:', str(ex), file=sys.stderr)
+        print(str(ex), file=sys.stderr)
         raise SystemExit(1)
 
 
