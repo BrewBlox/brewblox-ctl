@@ -43,6 +43,18 @@ def up():
 
 
 @cli.command()
+def restart():
+    """(re)start all services"""
+    utils.check_config()
+    sudo = utils.optsudo()
+    shell_commands = [
+        '{}docker-compose down --remove-orphans'.format(sudo),
+        '{}docker-compose up -d'.format(sudo),
+    ]
+    utils.run_all(shell_commands)
+
+
+@cli.command()
 def install():
     """Install a new BrewBlox system"""
     reboot_required = False

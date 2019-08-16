@@ -65,6 +65,19 @@ def test_up(mocked_utils):
     ]
 
 
+def test_restart(mocked_utils):
+    runner = CliRunner()
+    result = runner.invoke(commands.restart)
+    assert result.exit_code == 0
+
+    assert mocked_utils.run_all.call_args_list == [
+        call([
+            'SUDO docker-compose down --remove-orphans',
+            'SUDO docker-compose up -d',
+        ])
+    ]
+
+
 def test_install_simple(mocked_utils, mocked_py):
     mocked_utils.command_exists.side_effect = [
         True,  # check apt

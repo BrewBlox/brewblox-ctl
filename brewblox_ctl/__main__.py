@@ -59,31 +59,32 @@ def local_commands():  # pragma: no cover
 
 
 def main():
-    load_dotenv(find_dotenv(usecwd=True))
+    try:
+        load_dotenv(find_dotenv(usecwd=True))
 
-    if utils.is_root():
-        print('brewblox-ctl should not be run as root.')
+        if utils.is_root():
+            print('brewblox-ctl should not be run as root.')
+            raise SystemExit(1)
+
+        if utils.is_v6() \
+            and not utils.confirm(
+                'Raspberry Pi models 1 and 0 are not supported. Do you want to continue?', False):
+            raise SystemExit(0)
+
+        cli = click_helpers.OrderedCommandCollection(
+            help=HELPTEXT,
+            sources=[
+                commands.cli,
+                http.cli,
+                *local_commands(),
+            ])
+
+        cli(standalone_mode=False)
+
+    except Exception as ex:
+        print(str(ex), file=sys.stderr)
         raise SystemExit(1)
-
-    if utils.is_v6() \
-        and not utils.confirm(
-            'Raspberry Pi models 1 and 0 are not supported. Do you want to continue?', False):
-        raise SystemExit(0)
-
-    cli = click_helpers.OrderedCommandCollection(
-        help=HELPTEXT,
-        sources=[
-            commands.cli,
-            http.cli,
-            *local_commands(),
-        ])
-
-    cli(standalone_mode=False)
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except Exception as ex:
-        print('brewblox-ctl error:', str(ex), file=sys.stderr)
-        raise SystemExit(1)
+    main()
