@@ -112,3 +112,11 @@ def test_http_error(mock_requests):
     runner = CliRunner()
     result = runner.invoke(http.http, ['post', 'url', '-d', json.dumps(body)])
     assert result.exit_code != 0
+
+
+def test_allow_http_error(mock_requests):
+    mock_requests.post.return_value.raise_for_status.side_effect = http.ConnectionError
+    body = {'var1': 1, 'var2': 'val'}
+    runner = CliRunner()
+    result = runner.invoke(http.http, ['post', 'url', '-d', json.dumps(body), '--allow-fail'])
+    assert result.exit_code == 0
