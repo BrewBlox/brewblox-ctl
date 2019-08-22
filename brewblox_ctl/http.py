@@ -45,7 +45,8 @@ def cli():
 @click.option('-H', '--header', multiple=True, type=(str, str))
 @click.option('-p', '--param', help='URL parameter', multiple=True, type=(str, str))
 @click.option('--pretty', is_flag=True, help='Pretty-print JSON output')
-def http(method, url, json_body, file, data, header, param, pretty):
+@click.option('--allow-fail', is_flag=True, help='Do not throw on HTTP errors')
+def http(method, url, json_body, file, data, header, param, pretty, allow_fail):
     """Send HTTP requests (debugging tool)"""
     urllib3.disable_warnings()
 
@@ -81,5 +82,6 @@ def http(method, url, json_body, file, data, header, param, pretty):
             print(resp.text)
         resp.raise_for_status()
     except Exception as ex:
-        print('Error:', ex)
-        raise SystemExit(1)
+        if not allow_fail:
+            print('Error:', ex)
+            raise SystemExit(1)
