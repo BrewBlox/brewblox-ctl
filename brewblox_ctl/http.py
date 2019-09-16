@@ -16,6 +16,7 @@ from brewblox_ctl import click_helpers
 
 RETRY_COUNT = 60
 RETRY_INTERVAL_S = 10
+METHODS = ['wait', 'get', 'put', 'post', 'patch', 'delete']
 
 
 def wait(url):
@@ -37,16 +38,17 @@ def cli():
 
 @cli.command()
 @click.argument('method', required=True,
-                type=click.Choice(['wait', 'get', 'put', 'post', 'patch', 'delete']))
+                type=click.Choice(METHODS))
 @click.argument('url', required=True)
-@click.option('--json-body', type=click.BOOL, default=True, help='Set JSON content headers')
-@click.option('-f', '--file', help='Load file and send as body')
-@click.option('-d', '--data', help='Request body')
+@click.option('--json-body', type=click.BOOL, default=True, help='Set JSON content headers.')
+@click.option('-f', '--file', help='Load file and send as body.')
+@click.option('-d', '--data', help='Request body.')
 @click.option('-H', '--header', multiple=True, type=(str, str))
 @click.option('-p', '--param', help='URL parameter', multiple=True, type=(str, str))
-@click.option('--pretty', is_flag=True, help='Pretty-print JSON output')
-@click.option('--allow-fail', is_flag=True, help='Do not throw on HTTP errors')
-def http(method, url, json_body, file, data, header, param, pretty, allow_fail):
+@click.option('-q', '--quiet', is_flag=True, help='Do not print the response. Takes precedence over --pretty.')
+@click.option('--pretty', is_flag=True, help='Pretty-print JSON response.')
+@click.option('--allow-fail', is_flag=True, help='Do not throw on HTTP errors.')
+def http(method, url, json_body, file, data, header, param, quiet, pretty, allow_fail):
     """Send HTTP requests (debugging tool)"""
     urllib3.disable_warnings()
 
@@ -76,10 +78,11 @@ def http(method, url, json_body, file, data, header, param, pretty, allow_fail):
 
     resp = getattr(requests, method)(url, **kwargs)
     try:
-        if pretty and json_body:
-            pprint(resp.json())
-        else:
-            print(resp.text)
+        if not quiet:
+            if pretty and json_body:
+                pprint(resp.json())
+            else:
+                print(resp.text)
         resp.raise_for_status()
     except Exception as ex:
         if not allow_fail:
