@@ -21,7 +21,8 @@ def mock_wait(mocker):
 @pytest.fixture
 def mock_requests(mocker):
     m = mocker.patch(TESTED + '.requests')
-    m.status_code = 200
+    for meth in http.METHODS:
+        getattr(m, meth).return_value.text = meth + '-response'
     return m
 
 
@@ -62,7 +63,7 @@ def test_http_methods(mock_requests):
     assert result.exit_code == 0
     assert mock_requests.post.call_count == 0
 
-    runner.invoke(http.http, ['post', 'url', '--pretty'])
+    result = runner.invoke(http.http, ['post', 'url', '--pretty'])
     assert result.exit_code == 0
     assert mock_requests.post.call_args_list == [
         call('url', headers={}, params={}, verify=False)
@@ -120,3 +121,14 @@ def test_allow_http_error(mock_requests):
     runner = CliRunner()
     result = runner.invoke(http.http, ['post', 'url', '-d', json.dumps(body), '--allow-fail'])
     assert result.exit_code == 0
+
+
+def test_output(mock_requests):
+    runner = CliRunner()
+    result = runner.invoke(http.http, ['get', 'url'])
+    assert result.exit_code == 0
+    assert result.stdout == 'get-response\n'
+
+    result = runner.invoke(http.http, ['get', 'url', '--quiet'])
+    assert result.exit_code == 0
+    assert result.stdout == ''
