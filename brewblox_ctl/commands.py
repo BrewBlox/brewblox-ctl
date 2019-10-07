@@ -57,10 +57,12 @@ def restart():
 @cli.command()
 def install():
     """Install a new BrewBlox system"""
-    reboot_required = False
     shell_commands = []
 
-    if utils.command_exists('apt') and utils.confirm('Do you want to install and upgrade apt packages?'):
+    use_defaults = utils.confirm('Do you want to install with default settings?')
+
+    if utils.command_exists('apt') \
+            and (use_defaults or utils.confirm('Do you want to install apt dependency packages?')):
         shell_commands += [
             'sudo apt update',
             'sudo apt upgrade -y',
@@ -69,31 +71,32 @@ def install():
 
     if utils.command_exists('docker'):
         print('Docker is already installed, skipping...')
-    elif utils.confirm('Do you want to install Docker?'):
-        reboot_required = True
+    elif use_defaults or utils.confirm('Do you want to install Docker?'):
         shell_commands += [
             "curl -sL get.docker.com | sh",
         ]
 
     if utils.is_docker_user():
         print('{} already belongs to the Docker group, skipping...'.format(utils.getenv('USER')))
-    elif utils.confirm('Do you want to run Docker commands without sudo?'):
-        reboot_required = True
+    elif use_defaults or utils.confirm('Do you want to run Docker commands without sudo?'):
         shell_commands += [
             'sudo usermod -aG docker $USER'
         ]
 
     if utils.command_exists('docker-compose'):
         print('docker-compose is already installed, skipping...')
-    elif utils.confirm('Do you want to install docker-compose (from pip)?'):
+    elif use_defaults or utils.confirm('Do you want to install docker-compose (from pip)?'):
         shell_commands += [
             'sudo {} -m pip install -U docker-compose'.format(PY)
         ]
 
-    target_dir = utils.select(
-        'In which directory do you want to install the BrewBlox configuration?',
-        './brewblox'
-    ).rstrip('/')
+    if use_defaults:
+        target_dir = './brewblox'
+    else:
+        target_dir = utils.select(
+            'In which directory do you want to install the BrewBlox configuration?',
+            './brewblox'
+        ).rstrip('/')
 
     if utils.path_exists(target_dir):
         if not utils.confirm('{} already exists. Do you want to continue?'.format(target_dir)):
@@ -106,17 +109,20 @@ def install():
     # else:
     #     release = 'edge'
 
+    set_env_command = '{} -m dotenv.cli --quote never -f {}/.env set'.format(PY, target_dir)
+
     shell_commands += [
         'mkdir -p {}'.format(target_dir),
         'touch {}/.env'.format(target_dir),
-        '{} -m dotenv.cli --quote never -f {}/.env set {} {}'.format(PY, target_dir, RELEASE_KEY, release),
-        '{} -m dotenv.cli --quote never -f {}/.env set {} 0.0.0'.format(PY, target_dir, CFG_VERSION_KEY),
+        '{} {} {}'.format(set_env_command, RELEASE_KEY, release),
+        '{} {} 0.0.0'.format(set_env_command, CFG_VERSION_KEY),
+        '{} {} {}'.format(set_env_command, SKIP_CONFIRM_KEY, str(use_defaults)),
     ]
 
-    if reboot_required and utils.confirm('A reboot will be required, do you want to do so?'):
+    if use_defaults or utils.confirm('A reboot is recommended. Do you want to do so?'):
         shell_commands.append('sudo reboot')
 
-    utils.run_all(shell_commands)
+    utils.run_all(shell_commands, not use_defaults)
 
 
 @cli.command()

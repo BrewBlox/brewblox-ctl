@@ -15,17 +15,20 @@ from brewblox_ctl.const import (CFG_VERSION_KEY, LIB_RELEASE_KEY, RELEASE_KEY,
 
 
 def confirm(question, default=True):
-    prompt = '{} [Y/n]' if default else '{} [y/N]'
+    default_val = 'Yes' if default else 'No'
+    prompt = '{} [Press ENTER for default value \'{}\']'.format('{}', default_val)
     print(prompt.format(question))
     while True:
         try:
             return bool(strtobool(input().lower() or str(default)))
         except ValueError:
-            print('Please respond with \'y(es)\' or \'n(o)\'.')
+            print('Please type \'y(es)\' or \'n(o)\' and press ENTER.')
 
 
 def select(question, default=''):
-    answer = input('{} {}'.format(question, '[{}]'.format(default) if default else ''))
+    answer = input('{} {}'.format(
+        question,
+        '[press ENTER for default value \'{}\']'.format(default) if default else ''))
     return answer or default
 
 
