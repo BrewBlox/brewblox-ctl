@@ -111,8 +111,9 @@ def test_install_express(mocked_utils, mocked_py):
             'touch ./brewblox/.env',
             '/py -m dotenv.cli --quote never -f ./brewblox/.env set {} edge'.format(RELEASE_KEY),
             '/py -m dotenv.cli --quote never -f ./brewblox/.env set {} 0.0.0'.format(CFG_VERSION_KEY),
+            '/py -m dotenv.cli --quote never -f ./brewblox/.env set {} True'.format(SKIP_CONFIRM_KEY),
             'sudo reboot',
-        ])
+        ], False)
     ]
 
 
@@ -151,8 +152,9 @@ def test_install_simple(mocked_utils, mocked_py):
             'touch ./brewey/.env',
             '/py -m dotenv.cli --quote never -f ./brewey/.env set {} edge'.format(RELEASE_KEY),
             '/py -m dotenv.cli --quote never -f ./brewey/.env set {} 0.0.0'.format(CFG_VERSION_KEY),
+            '/py -m dotenv.cli --quote never -f ./brewey/.env set {} False'.format(SKIP_CONFIRM_KEY),
             'sudo reboot',
-        ])
+        ], True)
     ]
 
 
@@ -194,7 +196,8 @@ def test_install_decline(mocked_utils, mocked_py):
             'touch ./brewey/.env',
             '/py -m dotenv.cli --quote never -f ./brewey/.env set {} edge'.format(RELEASE_KEY),
             '/py -m dotenv.cli --quote never -f ./brewey/.env set {} 0.0.0'.format(CFG_VERSION_KEY),
-        ])
+            '/py -m dotenv.cli --quote never -f ./brewey/.env set {} False'.format(SKIP_CONFIRM_KEY),
+        ], True)
     ]
 
 
@@ -277,6 +280,7 @@ def test_install_all(mocked_utils, mocked_py):
         'touch ./brewey/.env',
         '/py -m dotenv.cli --quote never -f ./brewey/.env set {} edge'.format(RELEASE_KEY),
         '/py -m dotenv.cli --quote never -f ./brewey/.env set {} 0.0.0'.format(CFG_VERSION_KEY),
+        '/py -m dotenv.cli --quote never -f ./brewey/.env set {} False'.format(SKIP_CONFIRM_KEY),
         'sudo reboot',
     ]
 

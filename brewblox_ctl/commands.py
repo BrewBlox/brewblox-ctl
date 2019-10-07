@@ -109,17 +109,20 @@ def install():
     # else:
     #     release = 'edge'
 
+    set_env_command = '{} -m dotenv.cli --quote never -f {}/.env set'.format(PY, target_dir)
+
     shell_commands += [
         'mkdir -p {}'.format(target_dir),
         'touch {}/.env'.format(target_dir),
-        '{} -m dotenv.cli --quote never -f {}/.env set {} {}'.format(PY, target_dir, RELEASE_KEY, release),
-        '{} -m dotenv.cli --quote never -f {}/.env set {} 0.0.0'.format(PY, target_dir, CFG_VERSION_KEY),
+        '{} {} {}'.format(set_env_command, RELEASE_KEY, release),
+        '{} {} 0.0.0'.format(set_env_command, CFG_VERSION_KEY),
+        '{} {} {}'.format(set_env_command, SKIP_CONFIRM_KEY, str(use_defaults)),
     ]
 
     if use_defaults or utils.confirm('A reboot is recommended. Do you want to do so?'):
         shell_commands.append('sudo reboot')
 
-    utils.run_all(shell_commands)
+    utils.run_all(shell_commands, not use_defaults)
 
 
 @cli.command()
