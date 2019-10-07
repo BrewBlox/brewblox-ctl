@@ -78,6 +78,44 @@ def test_restart(mocked_utils):
     ]
 
 
+def test_install_express(mocked_utils, mocked_py):
+    mocked_utils.command_exists.side_effect = [
+        True,  # check apt
+        True,  # docker
+        True,  # docker-compose
+    ]
+    mocked_utils.confirm.side_effect = [
+        True,  # express install
+    ]
+    mocked_utils.is_docker_user.side_effect = [
+        True,  # optsudo check
+        True,
+    ]
+    mocked_utils.getenv.side_effect = [
+        'USEY',
+    ]
+    mocked_utils.path_exists.side_effect = [
+        False,  # target dir
+    ]
+
+    runner = CliRunner()
+    assert runner.invoke(commands.install).exit_code == 0
+
+    assert mocked_utils.check_config.call_count == 0
+    assert mocked_utils.run_all.call_args_list == [
+        call([
+            'sudo apt update',
+            'sudo apt upgrade -y',
+            'sudo apt install -y libssl-dev libffi-dev',
+            'mkdir -p ./brewblox',
+            'touch ./brewblox/.env',
+            '/py -m dotenv.cli --quote never -f ./brewblox/.env set {} edge'.format(RELEASE_KEY),
+            '/py -m dotenv.cli --quote never -f ./brewblox/.env set {} 0.0.0'.format(CFG_VERSION_KEY),
+            'sudo reboot',
+        ])
+    ]
+
+
 def test_install_simple(mocked_utils, mocked_py):
     mocked_utils.command_exists.side_effect = [
         True,  # check apt
@@ -85,7 +123,9 @@ def test_install_simple(mocked_utils, mocked_py):
         True,  # docker-compose
     ]
     mocked_utils.confirm.side_effect = [
+        False,  # express install
         False,  # apt update
+        True,  # reboot
     ]
     mocked_utils.is_docker_user.side_effect = [
         True,  # optsudo check
@@ -111,6 +151,7 @@ def test_install_simple(mocked_utils, mocked_py):
             'touch ./brewey/.env',
             '/py -m dotenv.cli --quote never -f ./brewey/.env set {} edge'.format(RELEASE_KEY),
             '/py -m dotenv.cli --quote never -f ./brewey/.env set {} 0.0.0'.format(CFG_VERSION_KEY),
+            'sudo reboot',
         ])
     ]
 
@@ -122,10 +163,12 @@ def test_install_decline(mocked_utils, mocked_py):
         False,  # docker-compose
     ]
     mocked_utils.confirm.side_effect = [
+        False,  # express install
         False,  # apt update
         False,  # docker
         False,  # docker user
         False,  # docker-compose
+        False,  # reboot
     ]
     mocked_utils.is_docker_user.side_effect = [
         False,  # optsudo check
@@ -162,6 +205,7 @@ def test_install_cancel(mocked_utils, mocked_py):
         True,  # docker-compose
     ]
     mocked_utils.confirm.side_effect = [
+        False,  # express install
         False,  # apt update
         False,  # dir exists, don't continue
     ]
@@ -193,6 +237,7 @@ def test_install_all(mocked_utils, mocked_py):
         False,  # docker-compose
     ]
     mocked_utils.confirm.side_effect = [
+        False,  # express install
         True,  # apt update
         True,  # docker
         True,  # docker user
