@@ -6,6 +6,7 @@ import sys
 from os import getcwd
 from subprocess import CalledProcessError
 
+from click.exceptions import UsageError
 from dotenv import find_dotenv, load_dotenv
 
 from brewblox_ctl import click_helpers, commands, http, utils
@@ -58,6 +59,26 @@ def local_commands():  # pragma: no cover
         raise SystemExit(1)
 
 
+def usage_hint(message):
+    if 'No such command' in message and not utils.is_brewblox_cwd():
+        default_dir = '/home/{}/brewblox'.format(utils.getenv('USER'))
+        prompt = [
+            '',
+            'Many commands only work if your current directory is a BrewBlox directory.',
+        ]
+
+        if utils.path_exists('{}/docker-compose.yml'.format(default_dir)):
+            prompt += [
+                'It looks like you installed BrewBlox in the default location.',
+                'To navigate there, run:',
+                '',
+                '    cd {}'.format(default_dir),
+                ''
+            ]
+
+        print('\n'.join(prompt))
+
+
 def main():
     try:
         load_dotenv(find_dotenv(usecwd=True))
@@ -80,6 +101,11 @@ def main():
             ])
 
         cli(standalone_mode=False)
+
+    except UsageError as ex:
+        print(str(ex), file=sys.stderr)
+        usage_hint(str(ex))
+        raise SystemExit(1)
 
     except Exception as ex:
         print(str(ex), file=sys.stderr)
