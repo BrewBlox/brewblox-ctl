@@ -349,30 +349,38 @@ def test_bootloader(mocked_utils):
     mocked_utils.docker_tag.side_effect = [
         'tag',
         'tag',
+        'tag',
     ]
     mocked_utils.path_exists.side_effect = [
         True,
         False,
+        True,
     ]
 
     runner = CliRunner()
     assert runner.invoke(commands.bootloader).exit_code == 0
     assert runner.invoke(commands.bootloader).exit_code == 0
+    assert runner.invoke(commands.bootloader, args='--force').exit_code == 0
 
     assert mocked_utils.check_config.call_count == 0
-    assert mocked_utils.prompt_usb.call_count == 2
-    assert mocked_utils.run_all.call_count == 2
+    assert mocked_utils.prompt_usb.call_count == 3
+    assert mocked_utils.run_all.call_count == 3
 
     args1 = mocked_utils.run_all.call_args_list[0][0][0]
     args2 = mocked_utils.run_all.call_args_list[1][0][0]
+    args3 = mocked_utils.run_all.call_args_list[2][0][0]
 
     assert args1 == [
         'SUDO docker-compose down',
         'SUDO docker pull brewblox/firmware-flasher:tag',
         'SUDO docker run -it --rm --privileged brewblox/firmware-flasher:tag flash-bootloader',
     ]
-
     assert args2 == args1[1:]
+    assert args3 == [
+        'SUDO docker-compose down',
+        'SUDO docker pull brewblox/firmware-flasher:tag',
+        'SUDO docker run -it --rm --privileged brewblox/firmware-flasher:tag flash-bootloader --force',
+    ]
 
 
 def test_wifi(mocked_utils):

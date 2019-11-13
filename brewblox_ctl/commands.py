@@ -172,7 +172,8 @@ def flash(release, pull):
 
 @cli.command()
 @click.option('--release', default=None, help='BrewBlox release track')
-def bootloader(release):
+@click.option('--force', is_flag=True, help='Force flashing the bootloader')
+def bootloader(release, force):
     """Flash bootloader on Spark"""
     tag = release_tag(release)
     sudo = utils.optsudo()
@@ -185,8 +186,8 @@ def bootloader(release):
 
     shell_commands += [
         '{}docker pull brewblox/firmware-flasher:{}'.format(sudo, tag),
-        '{}docker run -it --rm --privileged brewblox/firmware-flasher:{} flash-bootloader'.format(
-            sudo, tag),
+        '{}docker run -it --rm --privileged brewblox/firmware-flasher:{} flash-bootloader{}'.format(
+            sudo, tag, ' --force' if force else ''),
     ]
 
     utils.prompt_usb()
