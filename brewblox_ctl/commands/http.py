@@ -12,7 +12,7 @@ import requests
 import urllib3
 from requests.exceptions import ConnectionError, HTTPError
 
-from brewblox_ctl import click_helpers
+from brewblox_ctl import click_helpers, utils
 
 RETRY_COUNT = 60
 RETRY_INTERVAL_S = 10
@@ -22,9 +22,9 @@ METHODS = ['wait', 'get', 'put', 'post', 'patch', 'delete']
 def wait(url):
     for i in range(RETRY_COUNT):
         with suppress(ConnectionError, HTTPError):
-            print('Connecting {}, attempt {}/{}'.format(url, i+1, RETRY_COUNT))
+            utils.info('Connecting {}, attempt {}/{}'.format(url, i+1, RETRY_COUNT))
             requests.get(url, verify=False).raise_for_status()
-            print('Success!')
+            utils.info('Success!')
             return
 
         sleep(RETRY_INTERVAL_S)
@@ -36,7 +36,7 @@ def cli():
     """Click group and entrypoint"""
 
 
-@cli.command()
+@cli.command(hidden=True)
 @click.argument('method', required=True,
                 type=click.Choice(METHODS))
 @click.argument('url', required=True)
@@ -49,7 +49,7 @@ def cli():
 @click.option('--pretty', is_flag=True, help='Pretty-print JSON response.')
 @click.option('--allow-fail', is_flag=True, help='Do not throw on HTTP errors.')
 def http(method, url, json_body, file, data, header, param, quiet, pretty, allow_fail):
-    """Send HTTP requests (debugging tool)"""
+    """Send HTTP requests"""
     urllib3.disable_warnings()
 
     if method == 'wait':

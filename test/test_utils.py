@@ -2,8 +2,8 @@
 Tests brewblox_ctl.utils
 """
 
-from subprocess import CalledProcessError
-from unittest.mock import call
+from os import path
+from subprocess import DEVNULL, STDOUT, CalledProcessError
 
 import pytest
 
@@ -22,9 +22,23 @@ def mocked_ext(mocker):
         'which',
         'machine',
         'check_output',
-        'check_call',
+        'run',
+        'set_key',
     ]
     return {k: mocker.patch(TESTED + '.' + k) for k in mocked}
+
+
+@pytest.fixture
+def mocked_opts(mocker):
+    opts = utils.ContextOpts()
+    mocker.patch(TESTED + '.ctx_opts').return_value = opts
+    return opts
+
+
+def test_ctx_opts():
+    # Will raise an error outside click context
+    with pytest.raises(RuntimeError):
+        utils.ctx_opts()
 
 
 def test_confirm(mocked_ext):
@@ -60,6 +74,25 @@ def test_check_ok(mocked_ext):
     m.side_effect = RuntimeError()
     with pytest.raises(RuntimeError):
         utils.check_ok('truly?')
+
+
+def test_prompt_usb(mocked_ext):
+    utils.prompt_usb()
+    assert mocked_ext['input'].call_count == 1
+
+
+def test_setenv(mocked_ext, mocked_opts):
+    set_mock = mocked_ext['set_key']
+
+    utils.setenv('key', 'val')
+    set_mock.assert_called_with(path.abspath('.env'), 'key', 'val', quote_mode='never')
+
+    utils.setenv('key', 'other', '.other-env')
+    set_mock.assert_called_with('.other-env', 'key', 'other', quote_mode='never')
+
+    mocked_opts.dry_run = True
+    utils.setenv('key', 'val-dry')
+    assert set_mock.call_count == 2
 
 
 def test_path_exists(mocked_ext):
@@ -127,18 +160,6 @@ def test_is_brewblox_cwd(mocked_ext):
     assert utils.is_brewblox_cwd()
 
 
-@pytest.mark.parametrize('combo', [
-    ('True', True),
-    ('False', False),
-    ('false', False),
-    ('1', True),
-    ('0', False)
-])
-def test_skipping_confirm(combo, mocked_ext):
-    mocked_ext['getenv_'].return_value = combo[0]
-    assert utils.skipping_confirm() == combo[1]
-
-
 def test_optsudo(mocker):
     m = mocker.patch(TESTED + '.is_docker_user')
     m.side_effect = [
@@ -162,24 +183,20 @@ def test_tag_prefix(combo, mocked_ext):
 
 
 def test_docker_tag(mocker):
-    mocker.patch(TESTED + '.tag_prefix').return_value = 'prefix'
     mocker.patch(TESTED + '.getenv').return_value = 'value'
+    mocker.patch(TESTED + '.tag_prefix').return_value = 'prefix-'
 
-    assert utils.docker_tag() == 'prefixvalue'
-    assert utils.docker_tag('release') == 'prefixrelease'
+    assert utils.docker_tag() == 'prefix-value'
+    assert utils.docker_tag('release') == 'prefix-release'
 
 
-@pytest.mark.parametrize('combo', [
-    (['armv7hf'], ['', 'edge'], 'rpi-edge'),
-    (['amd64'], ['stable'], 'stable'),
-    (['deep-thought'], ['stable'], 'stable'),
-])
-def test_ctl_lib_tag(combo, mocked_ext):
-    machine, env, result = combo
+def test_docker_tag_err(mocker):
+    mocker.patch(TESTED + '.getenv').return_value = None
+    mocker.patch(TESTED + '.tag_prefix').return_value = 'prefix-'
 
-    mocked_ext['machine'].side_effect = machine
-    mocked_ext['getenv_'].side_effect = env
-    assert utils.ctl_lib_tag() == result
+    assert utils.docker_tag('release') == 'prefix-release'
+    with pytest.raises(KeyError):
+        utils.docker_tag()
 
 
 def test_check_config(mocked_ext):
@@ -206,69 +223,92 @@ def test_check_config(mocked_ext):
         utils.check_config(required=False)
 
 
-def test_prompt_usb(mocked_ext):
-    utils.prompt_usb()
-    assert mocked_ext['input'].call_count == 1
+def test_sh(mocker):
+    m_run = mocker.patch(TESTED + '.run')
+    m_secho = mocker.patch(TESTED + '.click.secho')
+    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+
+    m_opts.dry_run = False
+    m_opts.verbose = False
+
+    # Single call
+    utils.sh('do things')
+    assert m_secho.call_count == 0
+    assert m_run.call_count == 1
+    m_run.assert_called_with('do things', shell=True, stderr=STDOUT, check=True)
+
+    m_run.reset_mock()
+    m_secho.reset_mock()
+
+    # Unchecked call
+    utils.sh('do naughty things', check=False)
+    assert m_secho.call_count == 0
+    assert m_run.call_count == 1
+    m_run.assert_called_with('do naughty things', shell=True, stderr=DEVNULL, check=False)
+
+    m_run.reset_mock()
+    m_secho.reset_mock()
+
+    # Dry run
+    utils.sh('invisible shenannigans', utils.ContextOpts(dry_run=True))
+    assert m_secho.call_count == 1
+    assert m_run.call_count == 0
+
+    m_run.reset_mock()
+    m_secho.reset_mock()
+
+    # List of commands
+    utils.sh(['do this', 'and this', 'and that'])
+    assert m_secho.call_count == 0
+    assert m_run.call_count == 3
+
+    m_run.reset_mock()
+    m_secho.reset_mock()
+
+    # Generator
+    def generate():
+        yield 'first'
+        yield 'second'
+
+    m_run.reset_mock()
+    utils.sh(generate(), utils.ContextOpts(verbose=True))
+    assert m_secho.call_count == 2
+    assert m_run.call_count == 2
+    m_run.assert_any_call('first', shell=True, stderr=STDOUT, check=True)
+    m_run.assert_called_with('second', shell=True, stderr=STDOUT, check=True)
 
 
-def test_announce(mocked_ext):
-    utils.announce(['cmd1', 'cmd2'])
-    assert mocked_ext['input'].call_count == 1
+def test_info(mocker):
+    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_secho = mocker.patch(TESTED + '.click.secho')
+
+    m_opts.quiet = True
+    utils.info('test')
+    assert m_secho.call_count == 0
+
+    m_opts.quiet = False
+    utils.info('test')
+    assert m_secho.call_count == 1
 
 
-def test_run(mocked_ext):
-    utils.run('cmd')
-    mocked_ext['check_call'].assert_called_once_with('cmd', shell=True, stderr=utils.STDOUT)
+def test_load_ctl_lib(mocker):
+    m_sudo = mocker.patch(TESTED + '.optsudo')
+    m_sh = mocker.patch(TESTED + '.sh')
+    m_getenv = mocker.patch(TESTED + '.getenv')
 
+    m_sudo.return_value = 'SUDO '
+    m_getenv.return_value = 'release'
 
-def test_run_all(mocked_ext, mocker):
-    s_m = mocker.patch(TESTED + '.skipping_confirm')
-    a_m = mocker.patch(TESTED + '.announce')
-    r_m = mocker.patch(TESTED + '.run')
+    utils.load_ctl_lib()
+    assert m_sh.call_count == 7
 
-    s_m.side_effect = [
-        True,
-        False,
-    ]
+    m_sh.reset_mock()
+    m_sudo.return_value = ''
+    utils.load_ctl_lib()
+    assert m_sh.call_count == 6
 
-    utils.run_all(['cmd1', 'cmd2'], False)
-    utils.run_all(['cmd3', 'cmd4'])
-    utils.run_all(['cmd5', 'cmd6'])
-
-    assert s_m.call_count == 2
-
-    assert r_m.call_args_list == [
-        call('cmd1'),
-        call('cmd2'),
-        call('cmd3'),
-        call('cmd4'),
-        call('cmd5'),
-        call('cmd6'),
-    ]
-
-    assert a_m.call_args_list == [
-        call(['cmd5', 'cmd6'])
-    ]
-
-
-def test_lib_loading_command(mocker):
-    ctl_lib_tag = mocker.patch(TESTED + '.ctl_lib_tag')
-    optsudo = mocker.patch(TESTED + '.optsudo')
-
-    ctl_lib_tag.side_effect = [
-        'edge',
-        'rpi-stable'
-    ]
-
-    optsudo.side_effect = [
-        '',
-        'sudo ',
-    ]
-
-    cmds = utils.lib_loading_commands()
-    assert len(cmds) == 6  # no chown
-    assert 'sudo' not in ' '.join(cmds)
-
-    cmds = utils.lib_loading_commands()
-    assert len(cmds) == 7  # sudo requires a chown
-    assert 'sudo' in ' '.join(cmds)
+    m_sh.reset_mock()
+    m_getenv.return_value = None
+    with pytest.raises(KeyError):
+        utils.load_ctl_lib()
+    assert m_sh.call_count == 0

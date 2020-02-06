@@ -8,9 +8,14 @@ from unittest.mock import call, mock_open
 import pytest
 from click.testing import CliRunner
 
-from brewblox_ctl import http
+from brewblox_ctl.commands import http
 
 TESTED = http.__name__
+
+
+@pytest.fixture
+def mock_info(mocker):
+    return mocker.patch(TESTED + '.utils.info')
 
 
 @pytest.fixture
@@ -31,21 +36,24 @@ def mock_retry_interval(mocker):
     return mocker.patch(TESTED + '.RETRY_INTERVAL_S', 0.001)
 
 
-def test_wait(mock_requests, mock_retry_interval):
-    http.wait('url')
+def test_wait(mock_requests, mock_retry_interval, mock_info):
+    runner = CliRunner()
+    result = runner.invoke(http.http, ['wait', 'url'])
+    assert not result.exception
     assert mock_requests.get.call_count == 1
 
 
-def test_wait_timeout(mocker, mock_requests, mock_retry_interval):
+def test_wait_timeout(mocker, mock_requests, mock_retry_interval, mock_info):
     mocker.patch(TESTED + '.RETRY_COUNT', 5)
     mock_requests.get.return_value.raise_for_status.side_effect = http.ConnectionError
 
-    with pytest.raises(TimeoutError):
-        http.wait('url')
+    runner = CliRunner()
+    result = runner.invoke(http.http, ['wait', 'url'])
+    assert isinstance(result.exception, TimeoutError)
     assert mock_requests.get.call_count == 5
 
 
-def test_http_wait(mock_requests, mock_wait):
+def test_http_wait(mock_requests, mock_wait, mock_info):
     runner = CliRunner()
     result = runner.invoke(http.http, ['wait', 'url'])
     assert result.exit_code == 0

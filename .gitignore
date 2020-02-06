@@ -71,6 +71,7 @@ target/
 
 # local testing
 dev/
+brewblox/
 
 # build files
 docker/source

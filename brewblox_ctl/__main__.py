@@ -1,40 +1,26 @@
 """
-Entrypoint for the BrewBlox commands menu
+Entrypoint for the Brewblox commands menu
 """
 
 import sys
-from os import getcwd
+from os import getcwd, path
 from subprocess import CalledProcessError
 
+import click
 from click.exceptions import UsageError
-from dotenv import find_dotenv, load_dotenv
+from dotenv import load_dotenv
 
-from brewblox_ctl import click_helpers, commands, http, utils
-
-HELPTEXT = """
-The BrewBlox management tool.
-
-It can be used to create and control BrewBlox configurations.
-When used from a BrewBlox installation directory, it will automatically load additional commands.
-
-If the command you're looking for was not found, please check if your current directory
-is a BrewBlox installation directory.
-
-By default, BrewBlox is installed to ~/brewblox.
-
-Example use:
-
-    brewblox-ctl install
-"""
+from brewblox_ctl import click_helpers, const, utils
+from brewblox_ctl.commands import docker, env, http, install
 
 
 def check_lib():
     if utils.is_brewblox_cwd() \
         and not utils.path_exists('./brewblox_ctl_lib/__init__.py') \
             and utils.confirm(
-                'brewblox-ctl requires extensions that match your BrewBlox release. ' +
+                'brewblox-ctl requires extensions that match your Brewblox release. ' +
                 'Do you want to download them now?'):
-        utils.run_all(utils.lib_loading_commands())
+        utils.load_ctl_lib(utils.ContextOpts(dry_run=False, verbose=True))
 
 
 def local_commands():  # pragma: no cover
@@ -64,12 +50,12 @@ def usage_hint(message):
         default_dir = '/home/{}/brewblox'.format(utils.getenv('USER'))
         prompt = [
             '',
-            'Many commands only work if your current directory is a BrewBlox directory.',
+            'Many commands only work if your current directory is a Brewblox directory.',
         ]
 
         if utils.path_exists('{}/docker-compose.yml'.format(default_dir)):
             prompt += [
-                'It looks like you installed BrewBlox in the default location.',
+                'It looks like you installed Brewblox in the default location.',
                 'To navigate there, run:',
                 '',
                 '    cd {}'.format(default_dir),
@@ -81,7 +67,7 @@ def usage_hint(message):
 
 def main():
     try:
-        load_dotenv(find_dotenv(usecwd=True))
+        load_dotenv(path.abspath('.env'))
 
         if utils.is_root():
             print('brewblox-ctl should not be run as root.')
@@ -89,16 +75,59 @@ def main():
 
         if utils.is_v6() \
             and not utils.confirm(
-                'Raspberry Pi models 1 and 0 are not supported. Do you want to continue?', False):
+                'Raspberry Pi models 0 and 1 are not supported. Do you want to continue?', False):
             raise SystemExit(0)
 
-        cli = click_helpers.OrderedCommandCollection(
-            help=HELPTEXT,
+        @click.group(
+            cls=click_helpers.OrderedCommandCollection,
             sources=[
-                commands.cli,
+                docker.cli,
+                install.cli,
+                env.cli,
                 http.cli,
                 *local_commands(),
             ])
+        @click.option('-y', '--yes',
+                      is_flag=True,
+                      envvar=const.SKIP_CONFIRM_KEY,
+                      help='Do not prompt to confirm commands.')
+        @click.option('--dry', '--dry-run',
+                      is_flag=True,
+                      help='Dry run mode: print commands to terminal instead of running them.')
+        @click.option('-q', '--quiet',
+                      is_flag=True,
+                      help='Show less detailed output.')
+        @click.option('-v', '--verbose',
+                      is_flag=True,
+                      help='Show more detailed output.')
+        @click.option('--color/--no-color',
+                      default=True,
+                      help='Format messages with unicode color codes')
+        @click.pass_context
+        def cli(ctx, yes, dry, quiet, verbose, color):  # pragma: no cover
+            """
+            The Brewblox management tool.
+
+            It can be used to create and control Brewblox configurations.
+            More commands are available when used in a Brewblox installation directory.
+
+            If the command you're looking for was not found, please check your current directory.
+
+            By default, Brewblox is installed to ~/brewblox.
+
+            Example calls:
+
+            \b
+                brewblox-ctl install
+                brewblox-ctl --quiet down
+                brewblox-ctl --verbose up
+            """
+            opts = ctx.ensure_object(utils.ContextOpts)
+            opts.dry_run = dry
+            opts.skip_confirm = yes
+            opts.quiet = quiet
+            opts.verbose = verbose
+            opts.color = color
 
         cli(standalone_mode=False)
 

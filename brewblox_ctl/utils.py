@@ -8,10 +8,32 @@ from os import getenv as getenv_
 from os import path
 from platform import machine
 from shutil import which
-from subprocess import STDOUT, CalledProcessError, check_call, check_output
+from subprocess import DEVNULL, STDOUT, CalledProcessError, check_output, run
+from types import GeneratorType
 
-from brewblox_ctl.const import (CFG_VERSION_KEY, LIB_RELEASE_KEY, RELEASE_KEY,
-                                SKIP_CONFIRM_KEY)
+import click
+from dotenv import set_key
+
+from brewblox_ctl import const
+
+
+class ContextOpts():
+
+    def __init__(self,
+                 dry_run=False,
+                 quiet=False,
+                 verbose=False,
+                 skip_confirm=False,
+                 color=True):
+        self.dry_run = dry_run
+        self.quiet = quiet
+        self.verbose = verbose
+        self.skip_confirm = skip_confirm
+        self.color = color
+
+
+def ctx_opts():
+    return click.get_current_context().find_object(ContextOpts)
 
 
 def confirm(question, default=True):
@@ -40,8 +62,62 @@ def check_ok(cmd):
         return False
 
 
-def getenv(env, default=None):
-    return getenv_(env, default)
+def prompt_usb():
+    input('Please press ENTER when your Spark is connected over USB')
+
+
+def confirm_mode():  # pragma: no cover
+    opts = ctx_opts()
+    if opts.skip_confirm or opts.dry_run:
+        return
+
+    # Print help text for current command (without options)
+    ctx = click.get_current_context()
+    fmt = ctx.make_formatter()
+    cmd = ctx.command
+    cmd.format_usage(ctx, fmt)
+    cmd.format_help_text(ctx, fmt)
+    click.echo(fmt.getvalue().rstrip('\n'))
+
+    suffix = ' ({}es, {}o, {}erbose, {}ry-run) [press ENTER for default value \'yes\']'.format(
+        *[click.style(v, underline=True) for v in 'ynvd']
+    )
+
+    retv = click.prompt('\nDo you want to continue?',
+                        type=click.Choice([
+                            'y',
+                            'yes',
+                            'n',
+                            'no',
+                            'v',
+                            'verbose',
+                            'd',
+                            'dry-run',
+                        ], case_sensitive=False),
+                        default='yes',
+                        show_default=False,
+                        show_choices=False,
+                        prompt_suffix=suffix)
+
+    v = retv.lower()
+    if v in ('n', 'no'):
+        ctx.abort()
+    elif v in ('d', 'dry-run'):
+        opts.dry_run = True
+    elif v in ('v', 'verbose'):
+        opts.verbose = True
+
+
+def getenv(key, default=None):
+    return getenv_(key, default)
+
+
+def setenv(key, value, dotenv_path=path.abspath('.env')):
+    opts = ctx_opts()
+    if opts.dry_run or opts.verbose:
+        click.secho('{} {}={}'.format(const.LOG_ENV, key, value), fg='magenta', color=opts.color)
+    if not opts.dry_run:
+        set_key(dotenv_path, key, value, quote_mode='never')
 
 
 def path_exists(path_name):
@@ -69,11 +145,7 @@ def is_docker_user():
 
 
 def is_brewblox_cwd():
-    return bool(getenv(CFG_VERSION_KEY))
-
-
-def skipping_confirm():
-    return bool(strtobool(getenv(SKIP_CONFIRM_KEY, 'false')))
+    return bool(getenv(const.CFG_VERSION_KEY))
 
 
 def optsudo():
@@ -85,14 +157,9 @@ def tag_prefix():
 
 
 def docker_tag(release=None):
-    return '{}{}'.format(
-        tag_prefix(),
-        release or getenv(RELEASE_KEY, 'stable')
-    )
-
-
-def ctl_lib_tag():
-    release = getenv(LIB_RELEASE_KEY) or getenv(RELEASE_KEY, 'stable')
+    release = release or getenv(const.RELEASE_KEY)
+    if not release:
+        raise KeyError('No Brewblox release specified. Please run this command in a Brewblox directory.')
     return '{}{}'.format(tag_prefix(), release)
 
 
@@ -100,54 +167,47 @@ def check_config(required=True):
     if is_brewblox_cwd():
         return True
     elif required:
-        print('Please run brewblox-ctl in the same directory as your docker-compose.yml file.')
+        click.echo('Please run brewblox-ctl in a Brewblox directory.')
         raise SystemExit(1)
     elif confirm(
-        'No BrewBlox configuration found in current directory ({}). '.format(getcwd()) +
+        'No Brewblox configuration found in current directory ({}). '.format(getcwd()) +
             'Are you sure you want to continue?'):
         return False
     else:
         raise SystemExit(0)
 
 
-def prompt_usb():
-    input('Please press ENTER when your Spark is connected over USB')
+def sh(shell_cmd, opts=None, check=True):
+    if isinstance(shell_cmd, (GeneratorType, list, tuple)):
+        for cmd in shell_cmd:
+            sh(cmd, opts, check)
+    else:
+        opts = opts or ctx_opts()
+        if opts.verbose or opts.dry_run:
+            click.secho('{} {}'.format(const.LOG_SHELL, shell_cmd), fg='magenta', color=opts.color)
+        if not opts.dry_run:
+            stderr = STDOUT if check else DEVNULL
+            run(shell_cmd, shell=True, stderr=stderr, check=check)
 
 
-def announce(shell_cmds):
-    print('The following shell commands will be used: \n')
-    for cmd in shell_cmds:
-        print('\t', cmd)
-    print('')
-    input('Press ENTER to continue, Ctrl+C to cancel')
+def info(msg):
+    opts = ctx_opts()
+    if not opts.quiet:
+        click.secho('{} {}'.format(const.LOG_INFO, msg), fg='cyan', color=opts.color)
 
 
-def run(shell_cmd):
-    print('\n' + 'Running command: \n\t', shell_cmd, '\n')
-    return check_call(shell_cmd, shell=True, stderr=STDOUT)
-
-
-def run_all(shell_cmds, prompt=True):
-    if prompt and not skipping_confirm():
-        announce(shell_cmds)
-    return [run(cmd) for cmd in shell_cmds]
-
-
-def lib_loading_commands():
-    tag = ctl_lib_tag()
+def load_ctl_lib(opts=None):
     sudo = optsudo()
-    shell_commands = [
-        '{}docker rm ctl-lib 2> /dev/null || true'.format(sudo),
-        '{}docker pull brewblox/brewblox-ctl-lib:{} || true'.format(sudo, tag),
-        '{}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{}'.format(sudo, tag),
-        'rm -rf ./brewblox_ctl_lib 2> /dev/null || true ',
-        '{}docker cp ctl-lib:/brewblox_ctl_lib ./'.format(sudo),
-        '{}docker rm ctl-lib'.format(sudo),
-    ]
+    release = getenv(const.LIB_RELEASE_KEY) or getenv(const.RELEASE_KEY)
+    if not release:
+        raise KeyError('Failed to identify Brewblox release.')
+
+    sh('{}docker rm ctl-lib'.format(sudo), opts, check=False)
+    sh('{}docker pull brewblox/brewblox-ctl-lib:{}'.format(sudo, release), opts)
+    sh('{}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{}'.format(sudo, release), opts)
+    sh('rm -rf ./brewblox_ctl_lib', opts, check=False)
+    sh('{}docker cp ctl-lib:/brewblox_ctl_lib ./'.format(sudo), opts)
+    sh('{}docker rm ctl-lib'.format(sudo), opts)
 
     if sudo:
-        shell_commands += [
-            'sudo chown -R $USER ./brewblox_ctl_lib/',
-        ]
-
-    return shell_commands
+        sh('sudo chown -R $USER ./brewblox_ctl_lib/', opts)
