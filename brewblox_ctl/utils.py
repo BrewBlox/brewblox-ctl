@@ -8,10 +8,13 @@ from os import getenv as getenv_
 from os import path
 from platform import machine
 from shutil import which
-from subprocess import STDOUT, CalledProcessError, check_call, check_output
+from subprocess import DEVNULL, STDOUT, CalledProcessError, check_output, run
+from types import GeneratorType
 
-from brewblox_ctl.const import (CFG_VERSION_KEY, LIB_RELEASE_KEY, RELEASE_KEY,
-                                SKIP_CONFIRM_KEY)
+import click
+import dotenv
+
+from brewblox_ctl.const import CFG_VERSION_KEY, LIB_RELEASE_KEY, RELEASE_KEY
 
 
 def confirm(question, default=True):
@@ -32,6 +35,10 @@ def select(question, default=''):
     return answer or default
 
 
+def prompt_usb():
+    input('Please press ENTER when your Spark is connected over USB')
+
+
 def check_ok(cmd):
     try:
         check_output(cmd, shell=True, stderr=STDOUT)
@@ -40,8 +47,31 @@ def check_ok(cmd):
         return False
 
 
-def getenv(env, default=None):
-    return getenv_(env, default)
+def ctx_obj():
+    return click.get_current_context().ensure_object(dict)
+
+
+def dry():
+    return ctx_obj().get('dry_run', False)
+
+
+def quiet():
+    return ctx_obj().get('quiet', False)
+
+
+def verbose():
+    return ctx_obj().get('verbose', False)
+
+
+def getenv(key, default=None):
+    return getenv_(key, default)
+
+
+def setenv(key, value, dotenv_path=path.abspath('.env')):
+    if dry() or verbose():
+        click.echo('[ENV] {}={}'.format(key, value))
+    if not dry():
+        dotenv.set_key(dotenv_path, key, value, quote_mode='never')
 
 
 def path_exists(path_name):
@@ -70,10 +100,6 @@ def is_docker_user():
 
 def is_brewblox_cwd():
     return bool(getenv(CFG_VERSION_KEY))
-
-
-def skipping_confirm():
-    return bool(strtobool(getenv(SKIP_CONFIRM_KEY, 'false')))
 
 
 def optsudo():
@@ -110,44 +136,65 @@ def check_config(required=True):
         raise SystemExit(0)
 
 
-def prompt_usb():
-    input('Please press ENTER when your Spark is connected over USB')
+def confirm_mode():
+    obj = ctx_obj()
+    if obj['skip_confirm'] or obj['dry_run']:
+        return
+
+    # Print help text for current command (without options)
+    ctx = click.get_current_context()
+    fmt = ctx.make_formatter()
+    cmd = ctx.command
+    cmd.format_usage(ctx, fmt)
+    cmd.format_help_text(ctx, fmt)
+    click.echo(fmt.getvalue().rstrip('\n'))
+
+    retv = click.prompt('\nDo you want to continue?',
+                        type=click.Choice([
+                            'Yes',
+                            'No',
+                            'dry-run',
+                        ], case_sensitive=False),
+                        default='Yes',
+                        show_default=False,
+                        prompt_suffix=' [press ENTER for default value \'Yes\']')
+
+    if retv.lower() == 'no':
+        ctx.abort()
+    elif retv.lower() == 'dry-run':
+        obj['dry_run'] = True
 
 
-def announce(shell_cmds):
-    print('The following shell commands will be used: \n')
-    for cmd in shell_cmds:
-        print('\t', cmd)
-    print('')
-    input('Press ENTER to continue, Ctrl+C to cancel')
+def sh(shell_cmd, opts=None, check=True):
+    if isinstance(shell_cmd, (GeneratorType, list, tuple)):
+        for cmd in shell_cmd:
+            sh(cmd)
+    else:
+        obj = opts or ctx_obj()
+        if obj['verbose'] or obj['dry_run']:
+            click.echo('[SHELL] {}'.format(shell_cmd))
+        if not obj['dry_run']:
+            stderr = STDOUT if check else DEVNULL
+            run(shell_cmd, shell=True, stderr=stderr, check=check)
 
 
-def run(shell_cmd):
-    print('\n' + 'Running command: \n\t', shell_cmd, '\n')
-    return check_call(shell_cmd, shell=True, stderr=STDOUT)
+def info(msg):
+    if not quiet():
+        click.echo(msg)
 
 
-def run_all(shell_cmds, prompt=True):
-    if prompt and not skipping_confirm():
-        announce(shell_cmds)
-    return [run(cmd) for cmd in shell_cmds]
-
-
-def lib_loading_commands():
+def load_ctl_lib(opts=None):
     tag = ctl_lib_tag()
     sudo = optsudo()
-    shell_commands = [
+
+    sh([
         '{}docker rm ctl-lib 2> /dev/null || true'.format(sudo),
         '{}docker pull brewblox/brewblox-ctl-lib:{} || true'.format(sudo, tag),
         '{}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{}'.format(sudo, tag),
         'rm -rf ./brewblox_ctl_lib 2> /dev/null || true ',
         '{}docker cp ctl-lib:/brewblox_ctl_lib ./'.format(sudo),
         '{}docker rm ctl-lib'.format(sudo),
-    ]
+    ], opts)
 
     if sudo:
-        shell_commands += [
-            'sudo chown -R $USER ./brewblox_ctl_lib/',
-        ]
-
-    return shell_commands
+        sh('sudo chown -R $USER ./brewblox_ctl_lib/', opts)
