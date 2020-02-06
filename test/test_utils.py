@@ -21,7 +21,6 @@ def mocked_ext(mocker):
         'path',
         'which',
         'machine',
-        'check_output',
         'run',
         'set_key',
     ]
@@ -66,7 +65,7 @@ def test_select(mocked_ext):
 
 
 def test_check_ok(mocked_ext):
-    m = mocked_ext['check_output']
+    m = mocked_ext['run']
     assert utils.check_ok('whatever')
     m.side_effect = CalledProcessError(1, '')
     assert not utils.check_ok('really?')
@@ -140,14 +139,14 @@ def test_is_v6(combo, mocked_ext):
 def test_is_root(mocked_ext):
     assert utils.is_root()
 
-    mocked_ext['check_output'].side_effect = CalledProcessError(1, 'permission denied')
+    mocked_ext['run'].side_effect = CalledProcessError(1, 'permission denied')
     assert not utils.is_root()
 
 
 def test_is_docker_user(mocked_ext):
     assert utils.is_docker_user()
 
-    mocked_ext['check_output'].side_effect = CalledProcessError(1, 'not found')
+    mocked_ext['run'].side_effect = CalledProcessError(1, 'not found')
     assert not utils.is_docker_user()
 
 

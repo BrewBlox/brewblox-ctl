@@ -132,12 +132,12 @@ def main():
         cli(standalone_mode=False)
 
     except UsageError as ex:
-        print(str(ex), file=sys.stderr)
+        click.echo(str(ex), err=True)
         usage_hint(str(ex))
         raise SystemExit(1)
 
     except Exception as ex:
-        print(str(ex), file=sys.stderr)
+        click.echo(str(ex), err=True)
         raise SystemExit(1)
 
 

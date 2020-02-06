@@ -8,7 +8,7 @@ from os import getenv as getenv_
 from os import path
 from platform import machine
 from shutil import which
-from subprocess import DEVNULL, STDOUT, CalledProcessError, check_output, run
+from subprocess import DEVNULL, STDOUT, CalledProcessError, run
 from types import GeneratorType
 
 import click
@@ -52,14 +52,6 @@ def select(question, default=''):
         question,
         '[press ENTER for default value \'{}\']'.format(default) if default else ''))
     return answer or default
-
-
-def check_ok(cmd):
-    try:
-        check_output(cmd, shell=True, stderr=STDOUT)
-        return True
-    except CalledProcessError:
-        return False
 
 
 def prompt_usb():
@@ -188,6 +180,14 @@ def sh(shell_cmd, opts=None, check=True):
         if not opts.dry_run:
             stderr = STDOUT if check else DEVNULL
             run(shell_cmd, shell=True, stderr=stderr, check=check)
+
+
+def check_ok(cmd):
+    try:
+        run(cmd, shell=True, stderr=DEVNULL, check=True)
+        return True
+    except CalledProcessError:
+        return False
 
 
 def info(msg):
