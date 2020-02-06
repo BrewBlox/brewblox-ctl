@@ -117,13 +117,13 @@ def prepare_flasher(release, pull):
     tag = utils.docker_tag(release)
     sudo = utils.optsudo()
 
-    if utils.path_exists('./docker-compose.yml'):
-        utils.info('Stopping services...')
-        sh('{}docker-compose down'.format(sudo))
-
     if pull:
         utils.info('Pulling flasher image...')
         sh('{}docker pull brewblox/firmware-flasher:{}'.format(sudo, tag))
+
+    if utils.path_exists('./docker-compose.yml'):
+        utils.info('Stopping services...')
+        sh('{}docker-compose down'.format(sudo))
 
 
 def run_flasher(release, args):
@@ -138,6 +138,7 @@ def run_flasher(release, args):
 def flash(release, pull):
     """Flash firmware on Spark.
 
+    This requires the Spark to be connected over USB.
 
     \b
     Steps:
@@ -161,6 +162,10 @@ def flash(release, pull):
 def bootloader(release, pull, force):
     """Flash bootloader on Spark.
 
+    The bootloader is updated only very rarely.
+    You do not have to run this command for every update.
+
+    This requires the Spark to be connected over USB.
 
     \b
     Steps:
@@ -182,6 +187,7 @@ def bootloader(release, pull, force):
 def wifi(release, pull):
     """Configure Spark Wifi settings.
 
+    This requires the Spark to be connected over USB.
 
     \b
     Steps:

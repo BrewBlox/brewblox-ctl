@@ -66,7 +66,7 @@ def prompt_usb():
     input('Please press ENTER when your Spark is connected over USB')
 
 
-def confirm_mode():
+def confirm_mode():  # pragma: no cover
     opts = ctx_opts()
     if opts.skip_confirm or opts.dry_run:
         return
@@ -180,7 +180,7 @@ def check_config(required=True):
 def sh(shell_cmd, opts=None, check=True):
     if isinstance(shell_cmd, (GeneratorType, list, tuple)):
         for cmd in shell_cmd:
-            sh(cmd)
+            sh(cmd, opts, check)
     else:
         opts = opts or ctx_opts()
         if opts.verbose or opts.dry_run:
