@@ -43,8 +43,7 @@ def test_check_lib(mocked_utils):
     main.check_lib()  # files exist
     main.check_lib()  # not a brewblox cwd
 
-    assert mocked_utils.lib_loading_commands.call_count == 1
-    assert mocked_utils.run_all.call_count == 1
+    assert mocked_utils.load_ctl_lib.call_count == 1
 
 
 def test_main(mocked_utils, mocker):

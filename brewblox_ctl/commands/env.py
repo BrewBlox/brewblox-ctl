@@ -26,7 +26,7 @@ def env():
 def skip_confirm(value):
     """Auto-answer 'yes' when prompted to confirm commands."""
     utils.check_config()
-    utils.setenv(const.SKIP_CONFIRM_KEY, value)
+    utils.setenv(const.SKIP_CONFIRM_KEY, value.lower())
 
 
 @env.command(name='show')

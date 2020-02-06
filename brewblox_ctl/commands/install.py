@@ -11,106 +11,110 @@ from brewblox_ctl import click_helpers, const, utils
 from brewblox_ctl.utils import sh
 
 
-def release_tag(release):
-    if not release and not utils.is_brewblox_cwd():
-        print('Please run this command in a BrewBlox directory, or use the --release argument')
-        raise SystemExit(1)
-
-    return utils.docker_tag(release)
-
-
 @click.group(cls=click_helpers.OrderedGroup)
 def cli():
     """Command collector"""
 
 
 @cli.command()
-@click.option('--express',
-              is_flag=True,
+@click.option('--use-defaults/--no-use-defaults',
               default=True,
               prompt='Do you want to install with default settings?',
               help='Use default settings for installation')
-def install(express):
-    """Install a new Brewblox system
+@click.option('--dir',
+              default='./brewblox',
+              help='Install directory.')
+@click.option('--release',
+              default='edge',
+              help='Brewblox release track.')
+def install(use_defaults, dir, release):
+    """Create and prepare brewblox install directory.
 
-    \f
+    Brewblox can be installed multiple times on the same computer.
+    Global dependencies (Docker, docker-compose) are shared, and system-specific
+    settings and databases are stored in an installation directory (default: ~/brewblox).
+
+    To get a working system, first run `brewblox-ctl install`,
+    then navigate to the installation directory, and run `brewblox-ctl setup`.
+
+    After installing Docker, or adding the user to the 'docker' group, the computer must be rebooted.
+
+    By default, `brewblox-ctl install` attempts to download packages using the Apt package manager.
+    If you are using a system without Apt (eg. Synology NAS), this step will be skipped.
+    You will need to manually install any missing libraries.
+
     \b
     Steps:
-        - Install apt packages.
+        - Install Apt packages.
         - Install Docker.
-        - Add user to 'docker' group.
         - Install docker-compose.
+        - Add user to 'docker' group.
         - Create install directory.
         - Set variables in .env file.
         - Reboot.
     """
     utils.confirm_mode()
 
-    if utils.command_exists('apt') \
-            and (express or utils.confirm('Do you want to install apt packages?')):
-        utils.info('Installing apt packages...')
+    # Install Apt packages
+    apt_deps = 'libssl-dev libffi-dev'
+    if not utils.command_exists('apt'):
+        utils.info('Apt is not available. You may need to find another way to install dependencies.')
+        utils.info('Apt packages: "{}"'.format(apt_deps))
+    elif use_defaults or utils.confirm('Do you want to install Apt packages "{}"?'.format(apt_deps)):
+        utils.info('Installing Apt packages...')
         sh([
             'sudo apt update',
             'sudo apt upgrade -y',
-            'sudo apt install -y libssl-dev libffi-dev',
+            'sudo apt install -y {}'.format(apt_deps),
         ])
 
+    # Install Docker
     if utils.command_exists('docker'):
         utils.info('Docker is already installed, skipping...')
-    elif express or utils.confirm('Do you want to install Docker?'):
+    elif use_defaults or utils.confirm('Do you want to install Docker?'):
         utils.info('Installing Docker...')
         sh('curl -sL get.docker.com | sh')
 
-    if utils.is_docker_user():
-        print('{} already belongs to the Docker group, skipping...'.format(utils.getenv('USER')))
-    elif express or utils.confirm('Do you want to run Docker commands without sudo?'):
-        utils.info('Adding user to \'docker\' group...')
-        sh('sudo usermod -aG docker $USER')
-
+    # Install docker-compose
     if utils.command_exists('docker-compose'):
-        print('docker-compose is already installed, skipping...')
-    elif express or utils.confirm('Do you want to install docker-compose (from pip)?'):
+        utils.info('docker-compose is already installed, skipping...')
+    elif use_defaults or utils.confirm('Do you want to install docker-compose (from pip)?'):
         utils.info('Installing docker-compose...')
         sh('sudo {} -m pip install -U docker-compose'.format(const.PY))
 
-    if express:
-        target_dir = './brewblox'
-    else:
-        target_dir = utils.select(
-            'In which directory do you want to install the BrewBlox configuration?',
-            './brewblox'
-        ).rstrip('/ \t\n')
+    # Add user to 'docker' group
+    user = utils.getenv('USER')
+    if utils.is_docker_user():
+        utils.info('{} already belongs to the Docker group, skipping...'.format(user))
+    elif use_defaults or utils.confirm('Do you want to run Docker commands without sudo?'):
+        utils.info('Adding {} to \'docker\' group...'.format(user))
+        sh('sudo usermod -aG docker $USER')
 
-    if utils.path_exists(target_dir):
-        if not utils.confirm('{} already exists. Do you want to continue?'.format(target_dir)):
+    # Create install directory
+    if utils.path_exists(dir):
+        if not utils.confirm('{} already exists. Do you want to continue?'.format(dir)):
             return
 
-    # TODO(Bob) Wait until stable is actually stable before offering new users a choice
-    release = 'edge'
-    # if utils.confirm('Do you want to wait for stable releases?'):
-    #     release = 'stable'
-    # else:
-    #     release = 'edge'
+    utils.info('Creating install directory ({})...'.format(dir))
+    sh('mkdir -p {}'.format(dir))
 
-    dotenv_path = path.abspath('{}/.env'.format(target_dir))
-
-    utils.info('Creating install directory ({})...'.format(target_dir))
-    sh('mkdir -p {}'.format(target_dir))
-
+    # Set variables in .env file
     utils.info('Setting variables in .env file...')
+    dotenv_path = path.abspath('{}/.env'.format(dir))
     sh('touch {}'.format(dotenv_path))
     utils.setenv(const.RELEASE_KEY, release, dotenv_path)
     utils.setenv(const.CFG_VERSION_KEY, '0.0.0', dotenv_path)
-    utils.setenv(const.SKIP_CONFIRM_KEY, str(express), dotenv_path)
+    utils.setenv(const.SKIP_CONFIRM_KEY, str(use_defaults), dotenv_path)
 
-    if express or utils.confirm('A reboot is recommended. Do you want to do so?'):
+    # Reboot
+    if use_defaults or utils.confirm('Do you want to reboot now?'):
         utils.info('Rebooting in 10 seconds...')
         sleep(10)
         sh('sudo reboot')
 
 
 def prepare_flasher(release, pull):
-    tag = release_tag(release)
+    tag = utils.docker_tag(release)
     sudo = utils.optsudo()
 
     if utils.path_exists('./docker-compose.yml'):
@@ -123,7 +127,7 @@ def prepare_flasher(release, pull):
 
 
 def run_flasher(release, args):
-    tag = release_tag(release)
+    tag = utils.docker_tag(release)
     sudo = utils.optsudo()
     sh('{}docker run -it --rm --privileged brewblox/firmware-flasher:{} {}'.format(sudo, tag, args))
 
@@ -132,9 +136,9 @@ def run_flasher(release, args):
 @click.option('--release', default=None, help='BrewBlox release track')
 @click.option('--pull/--no-pull', default=True)
 def flash(release, pull):
-    """Flash firmware on Spark
+    """Flash firmware on Spark.
 
-    \f
+
     \b
     Steps:
         - Stop running services.
@@ -155,9 +159,9 @@ def flash(release, pull):
 @click.option('--pull/--no-pull', default=True)
 @click.option('--force', is_flag=True, help='Force flashing the bootloader')
 def bootloader(release, pull, force):
-    """Flash bootloader on Spark
+    """Flash bootloader on Spark.
 
-    \f
+
     \b
     Steps:
         - Stop running services.
@@ -176,9 +180,9 @@ def bootloader(release, pull, force):
 @click.option('--release', default=None, help='BrewBlox release track')
 @click.option('--pull/--no-pull', default=True)
 def wifi(release, pull):
-    """Connect Spark to Wifi
+    """Configure Spark Wifi settings.
 
-    \f
+
     \b
     Steps:
         - Stop running services.

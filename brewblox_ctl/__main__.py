@@ -20,7 +20,7 @@ def check_lib():
             and utils.confirm(
                 'brewblox-ctl requires extensions that match your Brewblox release. ' +
                 'Do you want to download them now?'):
-        utils.load_ctl_lib({'dry_run': False, 'verbose': True})
+        utils.load_ctl_lib(utils.ContextOpts(dry_run=False, verbose=True))
 
 
 def local_commands():  # pragma: no cover
@@ -91,25 +91,27 @@ def main():
                       is_flag=True,
                       envvar=const.SKIP_CONFIRM_KEY,
                       help='Do not prompt to confirm commands.')
-        @click.option('--dry-run',
+        @click.option('--dry', '--dry-run',
                       is_flag=True,
-                      help='Dry run mode: echo commands to output instead of running them.')
+                      help='Dry run mode: print commands to terminal instead of running them.')
         @click.option('-q', '--quiet',
                       is_flag=True,
-                      help='Show less detailed command output.')
+                      help='Show less detailed output.')
         @click.option('-v', '--verbose',
                       is_flag=True,
-                      help='Show more detailed command output.')
+                      help='Show more detailed output.')
+        @click.option('--color/--no-color',
+                      default=True,
+                      help='Format messages with unicode color codes')
         @click.pass_context
-        def cli(ctx, yes, dry_run, quiet, verbose):
+        def cli(ctx, yes, dry, quiet, verbose, color):  # pragma: no cover
             """
             The Brewblox management tool.
 
             It can be used to create and control Brewblox configurations.
-            When used from a Brewblox installation directory, it will automatically load additional commands.
+            More commands are available when used in a Brewblox installation directory.
 
-            If the command you're looking for was not found, please check if your current directory
-            is a Brewblox installation directory.
+            If the command you're looking for was not found, please check your current directory.
 
             By default, Brewblox is installed to ~/brewblox.
 
@@ -120,13 +122,12 @@ def main():
                 brewblox-ctl --quiet down
                 brewblox-ctl --verbose up
             """
-            obj = ctx.ensure_object(dict)
-            obj.update({
-                'skip_confirm': yes,
-                'dry_run': dry_run,
-                'quiet': quiet,
-                'verbose': verbose
-            })
+            opts = ctx.ensure_object(utils.ContextOpts)
+            opts.dry_run = dry
+            opts.skip_confirm = yes
+            opts.quiet = quiet
+            opts.verbose = verbose
+            opts.color = color
 
         cli(standalone_mode=False)
 
