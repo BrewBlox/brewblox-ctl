@@ -8,7 +8,7 @@ from os import getenv as getenv_
 from os import path
 from platform import machine
 from shutil import which
-from subprocess import DEVNULL, STDOUT, CalledProcessError, run
+from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, run
 from types import GeneratorType
 
 import click
@@ -169,17 +169,26 @@ def check_config(required=True):
         raise SystemExit(0)
 
 
-def sh(shell_cmd, opts=None, check=True):
+def sh(shell_cmd, opts=None, check=True, capture=False, silent=False):
     if isinstance(shell_cmd, (GeneratorType, list, tuple)):
-        for cmd in shell_cmd:
-            sh(cmd, opts, check)
+        return [sh(cmd, opts, check, capture, silent) for cmd in shell_cmd]
     else:
         opts = opts or ctx_opts()
         if opts.verbose or opts.dry_run:
             click.secho('{} {}'.format(const.LOG_SHELL, shell_cmd), fg='magenta', color=opts.color)
         if not opts.dry_run:
-            stderr = STDOUT if check else DEVNULL
-            run(shell_cmd, shell=True, stderr=stderr, check=check)
+            stderr = STDOUT if check and not silent else DEVNULL
+            stdout = PIPE if capture or silent else None
+
+            result = run(shell_cmd,
+                         shell=True,
+                         universal_newlines=capture,
+                         stderr=stderr,
+                         stdout=stdout,
+                         check=check)
+            if capture:
+                return result.stdout
+        return ''
 
 
 def check_ok(cmd):

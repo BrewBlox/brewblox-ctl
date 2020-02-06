@@ -91,7 +91,7 @@ def main():
                       is_flag=True,
                       envvar=const.SKIP_CONFIRM_KEY,
                       help='Do not prompt to confirm commands.')
-        @click.option('--dry', '--dry-run',
+        @click.option('-d', '--dry', '--dry-run',
                       is_flag=True,
                       help='Dry run mode: print commands to terminal instead of running them.')
         @click.option('-q', '--quiet',
@@ -137,8 +137,11 @@ def main():
         raise SystemExit(1)
 
     except Exception as ex:
-        click.echo(str(ex), err=True)
-        raise SystemExit(1)
+        if utils.getenv(const.DEBUG_KEY):
+            raise ex
+        else:
+            click.echo(str(ex), err=True)
+            raise SystemExit(1)
 
 
 if __name__ == '__main__':
