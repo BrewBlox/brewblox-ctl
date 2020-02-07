@@ -5,6 +5,7 @@ Tests brewblox_ctl.__main__
 import pytest
 
 from brewblox_ctl import __main__ as main
+from brewblox_ctl import utils
 
 TESTED = main.__name__
 
@@ -50,8 +51,10 @@ def test_main(mocked_utils, mocker):
     mocked_utils.is_root.return_value = False
     mocked_utils.is_v6.return_value = False
     mocked_utils.getenv.return_value = None
+    mocked_utils.ContextOpts = utils.ContextOpts
 
     main.main(['--help'])
+    main.main(['env', 'get', 'USER'])
 
 
 def test_is_root(mocked_utils):

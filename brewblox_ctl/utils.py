@@ -17,7 +17,7 @@ from dotenv import set_key
 from brewblox_ctl import const
 
 
-class ContextOpts():
+class ContextOpts:
 
     def __init__(self,
                  dry_run=False,

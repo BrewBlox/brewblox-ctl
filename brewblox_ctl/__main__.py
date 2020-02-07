@@ -136,7 +136,7 @@ def main(args=sys.argv[1:]):
         usage_hint(str(ex))
         raise SystemExit(1)
 
-    except Exception as ex:
+    except Exception as ex:  # pragma: no cover
         if utils.getenv(const.DEBUG_KEY):
             raise ex
         else:

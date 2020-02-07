@@ -16,7 +16,7 @@ def cli():
 
 @cli.group(cls=click_helpers.OrderedGroup)
 def env():
-    """Group: list, show, or set env values"""
+    """Group: list, get, or set env values"""
 
 
 @env.command()
@@ -29,8 +29,8 @@ def skip_confirm(value):
     utils.setenv(const.SKIP_CONFIRM_KEY, value.lower())
 
 
-@env.command(name='show')
-def show_env():
+@env.command(name='list')
+def list_env():
     """List all .env variables"""
     utils.check_config()
     for k, v in dotenv.dotenv_values('.env').items():
@@ -39,10 +39,17 @@ def show_env():
         click.echo('.env file not found or empty')
 
 
+@env.command(name='get')
+@click.argument('key')
+@click.argument('default', default='')
+def get_env(key, default):
+    click.echo(utils.getenv(key, default))
+
+
 @env.command(name='set')
 @click.argument('key')
 @click.argument('value')
-def set_value(key, value):
+def set_env(key, value):
     """Set a .env variable"""
     utils.check_config()
     utils.setenv(key, value)

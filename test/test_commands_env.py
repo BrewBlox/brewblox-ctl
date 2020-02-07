@@ -37,18 +37,24 @@ def test_skip_confirm(m_utils):
     assert m_utils.setenv.call_count == 2
 
 
-def test_show(m_utils, mocker):
+def test_list_env(m_utils, mocker):
     m = mocker.patch(TESTED + '.dotenv.dotenv_values')
     m.return_value = {'k1': 'v1', 'k2': 'v2'}
-    invoke(env.show_env)
+    invoke(env.list_env)
 
     m.return_value = {}
-    invoke(env.show_env)
+    invoke(env.list_env)
 
     assert m.call_count == 2
 
 
-def test_set_value(m_utils):
-    invoke(env.set_value, _ok=False)
-    invoke(env.set_value, ['k1', 'k2'])
+def test_get_env(m_utils, mocker):
+    m_utils.getenv.return_value = 'v1'
+    invoke(env.get_env, 'k1')
+    m_utils.getenv.assert_called_once_with('k1', '')
+
+
+def test_set_env(m_utils):
+    invoke(env.set_env, _ok=False)
+    invoke(env.set_env, ['k1', 'k2'])
     m_utils.setenv.assert_called_once_with('k1', 'k2')
