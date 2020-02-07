@@ -34,14 +34,14 @@ def local_commands():  # pragma: no cover
         return loader.cli_sources()
 
     except ImportError:
-        print('No brewblox-ctl extensions found in current directory')
+        click.echo('No brewblox-ctl extensions found in current directory')
         return []
 
     except KeyboardInterrupt:
         raise SystemExit(0)
 
     except CalledProcessError as ex:
-        print('\n' + 'Error:', str(ex))
+        click.echo('\n' + 'Error: ' + str(ex))
         raise SystemExit(1)
 
 
@@ -62,7 +62,7 @@ def usage_hint(message):
                 ''
             ]
 
-        print('\n'.join(prompt))
+        click.echo('\n'.join(prompt))
 
 
 def main(args=sys.argv[1:]):
@@ -70,7 +70,7 @@ def main(args=sys.argv[1:]):
         load_dotenv(path.abspath('.env'))
 
         if utils.is_root():
-            print('brewblox-ctl should not be run as root.')
+            click.echo('brewblox-ctl should not be run as root.')
             raise SystemExit(1)
 
         if utils.is_v6() \
@@ -93,7 +93,7 @@ def main(args=sys.argv[1:]):
                       help='Do not prompt to confirm commands.')
         @click.option('-d', '--dry', '--dry-run',
                       is_flag=True,
-                      help='Dry run mode: print commands to terminal instead of running them.')
+                      help='Dry run mode: echo commands instead of running them.')
         @click.option('-q', '--quiet',
                       is_flag=True,
                       help='Show less detailed output.')

@@ -4,19 +4,12 @@ Tests brewblox_ctl.commands.env
 
 
 import pytest
-from click.testing import CliRunner
 
 from brewblox_ctl import const
 from brewblox_ctl.commands import env
+from brewblox_ctl.testing import invoke
 
 TESTED = env.__name__
-
-
-def invoke(*args, _ok=True, **kwargs):
-    result = CliRunner().invoke(*args, **kwargs)
-    if bool(result.exception) is _ok:
-        print(result.stdout)
-        raise AssertionError('{}, expected exc: {}'.format(result, _ok))
 
 
 @pytest.fixture
@@ -33,7 +26,7 @@ def test_skip_confirm(m_utils):
     invoke(env.skip_confirm, ['FALSE'])
     m_utils.setenv.assert_called_with(const.SKIP_CONFIRM_KEY, 'false')
 
-    invoke(env.skip_confirm, ['NOPE'], _ok=False)
+    invoke(env.skip_confirm, ['NOPE'], _err=True)
     assert m_utils.setenv.call_count == 2
 
 
@@ -55,6 +48,6 @@ def test_get_env(m_utils, mocker):
 
 
 def test_set_env(m_utils):
-    invoke(env.set_env, _ok=False)
+    invoke(env.set_env, _err=True)
     invoke(env.set_env, ['k1', 'k2'])
     m_utils.setenv.assert_called_once_with('k1', 'k2')

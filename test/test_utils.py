@@ -7,7 +7,7 @@ from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError
 
 import pytest
 
-from brewblox_ctl import utils
+from brewblox_ctl import testing, utils
 
 TESTED = utils.__name__
 
@@ -330,12 +330,14 @@ def test_load_ctl_lib(mocker):
     m_getenv = mocker.patch(TESTED + '.getenv')
 
     m_sudo.return_value = 'SUDO '
+    m_sh.side_effect = testing.check_sudo
     m_getenv.return_value = 'release'
 
     utils.load_ctl_lib()
     assert m_sh.call_count == 7
 
     m_sh.reset_mock()
+    m_sh.side_effect = None  # remove check_sudo
     m_sudo.return_value = ''
     utils.load_ctl_lib()
     assert m_sh.call_count == 6

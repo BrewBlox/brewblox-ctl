@@ -39,12 +39,12 @@ def ctx_opts():
 def confirm(question, default=True):
     default_val = 'Yes' if default else 'No'
     prompt = '{} [Press ENTER for default value \'{}\']'.format('{}', default_val)
-    print(prompt.format(question))
+    click.echo(prompt.format(question))
     while True:
         try:
             return bool(strtobool(input().lower() or str(default)))
         except ValueError:
-            print('Please type \'y(es)\' or \'n(o)\' and press ENTER.')
+            click.echo('Please type \'y(es)\' or \'n(o)\' and press ENTER.')
 
 
 def select(question, default=''):
@@ -60,7 +60,7 @@ def prompt_usb():
 
 def confirm_mode():  # pragma: no cover
     opts = ctx_opts()
-    if opts.skip_confirm or opts.dry_run:
+    if opts.skip_confirm or opts.dry_run or opts.verbose:
         return
 
     # Print help text for current command (without options)
