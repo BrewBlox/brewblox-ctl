@@ -65,7 +65,7 @@ def usage_hint(message):
         print('\n'.join(prompt))
 
 
-def main():
+def main(args=sys.argv[1:]):
     try:
         load_dotenv(path.abspath('.env'))
 
@@ -104,7 +104,7 @@ def main():
                       default=True,
                       help='Format messages with unicode color codes')
         @click.pass_context
-        def cli(ctx, yes, dry, quiet, verbose, color):  # pragma: no cover
+        def cli(ctx, yes, dry, quiet, verbose, color):
             """
             The Brewblox management tool.
 
@@ -129,7 +129,7 @@ def main():
             opts.verbose = verbose
             opts.color = color
 
-        cli(standalone_mode=False)
+        cli(args=args, standalone_mode=False)
 
     except UsageError as ex:
         click.echo(str(ex), err=True)

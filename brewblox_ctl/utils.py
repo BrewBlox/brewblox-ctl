@@ -182,10 +182,10 @@ def sh(shell_cmd, opts=None, check=True, capture=False, silent=False):
 
             result = run(shell_cmd,
                          shell=True,
+                         check=check,
                          universal_newlines=capture,
-                         stderr=stderr,
                          stdout=stdout,
-                         check=check)
+                         stderr=stderr)
             if capture:
                 return result.stdout
         return ''

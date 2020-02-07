@@ -14,11 +14,6 @@ TESTED = http.__name__
 
 
 @pytest.fixture
-def mock_info(mocker):
-    return mocker.patch(TESTED + '.utils.info')
-
-
-@pytest.fixture
 def mock_wait(mocker):
     return mocker.patch(TESTED + '.wait')
 
@@ -36,14 +31,14 @@ def mock_retry_interval(mocker):
     return mocker.patch(TESTED + '.RETRY_INTERVAL_S', 0.001)
 
 
-def test_wait(mock_requests, mock_retry_interval, mock_info):
+def test_wait(mock_requests, mock_retry_interval):
     runner = CliRunner()
     result = runner.invoke(http.http, ['wait', 'url'])
     assert not result.exception
     assert mock_requests.get.call_count == 1
 
 
-def test_wait_timeout(mocker, mock_requests, mock_retry_interval, mock_info):
+def test_wait_timeout(mocker, mock_requests, mock_retry_interval):
     mocker.patch(TESTED + '.RETRY_COUNT', 5)
     mock_requests.get.return_value.raise_for_status.side_effect = http.ConnectionError
 
@@ -53,7 +48,7 @@ def test_wait_timeout(mocker, mock_requests, mock_retry_interval, mock_info):
     assert mock_requests.get.call_count == 5
 
 
-def test_http_wait(mock_requests, mock_wait, mock_info):
+def test_http_wait(mock_requests, mock_wait):
     runner = CliRunner()
     result = runner.invoke(http.http, ['wait', 'url'])
     assert result.exit_code == 0

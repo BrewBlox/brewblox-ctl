@@ -3,7 +3,7 @@ Tests brewblox_ctl.utils
 """
 
 from os import path
-from subprocess import DEVNULL, STDOUT, CalledProcessError
+from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError
 
 import pytest
 
@@ -234,7 +234,12 @@ def test_sh(mocker):
     utils.sh('do things')
     assert m_secho.call_count == 0
     assert m_run.call_count == 1
-    m_run.assert_called_with('do things', shell=True, stderr=STDOUT, check=True)
+    m_run.assert_called_with('do things',
+                             shell=True,
+                             check=True,
+                             universal_newlines=False,
+                             stdout=None,
+                             stderr=STDOUT)
 
     m_run.reset_mock()
     m_secho.reset_mock()
@@ -243,7 +248,26 @@ def test_sh(mocker):
     utils.sh('do naughty things', check=False)
     assert m_secho.call_count == 0
     assert m_run.call_count == 1
-    m_run.assert_called_with('do naughty things', shell=True, stderr=DEVNULL, check=False)
+    m_run.assert_called_with('do naughty things',
+                             shell=True,
+                             check=False,
+                             universal_newlines=False,
+                             stdout=None,
+                             stderr=DEVNULL)
+
+    m_run.reset_mock()
+    m_secho.reset_mock()
+
+    # Captured call
+    utils.sh('gimme gimme', capture=True)
+    assert m_secho.call_count == 0
+    assert m_run.call_count == 1
+    m_run.assert_called_with('gimme gimme',
+                             shell=True,
+                             check=True,
+                             universal_newlines=True,
+                             stdout=PIPE,
+                             stderr=STDOUT)
 
     m_run.reset_mock()
     m_secho.reset_mock()
@@ -273,8 +297,18 @@ def test_sh(mocker):
     utils.sh(generate(), utils.ContextOpts(verbose=True))
     assert m_secho.call_count == 2
     assert m_run.call_count == 2
-    m_run.assert_any_call('first', shell=True, stderr=STDOUT, check=True)
-    m_run.assert_called_with('second', shell=True, stderr=STDOUT, check=True)
+    m_run.assert_any_call('first',
+                          shell=True,
+                          check=True,
+                          universal_newlines=False,
+                          stdout=None,
+                          stderr=STDOUT)
+    m_run.assert_called_with('second',
+                             shell=True,
+                             check=True,
+                             universal_newlines=False,
+                             stdout=None,
+                             stderr=STDOUT)
 
 
 def test_info(mocker):

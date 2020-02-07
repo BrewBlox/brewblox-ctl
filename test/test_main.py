@@ -47,11 +47,11 @@ def test_check_lib(mocked_utils):
 
 
 def test_main(mocked_utils, mocker):
-    mock_cli = mocker.patch(TESTED + '.click_helpers.OrderedCommandCollection')
     mocked_utils.is_root.return_value = False
     mocked_utils.is_v6.return_value = False
-    main.main()
-    assert mock_cli.return_value.call_count == 1
+    mocked_utils.getenv.return_value = None
+
+    main.main(['--help'])
 
 
 def test_is_root(mocked_utils):
@@ -79,15 +79,12 @@ def test_is_v6(mocked_utils, mocker):
 
 
 def test_exception(mocked_utils, mocker):
-    mock_cli = mocker.patch(TESTED + '.click_helpers.OrderedCommandCollection')
-    mock_cli.return_value.side_effect = RuntimeError
     mocked_utils.is_root.return_value = False
     mocked_utils.is_v6.return_value = False
+    mocked_utils.getenv.return_value = None
 
     with pytest.raises(SystemExit):
-        main.main()
-
-    assert mock_cli.return_value.call_count == 1
+        main.main(['pancakes'])
 
 
 def test_usage_hint(mocker, mocked_utils):
