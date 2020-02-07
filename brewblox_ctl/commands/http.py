@@ -37,14 +37,13 @@ def cli():
 
 
 @cli.command(hidden=True)
-@click.argument('method', required=True,
-                type=click.Choice(METHODS))
+@click.argument('method', required=True, type=click.Choice(METHODS))
 @click.argument('url', required=True)
 @click.option('--json-body', type=click.BOOL, default=True, help='Set JSON content headers.')
 @click.option('-f', '--file', help='Load file and send as body.')
 @click.option('-d', '--data', help='Request body.')
 @click.option('-H', '--header', multiple=True, type=(str, str))
-@click.option('-p', '--param', help='URL parameter', multiple=True, type=(str, str))
+@click.option('-p', '--param', multiple=True, type=(str, str))
 @click.option('-q', '--quiet', is_flag=True, help='Do not print the response. Takes precedence over --pretty.')
 @click.option('--pretty', is_flag=True, help='Pretty-print JSON response.')
 @click.option('--allow-fail', is_flag=True, help='Do not throw on HTTP errors.')

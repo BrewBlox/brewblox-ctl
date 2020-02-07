@@ -16,7 +16,10 @@ def cli():
 
 @cli.command()
 def up():
-    """Start all services"""
+    """Start all services.
+
+    This wraps `docker-compose up -d --remove-orphans`
+    """
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
@@ -25,7 +28,10 @@ def up():
 
 @cli.command()
 def down():
-    """Stop all services"""
+    """Stop all services.
+
+    This wraps `docker-compose down --remove-orphans`
+    """
     utils.check_config()
     sudo = utils.optsudo()
     sh('{}docker-compose down --remove-orphans'.format(sudo))
@@ -33,7 +39,13 @@ def down():
 
 @cli.command()
 def restart():
-    """Stop and start all services"""
+    """Stop and start all services.
+
+    This wraps `docker-compose down --remove-orphans; docker-compose up -d`
+
+    Note: `docker-compose restart` also exists -
+    it restarts containers without recreating them.
+    """
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
@@ -44,6 +56,22 @@ def restart():
 @cli.command()
 @click.argument('services', nargs=-1, required=False)
 def follow(services):
+    """Show logs for one or more services.
+
+    This will start watching the logs for specified services.
+    Call without arguments to show logs for all running services.
+
+    Once started, press ctrl+C to stop.
+
+    Service name will be equal to those specified in docker-compose.log,
+    not the container name.
+
+    To follow logs for service 'spark-one':
+
+    \b
+        GOOD: `brewblox-ctl follow spark-one`
+         BAD: `brewblox-ctl follow brewblox_spark-one_1`
+    """
     utils.check_config()
     sudo = utils.optsudo()
     sh('{}docker-compose logs --follow {}'.format(sudo, ' '.join(services)))

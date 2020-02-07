@@ -16,7 +16,13 @@ def cli():
 
 @cli.group(cls=click_helpers.OrderedGroup)
 def env():
-    """Group: list, get, or set env values"""
+    """Group: list, get, or set env values.
+
+    Brewblox stores system settings in the brewblox/.env file.
+    These settings are used in docker-compose.yml files, and in brewblox-ctl commands.
+
+    You can add your own, and use them in docker-compose.yml with the `${VAR_NAME}` syntax.
+    """
 
 
 @env.command()
@@ -43,6 +49,10 @@ def list_env():
 @click.argument('key')
 @click.argument('default', default='')
 def get_env(key, default):
+    """Read a single env variable.
+
+    This includes values from .env, but also other shell values.
+    """
     click.echo(utils.getenv(key, default))
 
 
@@ -50,6 +60,9 @@ def get_env(key, default):
 @click.argument('key')
 @click.argument('value')
 def set_env(key, value):
-    """Set a .env variable"""
+    """Set a .env variable.
+
+    The value will be added to the .env file. You can set new variables with this.
+    """
     utils.check_config()
     utils.setenv(key, value)
