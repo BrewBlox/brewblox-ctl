@@ -4,6 +4,7 @@ Testing utils
 
 import re
 from types import GeneratorType
+from unittest.mock import DEFAULT
 
 import click
 from click.testing import CliRunner
@@ -44,8 +45,8 @@ def check_sudo(shell_cmd, *args, **kwargs):
     To use, mock utils.sh, and set this function as side effect.
     """
     if isinstance(shell_cmd, (GeneratorType, list, tuple)):
-        [check_sudo(cmd) for cmd in shell_cmd]
+        return [check_sudo(cmd) for cmd in shell_cmd]
     elif re.match(r'(^|.*[;&\|])\s*docker', shell_cmd):
         raise AssertionError('Found docker call without sudo: "{}"'.format(shell_cmd))
     else:
-        return ''
+        return DEFAULT
