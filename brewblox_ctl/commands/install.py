@@ -140,6 +140,8 @@ def flash(release, pull):
 
     This requires the Spark to be connected over USB.
 
+    After the first install, firmware updates can also be installed using the UI.
+
     \b
     Steps:
         - Stop running services.

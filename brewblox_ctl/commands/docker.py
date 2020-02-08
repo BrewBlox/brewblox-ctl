@@ -33,6 +33,7 @@ def down():
     This wraps `docker-compose down --remove-orphans`
     """
     utils.check_config()
+    utils.confirm_mode()
     sudo = utils.optsudo()
     sh('{}docker-compose down --remove-orphans'.format(sudo))
 
@@ -79,7 +80,7 @@ def follow(services):
 
 @cli.command()
 def kill():
-    """Stop and remove all containers on this machine.
+    """Stop and remove all containers on this computer.
 
     This includes those not from Brewblox.
     """

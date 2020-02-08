@@ -30,14 +30,22 @@ def env():
                 type=click.Choice(['true', 'false'], case_sensitive=False),
                 default='true')
 def skip_confirm(value):
-    """Auto-answer 'yes' when prompted to confirm commands."""
+    """Auto-answer 'yes' when prompted to confirm commands.
+
+    This sets the 'BREWBLOX_SKIP_CONFIRM' variable in .env.
+    You can still use the `brewblox-ctl [--dry-run | --verbose] COMMAND` arguments.
+    """
     utils.check_config()
+    utils.confirm_mode()
     utils.setenv(const.SKIP_CONFIRM_KEY, value.lower())
 
 
 @env.command(name='list')
 def list_env():
-    """List all .env variables"""
+    """List all .env variables
+
+    This does not include other variables set in the current shell.
+    """
     utils.check_config()
     for k, v in dotenv.dotenv_values('.env').items():
         click.echo('{} = {}'.format(k, v))
@@ -65,4 +73,5 @@ def set_env(key, value):
     The value will be added to the .env file. You can set new variables with this.
     """
     utils.check_config()
+    utils.confirm_mode()
     utils.setenv(key, value)
