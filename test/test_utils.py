@@ -75,8 +75,8 @@ def test_check_ok(mocked_ext):
         utils.check_ok('truly?')
 
 
-def test_prompt_usb(mocked_ext):
-    utils.prompt_usb()
+def test_confirm_usb(mocked_ext):
+    utils.confirm_usb()
     assert mocked_ext['input'].call_count == 1
 
 

@@ -54,7 +54,7 @@ def select(question, default=''):
     return answer or default
 
 
-def prompt_usb():
+def confirm_usb():
     input('Please press ENTER when your Spark is connected over USB')
 
 
