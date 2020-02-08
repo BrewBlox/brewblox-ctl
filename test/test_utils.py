@@ -311,17 +311,25 @@ def test_sh(mocker):
                              stderr=STDOUT)
 
 
-def test_info(mocker):
+def test_logs(mocker):
     m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
     m_secho = mocker.patch(TESTED + '.click.secho')
 
     m_opts.quiet = True
     utils.info('test')
     assert m_secho.call_count == 0
+    utils.warn('warning')
+    assert m_secho.call_count == 1
+    utils.error('error')
+    assert m_secho.call_count == 2
 
     m_opts.quiet = False
     utils.info('test')
-    assert m_secho.call_count == 1
+    assert m_secho.call_count == 3
+    utils.warn('warning')
+    assert m_secho.call_count == 4
+    utils.error('error')
+    assert m_secho.call_count == 5
 
 
 def test_load_ctl_lib(mocker):

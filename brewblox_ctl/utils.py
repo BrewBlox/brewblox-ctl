@@ -205,6 +205,16 @@ def info(msg):
         click.secho('{} {}'.format(const.LOG_INFO, msg), fg='cyan', color=opts.color)
 
 
+def warn(msg):
+    opts = ctx_opts()
+    click.secho('{} {}'.format(const.LOG_WARN, msg), fg='yellow', color=opts.color)
+
+
+def error(msg):
+    opts = ctx_opts()
+    click.secho('{} {}'.format(const.LOG_ERR, msg), fg='red', color=opts.color)
+
+
 def load_ctl_lib(opts=None):
     sudo = optsudo()
     release = getenv(const.LIB_RELEASE_KEY) or getenv(const.RELEASE_KEY)
