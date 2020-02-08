@@ -3,19 +3,12 @@ Tests brewblox_ctl.commands.install
 """
 
 
-import pytest
-from click.testing import CliRunner
+import pytest.__main__
 
 from brewblox_ctl.commands import install
+from brewblox_ctl.testing import check_sudo, invoke
 
 TESTED = install.__name__
-
-
-def invoke(*args, _ok=True, **kwargs):
-    result = CliRunner().invoke(*args, **kwargs)
-    if bool(result.exception) is _ok:
-        print(result.stdout)
-        raise AssertionError('{}, expected exc: {}'.format(result, _ok))
 
 
 @pytest.fixture(autouse=True)
@@ -35,6 +28,7 @@ def m_utils(mocker):
 @pytest.fixture
 def m_sh(mocker):
     m = mocker.patch(TESTED + '.sh')
+    m.side_effect = check_sudo
     return m
 
 

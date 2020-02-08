@@ -3,11 +3,11 @@ Tests brewblox_ctl.utils
 """
 
 from os import path
-from subprocess import DEVNULL, STDOUT, CalledProcessError
+from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError
 
 import pytest
 
-from brewblox_ctl import utils
+from brewblox_ctl import testing, utils
 
 TESTED = utils.__name__
 
@@ -21,7 +21,6 @@ def mocked_ext(mocker):
         'path',
         'which',
         'machine',
-        'check_output',
         'run',
         'set_key',
     ]
@@ -66,7 +65,7 @@ def test_select(mocked_ext):
 
 
 def test_check_ok(mocked_ext):
-    m = mocked_ext['check_output']
+    m = mocked_ext['run']
     assert utils.check_ok('whatever')
     m.side_effect = CalledProcessError(1, '')
     assert not utils.check_ok('really?')
@@ -76,8 +75,8 @@ def test_check_ok(mocked_ext):
         utils.check_ok('truly?')
 
 
-def test_prompt_usb(mocked_ext):
-    utils.prompt_usb()
+def test_confirm_usb(mocked_ext):
+    utils.confirm_usb()
     assert mocked_ext['input'].call_count == 1
 
 
@@ -140,14 +139,14 @@ def test_is_v6(combo, mocked_ext):
 def test_is_root(mocked_ext):
     assert utils.is_root()
 
-    mocked_ext['check_output'].side_effect = CalledProcessError(1, 'permission denied')
+    mocked_ext['run'].side_effect = CalledProcessError(1, 'permission denied')
     assert not utils.is_root()
 
 
 def test_is_docker_user(mocked_ext):
     assert utils.is_docker_user()
 
-    mocked_ext['check_output'].side_effect = CalledProcessError(1, 'not found')
+    mocked_ext['run'].side_effect = CalledProcessError(1, 'not found')
     assert not utils.is_docker_user()
 
 
@@ -235,7 +234,12 @@ def test_sh(mocker):
     utils.sh('do things')
     assert m_secho.call_count == 0
     assert m_run.call_count == 1
-    m_run.assert_called_with('do things', shell=True, stderr=STDOUT, check=True)
+    m_run.assert_called_with('do things',
+                             shell=True,
+                             check=True,
+                             universal_newlines=False,
+                             stdout=None,
+                             stderr=STDOUT)
 
     m_run.reset_mock()
     m_secho.reset_mock()
@@ -244,7 +248,26 @@ def test_sh(mocker):
     utils.sh('do naughty things', check=False)
     assert m_secho.call_count == 0
     assert m_run.call_count == 1
-    m_run.assert_called_with('do naughty things', shell=True, stderr=DEVNULL, check=False)
+    m_run.assert_called_with('do naughty things',
+                             shell=True,
+                             check=False,
+                             universal_newlines=False,
+                             stdout=None,
+                             stderr=DEVNULL)
+
+    m_run.reset_mock()
+    m_secho.reset_mock()
+
+    # Captured call
+    utils.sh('gimme gimme', capture=True)
+    assert m_secho.call_count == 0
+    assert m_run.call_count == 1
+    m_run.assert_called_with('gimme gimme',
+                             shell=True,
+                             check=True,
+                             universal_newlines=True,
+                             stdout=PIPE,
+                             stderr=STDOUT)
 
     m_run.reset_mock()
     m_secho.reset_mock()
@@ -274,8 +297,18 @@ def test_sh(mocker):
     utils.sh(generate(), utils.ContextOpts(verbose=True))
     assert m_secho.call_count == 2
     assert m_run.call_count == 2
-    m_run.assert_any_call('first', shell=True, stderr=STDOUT, check=True)
-    m_run.assert_called_with('second', shell=True, stderr=STDOUT, check=True)
+    m_run.assert_any_call('first',
+                          shell=True,
+                          check=True,
+                          universal_newlines=False,
+                          stdout=None,
+                          stderr=STDOUT)
+    m_run.assert_called_with('second',
+                             shell=True,
+                             check=True,
+                             universal_newlines=False,
+                             stdout=None,
+                             stderr=STDOUT)
 
 
 def test_info(mocker):
@@ -297,12 +330,14 @@ def test_load_ctl_lib(mocker):
     m_getenv = mocker.patch(TESTED + '.getenv')
 
     m_sudo.return_value = 'SUDO '
+    m_sh.side_effect = testing.check_sudo
     m_getenv.return_value = 'release'
 
     utils.load_ctl_lib()
     assert m_sh.call_count == 7
 
     m_sh.reset_mock()
+    m_sh.side_effect = None  # remove check_sudo
     m_sudo.return_value = ''
     utils.load_ctl_lib()
     assert m_sh.call_count == 6

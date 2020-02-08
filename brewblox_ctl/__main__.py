@@ -34,14 +34,14 @@ def local_commands():  # pragma: no cover
         return loader.cli_sources()
 
     except ImportError:
-        print('No brewblox-ctl extensions found in current directory')
+        click.echo('No brewblox-ctl extensions found in current directory')
         return []
 
     except KeyboardInterrupt:
         raise SystemExit(0)
 
     except CalledProcessError as ex:
-        print('\n' + 'Error:', str(ex))
+        click.echo('\n' + 'Error: ' + str(ex))
         raise SystemExit(1)
 
 
@@ -62,15 +62,15 @@ def usage_hint(message):
                 ''
             ]
 
-        print('\n'.join(prompt))
+        click.echo('\n'.join(prompt))
 
 
-def main():
+def main(args=sys.argv[1:]):
     try:
         load_dotenv(path.abspath('.env'))
 
         if utils.is_root():
-            print('brewblox-ctl should not be run as root.')
+            click.echo('brewblox-ctl should not be run as root.')
             raise SystemExit(1)
 
         if utils.is_v6() \
@@ -91,9 +91,9 @@ def main():
                       is_flag=True,
                       envvar=const.SKIP_CONFIRM_KEY,
                       help='Do not prompt to confirm commands.')
-        @click.option('--dry', '--dry-run',
+        @click.option('-d', '--dry', '--dry-run',
                       is_flag=True,
-                      help='Dry run mode: print commands to terminal instead of running them.')
+                      help='Dry run mode: echo commands instead of running them.')
         @click.option('-q', '--quiet',
                       is_flag=True,
                       help='Show less detailed output.')
@@ -102,9 +102,9 @@ def main():
                       help='Show more detailed output.')
         @click.option('--color/--no-color',
                       default=True,
-                      help='Format messages with unicode color codes')
+                      help='Format messages with unicode color codes.')
         @click.pass_context
-        def cli(ctx, yes, dry, quiet, verbose, color):  # pragma: no cover
+        def cli(ctx, yes, dry, quiet, verbose, color):
             """
             The Brewblox management tool.
 
@@ -129,16 +129,19 @@ def main():
             opts.verbose = verbose
             opts.color = color
 
-        cli(standalone_mode=False)
+        cli(args=args, standalone_mode=False)
 
     except UsageError as ex:
-        print(str(ex), file=sys.stderr)
+        click.echo(str(ex), err=True)
         usage_hint(str(ex))
         raise SystemExit(1)
 
-    except Exception as ex:
-        print(str(ex), file=sys.stderr)
-        raise SystemExit(1)
+    except Exception as ex:  # pragma: no cover
+        if utils.getenv(const.DEBUG_KEY):
+            raise ex
+        else:
+            click.echo(str(ex), err=True)
+            raise SystemExit(1)
 
 
 if __name__ == '__main__':

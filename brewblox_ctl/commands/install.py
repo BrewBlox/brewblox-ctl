@@ -140,6 +140,8 @@ def flash(release, pull):
 
     This requires the Spark to be connected over USB.
 
+    After the first install, firmware updates can also be installed using the UI.
+
     \b
     Steps:
         - Stop running services.
@@ -147,7 +149,7 @@ def flash(release, pull):
         - Run flash command.
     """
     utils.confirm_mode()
-    utils.prompt_usb()
+    utils.confirm_usb()
     prepare_flasher(release, pull)
 
     utils.info('Flashing Spark...')
@@ -174,7 +176,7 @@ def bootloader(release, pull, force):
         - Run bootloader command.
     """
     utils.confirm_mode()
-    utils.prompt_usb()
+    utils.confirm_usb()
     prepare_flasher(release, pull)
 
     utils.info('Flashing bootloader...')
@@ -196,7 +198,7 @@ def wifi(release, pull):
         - Run wifi command.
     """
     utils.confirm_mode()
-    utils.prompt_usb()
+    utils.confirm_usb()
     prepare_flasher(release, pull)
 
     utils.info('Configuring wifi...')

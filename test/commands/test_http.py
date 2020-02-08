@@ -6,16 +6,11 @@ import json
 from unittest.mock import call, mock_open
 
 import pytest
-from click.testing import CliRunner
 
 from brewblox_ctl.commands import http
+from brewblox_ctl.testing import invoke
 
 TESTED = http.__name__
-
-
-@pytest.fixture
-def mock_info(mocker):
-    return mocker.patch(TESTED + '.utils.info')
 
 
 @pytest.fixture
@@ -36,43 +31,35 @@ def mock_retry_interval(mocker):
     return mocker.patch(TESTED + '.RETRY_INTERVAL_S', 0.001)
 
 
-def test_wait(mock_requests, mock_retry_interval, mock_info):
-    runner = CliRunner()
-    result = runner.invoke(http.http, ['wait', 'url'])
-    assert not result.exception
+def test_wait(mock_requests, mock_retry_interval):
+    invoke(http.http, ['wait', 'url'])
     assert mock_requests.get.call_count == 1
 
 
-def test_wait_timeout(mocker, mock_requests, mock_retry_interval, mock_info):
+def test_wait_timeout(mocker, mock_requests, mock_retry_interval):
     mocker.patch(TESTED + '.RETRY_COUNT', 5)
     mock_requests.get.return_value.raise_for_status.side_effect = http.ConnectionError
 
-    runner = CliRunner()
-    result = runner.invoke(http.http, ['wait', 'url'])
+    result = invoke(http.http, ['wait', 'url'], _err=True)
     assert isinstance(result.exception, TimeoutError)
     assert mock_requests.get.call_count == 5
 
 
-def test_http_wait(mock_requests, mock_wait, mock_info):
-    runner = CliRunner()
-    result = runner.invoke(http.http, ['wait', 'url'])
-    assert result.exit_code == 0
+def test_http_wait(mock_requests, mock_wait):
+    invoke(http.http, ['wait', 'url'])
     assert mock_wait.call_count == 1
     assert mock_requests.call_count == 0
 
 
 def test_http_methods(mock_requests):
-    runner = CliRunner()
-    result = runner.invoke(http.http, ['get', 'url'])
+    invoke(http.http, ['get', 'url'])
 
     assert mock_requests.get.call_args_list == [
         call('url', headers={}, params={}, verify=False)
     ]
-    assert result.exit_code == 0
     assert mock_requests.post.call_count == 0
 
-    result = runner.invoke(http.http, ['post', 'url', '--pretty'])
-    assert result.exit_code == 0
+    invoke(http.http, ['post', 'url', '--pretty'])
     assert mock_requests.post.call_args_list == [
         call('url', headers={}, params={}, verify=False)
     ]
@@ -80,9 +67,8 @@ def test_http_methods(mock_requests):
 
 def test_http_body(mock_requests):
     body = {'var1': 1, 'var2': 'val'}
-    runner = CliRunner()
-    runner.invoke(http.http, ['post', 'url', '-d', json.dumps(body)])
-    runner.invoke(http.http, ['post', 'url', '-d', json.dumps(body), '--json-body=false'])
+    invoke(http.http, ['post', 'url', '-d', json.dumps(body)])
+    invoke(http.http, ['post', 'url', '-d', json.dumps(body), '--json-body=false'])
 
     assert mock_requests.post.call_args_list == [
         call('url', headers={}, params={}, verify=False, json=body),
@@ -91,9 +77,7 @@ def test_http_body(mock_requests):
 
 
 def test_http_body_conflict(mock_requests):
-    runner = CliRunner()
-    result = runner.invoke(http.http, ['post', 'url', '-d', 'text', '-f', 'myfile.json'])
-    assert result.exit_code != 0
+    invoke(http.http, ['post', 'url', '-d', 'text', '-f', 'myfile.json'], _err=True)
     assert mock_requests.post.call_count == 0
 
 
@@ -101,9 +85,8 @@ def test_http_file_body(mocker, mock_requests):
     body = {'var1': 1, 'var2': 'val'}
     open_mock = mocker.patch(TESTED + '.open', mock_open(read_data=json.dumps(body)))
 
-    runner = CliRunner()
-    runner.invoke(http.http, ['post', 'url', '-f', 'file.json'])
-    runner.invoke(http.http, ['post', 'url', '-f', 'file.json', '--json-body=false'])
+    invoke(http.http, ['post', 'url', '-f', 'file.json'])
+    invoke(http.http, ['post', 'url', '-f', 'file.json', '--json-body=false'])
 
     assert mock_requests.post.call_args_list == [
         call('url', headers={}, params={}, verify=False, json=body),
@@ -118,25 +101,18 @@ def test_http_file_body(mocker, mock_requests):
 def test_http_error(mock_requests):
     mock_requests.post.return_value.raise_for_status.side_effect = http.ConnectionError
     body = {'var1': 1, 'var2': 'val'}
-    runner = CliRunner()
-    result = runner.invoke(http.http, ['post', 'url', '-d', json.dumps(body)])
-    assert result.exit_code != 0
+    invoke(http.http, ['post', 'url', '-d', json.dumps(body)], _err=True)
 
 
 def test_allow_http_error(mock_requests):
     mock_requests.post.return_value.raise_for_status.side_effect = http.ConnectionError
     body = {'var1': 1, 'var2': 'val'}
-    runner = CliRunner()
-    result = runner.invoke(http.http, ['post', 'url', '-d', json.dumps(body), '--allow-fail'])
-    assert result.exit_code == 0
+    invoke(http.http, ['post', 'url', '-d', json.dumps(body), '--allow-fail'])
 
 
 def test_output(mock_requests):
-    runner = CliRunner()
-    result = runner.invoke(http.http, ['get', 'url'])
-    assert result.exit_code == 0
+    result = invoke(http.http, ['get', 'url'])
     assert result.stdout == 'get-response\n'
 
-    result = runner.invoke(http.http, ['get', 'url', '--quiet'])
-    assert result.exit_code == 0
+    result = invoke(http.http, ['get', 'url', '--quiet'])
     assert result.stdout == ''
