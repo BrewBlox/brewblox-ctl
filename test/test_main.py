@@ -3,6 +3,7 @@ Tests brewblox_ctl.__main__
 """
 
 import pytest
+from click.exceptions import UsageError
 
 from brewblox_ctl import __main__ as main
 from brewblox_ctl import utils
@@ -93,28 +94,34 @@ def test_exception(mocked_utils, mocker):
 def test_usage_hint(mocker, mocked_utils):
     mocked_utils.is_brewblox_cwd.return_value = True
 
-    main.usage_hint('')
+    main.usage_hint(UsageError(''))
     assert mocked_utils.is_brewblox_cwd.call_count == 0
-    assert mocked_utils.getenv.call_count == 0
 
-    main.usage_hint('No such command')
+    main.usage_hint(UsageError('No such command'))
     assert mocked_utils.is_brewblox_cwd.call_count == 1
-    assert mocked_utils.getenv.call_count == 0
 
     mocked_utils.is_brewblox_cwd.return_value = False
-    mocked_utils.getenv.return_value = 'ussr'
     mocked_utils.path_exists.return_value = False
 
-    main.usage_hint('No such command')
+    main.usage_hint(UsageError('No such command'))
 
     mocked_utils.path_exists.return_value = True
 
-    main.usage_hint('No such command')
+    main.usage_hint(UsageError('No such command'))
 
     mock_cli = mocker.patch(TESTED + '.click_helpers.OrderedCommandCollection')
     mock_cli.return_value.side_effect = main.UsageError('No such command')
     mocked_utils.is_root.return_value = False
     mocked_utils.is_v6.return_value = False
 
+    # call to getenv(BREWBLOX_DEBUG)
+    mocked_utils.getenv.side_effect = [
+        'true',
+        None,
+    ]
+
+    with pytest.raises(UsageError):
+        main.main(['nope'])
+
     with pytest.raises(SystemExit):
-        main.main()
+        main.main(['nope'])

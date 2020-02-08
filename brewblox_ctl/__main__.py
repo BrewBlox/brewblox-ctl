@@ -7,7 +7,7 @@ from os import getcwd, path
 from subprocess import CalledProcessError
 
 import click
-from click.exceptions import UsageError
+from click.exceptions import ClickException, UsageError
 from dotenv import load_dotenv
 
 from brewblox_ctl import click_helpers, const, utils
@@ -45,9 +45,9 @@ def local_commands():  # pragma: no cover
         raise SystemExit(1)
 
 
-def usage_hint(message):
-    if 'No such command' in message and not utils.is_brewblox_cwd():
-        default_dir = '/home/{}/brewblox'.format(utils.getenv('USER'))
+def usage_hint(ex):
+    if ex.message and 'No such command' in ex.message and not utils.is_brewblox_cwd():
+        default_dir = path.expanduser('~/brewblox')
         prompt = [
             '',
             'Many commands only work if your current directory is a Brewblox directory.',
@@ -63,6 +63,13 @@ def usage_hint(message):
             ]
 
         click.echo('\n'.join(prompt))
+
+
+def escalate(ex):
+    if utils.getenv(const.DEBUG_KEY):
+        raise ex
+    else:
+        raise SystemExit(1)
 
 
 def main(args=sys.argv[1:]):
@@ -132,16 +139,17 @@ def main(args=sys.argv[1:]):
         cli(args=args, standalone_mode=False)
 
     except UsageError as ex:
-        click.echo(str(ex), err=True)
-        usage_hint(str(ex))
-        raise SystemExit(1)
+        ex.show()
+        usage_hint(ex)
+        escalate(ex)
+
+    except ClickException as ex:  # pragma: no cover
+        ex.show()
+        escalate(ex)
 
     except Exception as ex:  # pragma: no cover
-        if utils.getenv(const.DEBUG_KEY):
-            raise ex
-        else:
-            click.echo(str(ex), err=True)
-            raise SystemExit(1)
+        click.echo(str(ex), err=True)
+        escalate(ex)
 
 
 if __name__ == '__main__':
