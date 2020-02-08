@@ -12,19 +12,20 @@ import requests
 import urllib3
 from requests.exceptions import ConnectionError, HTTPError
 
-from brewblox_ctl import click_helpers
+from brewblox_ctl import click_helpers, utils
 
 RETRY_COUNT = 60
 RETRY_INTERVAL_S = 10
 METHODS = ['wait', 'get', 'put', 'post', 'patch', 'delete']
 
 
-def wait(url):
+def wait(url, info_updates=False):
+    echo = utils.info if info_updates else click.echo
     for i in range(RETRY_COUNT):
         with suppress(ConnectionError, HTTPError):
-            click.echo('Connecting {}, attempt {}/{}'.format(url, i+1, RETRY_COUNT))
+            echo('Connecting {}, attempt {}/{}'.format(url, i+1, RETRY_COUNT))
             requests.get(url, verify=False).raise_for_status()
-            click.echo('Success!')
+            echo('Success!')
             return
 
         sleep(RETRY_INTERVAL_S)
