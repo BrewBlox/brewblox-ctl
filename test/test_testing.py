@@ -41,14 +41,18 @@ def test_check_sudo():
     testing.check_sudo('sudo docker run')
     testing.check_sudo('SUDO docker-compose up -d')
 
-    with pytest.raises(AssertionError):
-        testing.check_sudo('docker run')
 
+@pytest.mark.parametrize('cmd', [
+    'docker run',
+    '   docker run',
+    '\n\ndocker-compose kill',
+    'fluffy bunnies; docker-compose down',
+    'pretty kitties&&docker',
+    'pretty kitties&&     docker',
+    'cuddly puppies||docker-compose',
+    'cuddly puppies||\tdocker-compose',
+    'cuddly puppies||\ndocker-compose',
+])
+def test_check_sudo_caught(cmd):
     with pytest.raises(AssertionError):
-        testing.check_sudo('fluffy bunnies; docker-compose down')
-
-    with pytest.raises(AssertionError):
-        testing.check_sudo('pretty kitties&&docker')
-
-    with pytest.raises(AssertionError):
-        testing.check_sudo('cuddly puppies||docker-compose')
+        testing.check_sudo(cmd)
