@@ -18,42 +18,42 @@ def cli():
 
 @cli.command()
 @click.option('--use-defaults/--no-use-defaults',
-              default=True,
-              prompt='Do you want to install with default settings?',
-              help='Use default settings for installation')
+              default=None,
+              help='Use default settings for installation.')
 @click.option('--dir',
-              default='./brewblox',
               help='Install directory.')
 @click.option('--release',
               default='edge',
               help='Brewblox release track.')
 def install(use_defaults, dir, release):
-    """Create and prepare brewblox install directory.
+    """Create Brewblox directory; install system dependencies; reboot.
 
     Brewblox can be installed multiple times on the same computer.
-    Global dependencies (Docker, docker-compose) are shared, and system-specific
-    settings and databases are stored in an installation directory (default: ~/brewblox).
+    Settings and databases are stored in a Brewblox directory (default: ./brewblox).
 
-    To get a working system, first run `brewblox-ctl install`,
-    then navigate to the installation directory, and run `brewblox-ctl setup`.
+    This command also installs system-wide dependencies (docker, docker-compose).
+    After `brewblox-ctl install`, run `brewblox-ctl setup` in the created Brewblox directory.
 
-    After installing Docker, or adding the user to the 'docker' group, the computer must be rebooted.
+    A reboot is required after installing docker, or adding the user to the 'docker' group.
 
-    By default, `brewblox-ctl install` attempts to download packages using the Apt package manager.
-    If you are using a system without Apt (eg. Synology NAS), this step will be skipped.
+    By default, `brewblox-ctl install` attempts to download packages using the apt package manager.
+    If you are using a system without apt (eg. Synology NAS), this step will be skipped.
     You will need to manually install any missing libraries.
 
     \b
     Steps:
-        - Install Apt packages.
-        - Install Docker.
+        - Install apt packages.
+        - Install docker.
         - Install docker-compose.
         - Add user to 'docker' group.
-        - Create install directory.
+        - Create Brewblox directory (default ./brewblox).
         - Set variables in .env file.
         - Reboot.
     """
     utils.confirm_mode()
+
+    if use_defaults is None:
+        use_defaults = utils.confirm('Do you want to install with default settings?')
 
     # Install Apt packages
     apt_deps = 'libssl-dev libffi-dev'
@@ -68,11 +68,11 @@ def install(use_defaults, dir, release):
             'sudo apt install -y {}'.format(apt_deps),
         ])
 
-    # Install Docker
+    # Install docker
     if utils.command_exists('docker'):
         utils.info('Docker is already installed, skipping...')
-    elif use_defaults or utils.confirm('Do you want to install Docker?'):
-        utils.info('Installing Docker...')
+    elif use_defaults or utils.confirm('Do you want to install docker?'):
+        utils.info('Installing docker...')
         sh('curl -sL get.docker.com | sh')
 
     # Install docker-compose
@@ -85,18 +85,27 @@ def install(use_defaults, dir, release):
     # Add user to 'docker' group
     user = utils.getenv('USER')
     if utils.is_docker_user():
-        utils.info('{} already belongs to the Docker group, skipping...'.format(user))
-    elif use_defaults or utils.confirm('Do you want to run Docker commands without sudo?'):
+        utils.info('{} already belongs to the docker group, skipping...'.format(user))
+    elif use_defaults or utils.confirm('Do you want to run docker commands without sudo?'):
         utils.info('Adding {} to \'docker\' group...'.format(user))
         sh('sudo usermod -aG docker $USER')
+
+    # Determine install directory
+    default_dir = path.abspath('./brewblox')
+    if not dir \
+        and not use_defaults \
+            and not utils.confirm('Using Brewblox directory \'{}\'. Do you want to continue?'.format(default_dir)):
+        return
+
+    dir = dir or default_dir
 
     # Create install directory
     if utils.path_exists(dir):
         if not utils.confirm('{} already exists. Do you want to continue?'.format(dir)):
             return
-
-    utils.info('Creating install directory ({})...'.format(dir))
-    sh('mkdir -p {}'.format(dir))
+    else:
+        utils.info('Creating Brewblox directory ({})...'.format(dir))
+        sh('mkdir -p {}'.format(dir))
 
     # Set variables in .env file
     utils.info('Setting variables in .env file...')

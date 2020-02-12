@@ -51,26 +51,56 @@ def test_install_full(m_utils, m_sh):
         False,  # docker
         False,  # docker-compose
     ]
-    invoke(install.install, '--use-defaults')
+    invoke(install.install)
     assert m_sh.call_count == 7
+
+
+def test_install_decline(m_utils, m_sh):
+    m_utils.path_exists.return_value = False
+    m_utils.is_docker_user.return_value = False
+    m_utils.confirm.return_value = False
+    m_utils.command_exists.side_effect = [
+        True,  # apt
+        False,  # docker
+        False,  # docker-compose
+    ]
+    invoke(install.install, '--dir ./brewblox')
+    print(m_utils.confirm.call_args_list)
+    assert m_utils.confirm.call_count == 6
+
+    m_utils.confirm.reset_mock()
+    m_utils.command_exists.side_effect = [
+        True,  # apt
+        False,  # docker
+        False,  # docker-compose
+    ]
+
+    invoke(install.install)
 
 
 def test_install_existing_declined(m_utils, m_sh):
     m_utils.path_exists.return_value = True
-    m_utils.confirm.return_value = False
-    m_utils.is_docker_user.return_value = False
+    m_utils.is_docker_user.return_value = True
+    m_utils.confirm.side_effect = [
+        True,  # Installing apt
+        True,  # Install docker
+        True,  # Install docker-compose
+        True,  # Using directory
+        False,  # No to overwrite
+    ]
     m_utils.command_exists.side_effect = [
         True,  # apt
         False,  # docker
         False,  # docker-compose
     ]
     invoke(install.install, '--no-use-defaults')
-    assert m_sh.call_count == 0
+    assert m_sh.call_count == 3  # apt, docker, docker-compose
 
 
 def test_install_existing_continue(m_utils, m_sh):
     m_utils.path_exists.return_value = True
     m_utils.confirm.side_effect = [
+        True,  # ok using dir
         True,  # continue existing dir
         False  # no reboot
     ]
@@ -81,7 +111,8 @@ def test_install_existing_continue(m_utils, m_sh):
         True,  # docker-compose
     ]
     invoke(install.install, '--no-use-defaults')
-    assert m_sh.call_count == 2
+    m_utils.confirm.assert_called_with('Do you want to reboot now?')
+    assert m_sh.call_count == 1  # touch env
 
 
 def test_prepare_flasher(m_utils, m_sh):
