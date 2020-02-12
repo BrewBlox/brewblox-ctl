@@ -108,7 +108,7 @@ def main(args=sys.argv[1:]):
                       is_flag=True,
                       help='Show more detailed output.')
         @click.option('--color/--no-color',
-                      default=True,
+                      default=None,
                       help='Format messages with unicode color codes.')
         @click.pass_context
         def cli(ctx, yes, dry, quiet, verbose, color):

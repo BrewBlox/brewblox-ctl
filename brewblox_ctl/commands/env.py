@@ -16,7 +16,7 @@ def cli():
 
 @cli.group(cls=click_helpers.OrderedGroup)
 def env():
-    """Group: list, get, or set env values.
+    """List, get, or set env values.
 
     Brewblox stores system settings in the brewblox/.env file.
     These settings are used in docker-compose.yml files, and in brewblox-ctl commands.
@@ -33,7 +33,7 @@ def skip_confirm(value):
     """Auto-answer 'yes' when prompted to confirm commands.
 
     This sets the 'BREWBLOX_SKIP_CONFIRM' variable in .env.
-    You can still use the `brewblox-ctl [--dry-run | --verbose] COMMAND` arguments.
+    You can still use the `brewblox-ctl [--dry-run|--verbose] COMMAND` arguments.
     """
     utils.check_config()
     utils.confirm_mode()
@@ -49,8 +49,6 @@ def list_env():
     utils.check_config()
     for k, v in dotenv.dotenv_values('.env').items():
         click.echo('{} = {}'.format(k, v))
-    else:
-        click.echo('.env file not found or empty')
 
 
 @env.command(name='get')

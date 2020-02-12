@@ -24,7 +24,7 @@ class ContextOpts:
                  quiet=False,
                  verbose=False,
                  skip_confirm=False,
-                 color=True):
+                 color=None):  # None -> let click decide
         self.dry_run = dry_run
         self.quiet = quiet
         self.verbose = verbose
@@ -63,19 +63,15 @@ def confirm_mode():  # pragma: no cover
     if opts.skip_confirm or opts.dry_run or opts.verbose:
         return
 
-    # Print help text for current command (without options)
     ctx = click.get_current_context()
-    fmt = ctx.make_formatter()
-    cmd = ctx.command
-    cmd.format_usage(ctx, fmt)
-    cmd.format_help_text(ctx, fmt)
-    click.echo(fmt.getvalue().rstrip('\n'))
+    short_help = click.style(ctx.command.get_short_help_str(100), fg='cyan')
+    click.echo('Command is about to: {}'.format(short_help), color=opts.color)
 
     suffix = ' ({}es, {}o, {}erbose, {}ry-run) [press ENTER for default value \'yes\']'.format(
         *[click.style(v, underline=True) for v in 'ynvd']
     )
 
-    retv = click.prompt('\nDo you want to continue?',
+    retv = click.prompt('Do you want to continue?',
                         type=click.Choice([
                             'y',
                             'yes',
