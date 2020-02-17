@@ -38,19 +38,19 @@ def ctx_opts():
 
 def confirm(question, default=True):
     default_val = 'Yes' if default else 'No'
-    prompt = '{} [Press ENTER for default value \'{}\']'.format('{}', default_val)
+    prompt = "{} [Press ENTER for default value '{}']".format('{}', default_val)
     click.echo(prompt.format(question))
     while True:
         try:
             return bool(strtobool(input().lower() or str(default)))
         except ValueError:
-            click.echo('Please type \'y(es)\' or \'n(o)\' and press ENTER.')
+            click.echo("Please type 'y(es)' or 'n(o)' and press ENTER.")
 
 
 def select(question, default=''):
     answer = input('{} {}'.format(
         question,
-        '[press ENTER for default value \'{}\']'.format(default) if default else ''))
+        "[press ENTER for default value '{}']".format(default) if default else ''))
     return answer or default
 
 
@@ -67,7 +67,7 @@ def confirm_mode():  # pragma: no cover
     short_help = click.style(ctx.command.get_short_help_str(100), fg='cyan')
     click.echo('Command is about to: {}'.format(short_help), color=opts.color)
 
-    suffix = ' ({}es, {}o, {}erbose, {}ry-run) [press ENTER for default value \'yes\']'.format(
+    suffix = " ({}es, {}o, {}erbose, {}ry-run) [press ENTER for default value 'yes']".format(
         *[click.style(v, underline=True) for v in 'ynvd']
     )
 

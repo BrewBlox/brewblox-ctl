@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "6e8cfbdc94ca6313b27d098f4cc2a15492a3b91f1fc604e20f3fed34f714906e"
+            "sha256": "00d768a6ba9a129688d60cddf129733221d67f8af47367c3c605186b848b0645"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -54,11 +54,11 @@
         },
         "python-dotenv": {
             "hashes": [
-                "sha256:440c7c23d53b7d352f9c94d6f70860242c2f071cf5c029dd661ccb22d64ae42b",
-                "sha256:f254bfd0c970d64ccbb6c9ebef3667ab301a71473569c991253a481f1c98dddc"
+                "sha256:8429f459fc041237d98c9ff32e1938e7e5535b5ff24388876315a098027c3a57",
+                "sha256:ca9f3debf2262170d6f46571ce4d6ca1add60bb93b69c3a29dcb3d1a00a65c93"
             ],
             "index": "pypi",
-            "version": "==0.10.5"
+            "version": "==0.11.0"
         },
         "pyyaml": {
             "hashes": [
@@ -158,6 +158,13 @@
             ],
             "index": "pypi",
             "version": "==3.7.9"
+        },
+        "flake8-quotes": {
+            "hashes": [
+                "sha256:11a15d30c92ca5f04c2791bd7019cf62b6f9d3053eb050d02a135557eb118bfc"
+            ],
+            "index": "pypi",
+            "version": "==2.1.1"
         },
         "importlib-metadata": {
             "hashes": [
