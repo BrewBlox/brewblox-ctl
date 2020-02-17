@@ -87,14 +87,14 @@ def install(use_defaults, dir, release):
     if utils.is_docker_user():
         utils.info('{} already belongs to the docker group, skipping...'.format(user))
     elif use_defaults or utils.confirm('Do you want to run docker commands without sudo?'):
-        utils.info('Adding {} to \'docker\' group...'.format(user))
+        utils.info("Adding {} to 'docker' group...".format(user))
         sh('sudo usermod -aG docker $USER')
 
     # Determine install directory
     default_dir = path.abspath('./brewblox')
     if not dir \
         and not use_defaults \
-            and not utils.confirm('Using Brewblox directory \'{}\'. Do you want to continue?'.format(default_dir)):
+            and not utils.confirm("Using Brewblox directory '{}'. Do you want to continue?".format(default_dir)):
         return
 
     dir = dir or default_dir

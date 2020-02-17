@@ -18,6 +18,7 @@ pytest-cov = "*"
 pytest-mock = "*"
 pytest-sugar = "*"
 "pathlib2" = "*"
+flake8-quotes = "*"
 
 [requires]
 python_version = "3.5"
