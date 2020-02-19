@@ -6,7 +6,7 @@ Tests brewblox_ctl.commands.install
 import pytest.__main__
 
 from brewblox_ctl.commands import install
-from brewblox_ctl.testing import check_sudo, invoke
+from brewblox_ctl.testing import check_sudo, invoke, matching
 
 TESTED = install.__name__
 
@@ -64,9 +64,9 @@ def test_install_decline(m_utils, m_sh):
         False,  # docker
         False,  # docker-compose
     ]
-    invoke(install.install, '--dir ./brewblox')
+    invoke(install.install, '--dir ./brewblox --no-reboot')
     print(m_utils.confirm.call_args_list)
-    assert m_utils.confirm.call_count == 6
+    assert m_utils.confirm.call_count == 5
 
     m_utils.confirm.reset_mock()
     m_utils.command_exists.side_effect = [
@@ -82,10 +82,7 @@ def test_install_existing_declined(m_utils, m_sh):
     m_utils.path_exists.return_value = True
     m_utils.is_docker_user.return_value = True
     m_utils.confirm.side_effect = [
-        True,  # Installing apt
-        True,  # Install docker
-        True,  # Install docker-compose
-        True,  # Using directory
+        True,  # Use defaults
         False,  # No to overwrite
     ]
     m_utils.command_exists.side_effect = [
@@ -93,8 +90,8 @@ def test_install_existing_declined(m_utils, m_sh):
         False,  # docker
         False,  # docker-compose
     ]
-    invoke(install.install, '--no-use-defaults')
-    assert m_sh.call_count == 3  # apt, docker, docker-compose
+    invoke(install.install)
+    m_sh.assert_not_called()
 
 
 def test_install_existing_continue(m_utils, m_sh):
@@ -102,7 +99,6 @@ def test_install_existing_continue(m_utils, m_sh):
     m_utils.confirm.side_effect = [
         True,  # ok using dir
         True,  # continue existing dir
-        False  # no reboot
     ]
     m_utils.is_docker_user.return_value = True
     m_utils.command_exists.side_effect = [
@@ -111,8 +107,9 @@ def test_install_existing_continue(m_utils, m_sh):
         True,  # docker-compose
     ]
     invoke(install.install, '--no-use-defaults')
-    m_utils.confirm.assert_called_with('Do you want to reboot now?')
-    assert m_sh.call_count == 1  # touch env
+    m_utils.confirm.assert_called_with(matching(r'.*brewblox already exists.*'))
+    assert m_sh.call_count == 3
+    m_sh.assert_called_with('sudo reboot')
 
 
 def test_prepare_flasher(m_utils, m_sh):
