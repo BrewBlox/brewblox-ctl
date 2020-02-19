@@ -20,12 +20,34 @@ def cli():
 @click.option('--use-defaults/--no-use-defaults',
               default=None,
               help='Use default settings for installation.')
+@click.option('--apt-install/--no-apt-install',
+              default=None,
+              help='Update and install apt dependencies. Overrides --use-defaults if set.')
+@click.option('--docker-install/--no-docker-install',
+              default=None,
+              help='Install docker. Overrides --use-defaults if set.')
+@click.option('--docker-user/--no-docker-user',
+              default=None,
+              help='Add user to docker group. Overrides --use-defaults if set.')
+@click.option('--docker-compose-install/--no-docker-compose-install',
+              default=None,
+              help='Install docker-compose. Overrides --use-defaults if set.')
 @click.option('--dir',
               help='Install directory.')
+@click.option('--no-reboot',
+              is_flag=True,
+              help='Do not reboot after install is done.')
 @click.option('--release',
               default='edge',
               help='Brewblox release track.')
-def install(use_defaults, dir, release):
+def install(use_defaults,
+            apt_install,
+            docker_install,
+            docker_user,
+            docker_compose_install,
+            no_reboot,
+            dir,
+            release):
     """Create Brewblox directory; install system dependencies; reboot.
 
     Brewblox can be installed multiple times on the same computer.
@@ -52,60 +74,104 @@ def install(use_defaults, dir, release):
     """
     utils.confirm_mode()
 
+    apt_deps = 'libssl-dev libffi-dev'
+    user = utils.getenv('USER')
+    default_dir = path.abspath('./brewblox')
+
     if use_defaults is None:
         use_defaults = utils.confirm('Do you want to install with default settings?')
 
-    # Install Apt packages
-    apt_deps = 'libssl-dev libffi-dev'
+    # Check if packages should be installed
     if not utils.command_exists('apt'):
         utils.info('Apt is not available. You may need to find another way to install dependencies.')
         utils.info('Apt packages: "{}"'.format(apt_deps))
-    elif use_defaults or utils.confirm('Do you want to install Apt packages "{}"?'.format(apt_deps)):
-        utils.info('Installing Apt packages...')
+        apt_install = False
+
+    if apt_install is None:
+        if use_defaults:
+            apt_install = True
+        else:
+            apt_install = utils.confirm('Do you want to install apt packages "{}"?'.format(apt_deps))
+
+    # Check if docker should be installed
+    if utils.command_exists('docker'):
+        utils.info('Docker is already installed.')
+        docker_install = False
+
+    if docker_install is None:
+        if use_defaults:
+            docker_install = True
+        else:
+            docker_install = utils.confirm('Do you want to install docker?')
+
+    # Check if user should be added to docker group
+    if utils.is_docker_user():
+        utils.info('{} already belongs to the docker group.'.format(user))
+        docker_user = False
+
+    if docker_user is None:
+        if use_defaults:
+            docker_user = True
+        else:
+            docker_user = utils.confirm('Do you want to run docker commands without sudo?')
+
+    # Check if docker-compose should be installed
+    if utils.command_exists('docker-compose'):
+        utils.info('docker-compose is already installed.')
+        docker_compose_install = False
+
+    if docker_compose_install is None:
+        if use_defaults:
+            docker_compose_install = True
+        else:
+            docker_compose_install = utils.confirm('Do you want to install docker-compose (from pip)?')
+
+    # Check used directory
+    if dir is None:
+        if use_defaults or utils.confirm("The default directory is '{}'. Do you want to continue?".format(default_dir)):
+            dir = default_dir
+        else:
+            return
+
+    if utils.path_exists(dir):
+        if not utils.confirm('{} already exists. Do you want to continue?'.format(dir)):
+            return
+
+    # Install Apt packages
+    if apt_install:
+        utils.info('Installing apt packages...')
         sh([
             'sudo apt update',
             'sudo apt upgrade -y',
             'sudo apt install -y {}'.format(apt_deps),
         ])
+    else:
+        utils.info('Skipped: apt install.')
 
     # Install docker
-    if utils.command_exists('docker'):
-        utils.info('Docker is already installed, skipping...')
-    elif use_defaults or utils.confirm('Do you want to install docker?'):
+    if docker_install:
         utils.info('Installing docker...')
         sh('curl -sL get.docker.com | sh')
-
-    # Install docker-compose
-    if utils.command_exists('docker-compose'):
-        utils.info('docker-compose is already installed, skipping...')
-    elif use_defaults or utils.confirm('Do you want to install docker-compose (from pip)?'):
-        utils.info('Installing docker-compose...')
-        sh('sudo {} -m pip install -U docker-compose'.format(const.PY))
+    else:
+        utils.info('Skipped: docker install.')
 
     # Add user to 'docker' group
-    user = utils.getenv('USER')
-    if utils.is_docker_user():
-        utils.info('{} already belongs to the docker group, skipping...'.format(user))
-    elif use_defaults or utils.confirm('Do you want to run docker commands without sudo?'):
+    if docker_user:
         utils.info("Adding {} to 'docker' group...".format(user))
         sh('sudo usermod -aG docker $USER')
+    else:
+        utils.info("Skipped: adding {} to 'docker' group.".format(user))
 
-    # Determine install directory
-    default_dir = path.abspath('./brewblox')
-    if not dir \
-        and not use_defaults \
-            and not utils.confirm("Using Brewblox directory '{}'. Do you want to continue?".format(default_dir)):
-        return
-
-    dir = dir or default_dir
+    # Install docker-compose
+    if docker_compose_install:
+        utils.info('Installing docker-compose...')
+        sh('sudo {} -m pip install -U docker-compose'.format(const.PY))
+    else:
+        utils.info('Skipped: docker-compose install.')
 
     # Create install directory
-    if utils.path_exists(dir):
-        if not utils.confirm('{} already exists. Do you want to continue?'.format(dir)):
-            return
-    else:
-        utils.info('Creating Brewblox directory ({})...'.format(dir))
-        sh('mkdir -p {}'.format(dir))
+    utils.info('Creating Brewblox directory ({})...'.format(dir))
+    sh('mkdir -p {}'.format(dir))
 
     # Set variables in .env file
     utils.info('Setting variables in .env file...')
@@ -115,11 +181,15 @@ def install(use_defaults, dir, release):
     utils.setenv(const.CFG_VERSION_KEY, '0.0.0', dotenv_path)
     utils.setenv(const.SKIP_CONFIRM_KEY, str(use_defaults), dotenv_path)
 
+    utils.info('Done!')
+
     # Reboot
-    if use_defaults or utils.confirm('Do you want to reboot now?'):
+    if not no_reboot:
         utils.info('Rebooting in 10 seconds...')
         sleep(10)
         sh('sudo reboot')
+    else:
+        utils.info('Skipped: reboot.')
 
 
 def prepare_flasher(release, pull):
