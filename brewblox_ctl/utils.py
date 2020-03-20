@@ -140,15 +140,11 @@ def optsudo():
     return 'sudo ' if not is_docker_user() else ''
 
 
-def tag_prefix():
-    return 'rpi-' if is_pi() else ''
-
-
 def docker_tag(release=None):
     release = release or getenv(const.RELEASE_KEY)
     if not release:
         raise KeyError('No Brewblox release specified. Please run this command in a Brewblox directory.')
-    return '{}{}'.format(tag_prefix(), release)
+    return release
 
 
 def check_config(required=True):
