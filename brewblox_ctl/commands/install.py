@@ -208,7 +208,8 @@ def prepare_flasher(release, pull):
 def run_flasher(release, args):
     tag = utils.docker_tag(release)
     sudo = utils.optsudo()
-    sh('{}docker run -it --rm --privileged brewblox/firmware-flasher:{} {}'.format(sudo, tag, args))
+    opts = '-it --rm --privileged -v /dev/serial:/dev/serial'
+    sh('{}docker run {} brewblox/firmware-flasher:{} {}'.format(sudo, opts, tag, args))
 
 
 @cli.command()

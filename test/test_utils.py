@@ -169,31 +169,17 @@ def test_optsudo(mocker):
     assert utils.optsudo() == 'sudo '
 
 
-@pytest.mark.parametrize('combo', [
-    ('armv6', 'rpi-'),
-    ('armv7hf', 'rpi-'),
-    ('amd64', ''),
-    ('deep-thought', ''),
-])
-def test_tag_prefix(combo, mocked_ext):
-    machine, result = combo
-    mocked_ext['machine'].return_value = machine
-    assert utils.tag_prefix() == result
-
-
 def test_docker_tag(mocker):
     mocker.patch(TESTED + '.getenv').return_value = 'value'
-    mocker.patch(TESTED + '.tag_prefix').return_value = 'prefix-'
 
-    assert utils.docker_tag() == 'prefix-value'
-    assert utils.docker_tag('release') == 'prefix-release'
+    assert utils.docker_tag() == 'value'
+    assert utils.docker_tag('release') == 'release'
 
 
 def test_docker_tag_err(mocker):
     mocker.patch(TESTED + '.getenv').return_value = None
-    mocker.patch(TESTED + '.tag_prefix').return_value = 'prefix-'
 
-    assert utils.docker_tag('release') == 'prefix-release'
+    assert utils.docker_tag('release') == 'release'
     with pytest.raises(KeyError):
         utils.docker_tag()
 
