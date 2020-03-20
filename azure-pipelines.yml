@@ -1,5 +1,5 @@
 pool:
-  vmImage: 'Ubuntu-16.04'
+  vmImage: 'Ubuntu-18.04'
 
 trigger:
   tags:
@@ -11,8 +11,6 @@ trigger:
 
 variables:
   # Variables imported from brewblox group:
-  # DOCKER_USER
-  # DOCKER_PASSWORD
   # PYPI_USER
   # PYPI_PASSWORD
   - group: brewblox
@@ -25,21 +23,16 @@ steps:
     architecture: 'x64'
 
 - bash: |
-    BRANCH=$(echo $(Build.SourceBranch) | grep -oP "^refs/heads/\K.*")
-    TAG=$(git describe --tags | grep "^[[:digit:]]*\.[[:digit:]]*\.[[:digit:]]$")
-    echo "##vso[task.setvariable variable=brewblox.branch]$BRANCH"
-    echo "##vso[task.setvariable variable=brewblox.tag]$TAG"
-  displayName: export build variables
-
-- bash: |
     pip install pipenv
     pipenv install --system --dev --deploy
-    pytest
+    python setup.py sdist
+  displayName: Build package
+
+- bash: pytest
   displayName: Run Pytest
 
 - bash: |
     pip install twine
-    python setup.py sdist
     twine upload -u $(PYPI_USER) -p $(PYPI_PASSWORD) --skip-existing dist/*
   displayName: Deploy to PyPi
   condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
