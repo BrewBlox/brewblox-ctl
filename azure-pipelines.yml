@@ -9,6 +9,11 @@ trigger:
     include:
       - refs/heads/*
 
+pr:
+  branches:
+    include:
+      - '*'
+
 variables:
   # Variables imported from brewblox group:
   # PYPI_USER
@@ -23,12 +28,12 @@ steps:
     architecture: 'x64'
 
 - bash: |
-    pip install pipenv
-    pipenv install --system --dev --deploy
-    python setup.py sdist
+    pip install poetry
+    poetry install
+    poetry build
   displayName: Build package
 
-- bash: pytest
+- bash: poetry run pytest
   displayName: Run Pytest
 
 - bash: |
