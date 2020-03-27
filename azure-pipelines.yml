@@ -33,7 +33,7 @@ steps:
     poetry build
   displayName: Build package
 
-- bash: pytest
+- bash: poetry run pytest
   displayName: Run Pytest
 
 - bash: |
