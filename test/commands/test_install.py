@@ -128,7 +128,7 @@ def test_prepare_flasher(m_utils, m_sh):
 def test_run_flasher(m_utils, m_sh):
     install.run_flasher('taggart', 'do-stuff')
     m_sh.assert_called_with(
-        'SUDO docker run -it --rm --privileged -v /dev/serial:/dev/serial ' +
+        'SUDO docker run -it --rm --privileged -v /dev/serial/:/dev/serial/ ' +
         'brewblox/firmware-flasher:taggart do-stuff')
 
 
@@ -136,7 +136,7 @@ def test_flash(m_utils, m_sh):
     invoke(install.flash, '--release develop --pull')
     assert m_sh.call_count == 4
     m_sh.assert_called_with(
-        'SUDO docker run -it --rm --privileged -v /dev/serial:/dev/serial ' +
+        'SUDO docker run -it --rm --privileged -v /dev/serial/:/dev/serial/ ' +
         'brewblox/firmware-flasher:develop flash')
 
 
@@ -144,12 +144,12 @@ def test_bootloader(m_utils, m_sh):
     invoke(install.bootloader, '--release develop --pull --force')
     assert m_sh.call_count == 3
     m_sh.assert_called_with(
-        'SUDO docker run -it --rm --privileged -v /dev/serial:/dev/serial ' +
+        'SUDO docker run -it --rm --privileged -v /dev/serial/:/dev/serial/ ' +
         'brewblox/firmware-flasher:develop flash-bootloader --force')
 
     invoke(install.bootloader, '--release edge')
     m_sh.assert_called_with(
-        'SUDO docker run -it --rm --privileged -v /dev/serial:/dev/serial ' +
+        'SUDO docker run -it --rm --privileged -v /dev/serial/:/dev/serial/ ' +
         'brewblox/firmware-flasher:edge flash-bootloader')
 
 
