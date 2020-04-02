@@ -147,6 +147,11 @@ def test_bootloader(m_utils, m_sh):
         'SUDO docker run -it --rm --privileged -v /dev/serial:/dev/serial ' +
         'brewblox/firmware-flasher:develop flash-bootloader --force')
 
+    invoke(install.bootloader, '--release edge')
+    m_sh.assert_called_with(
+        'SUDO docker run -it --rm --privileged -v /dev/serial:/dev/serial ' +
+        'brewblox/firmware-flasher:edge flash-bootloader')
+
 
 def test_wifi(m_utils, m_sh):
     invoke(install.wifi, '--release develop --pull')
