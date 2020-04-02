@@ -260,7 +260,7 @@ def bootloader(release, pull, force):
     prepare_flasher(release, pull)
 
     utils.info('Flashing bootloader...')
-    run_flasher(release, 'flash-bootloader' + ' --force' if force else '')
+    run_flasher(release, 'flash-bootloader' + (' --force' if force else ''))
 
 
 @cli.command()
