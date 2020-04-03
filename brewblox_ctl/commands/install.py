@@ -208,7 +208,7 @@ def prepare_flasher(release, pull):
 def run_flasher(release, args):
     tag = utils.docker_tag(release)
     sudo = utils.optsudo()
-    opts = '-it --rm --privileged -v /dev/serial/:/dev/serial/'
+    opts = '-it --rm --privileged -v /dev:/dev'
     sh('{}docker run {} brewblox/firmware-flasher:{} {}'.format(sudo, opts, tag, args))
 
 
@@ -233,7 +233,6 @@ def flash(release, pull):
     prepare_flasher(release, pull)
 
     utils.info('Flashing Spark...')
-    run_flasher(release, 'trigger-dfu')
     run_flasher(release, 'flash')
 
 
@@ -260,7 +259,7 @@ def bootloader(release, pull, force):
     prepare_flasher(release, pull)
 
     utils.info('Flashing bootloader...')
-    run_flasher(release, 'flash-bootloader' + (' --force' if force else ''))
+    run_flasher(release, 'flash-bootloader')
 
 
 @cli.command()
