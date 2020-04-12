@@ -213,7 +213,7 @@ def run_flasher(release, args):
 
 
 @cli.command()
-@click.option('--release', default=None, help='BrewBlox release track')
+@click.option('--release', default=None, help='Brewblox release track')
 @click.option('--pull/--no-pull', default=True)
 def flash(release, pull):
     """Flash firmware on Spark.
@@ -237,7 +237,7 @@ def flash(release, pull):
 
 
 @cli.command()
-@click.option('--release', default=None, help='BrewBlox release track')
+@click.option('--release', default=None, help='Brewblox release track')
 @click.option('--pull/--no-pull', default=True)
 @click.option('--force', is_flag=True, help='Force flashing the bootloader')
 def bootloader(release, pull, force):
@@ -263,7 +263,7 @@ def bootloader(release, pull, force):
 
 
 @cli.command()
-@click.option('--release', default=None, help='BrewBlox release track')
+@click.option('--release', default=None, help='Brewblox release track')
 @click.option('--pull/--no-pull', default=True)
 def wifi(release, pull):
     """Configure Spark Wifi settings.
@@ -282,3 +282,27 @@ def wifi(release, pull):
 
     utils.info('Configuring wifi...')
     run_flasher(release, 'wifi')
+
+
+@cli.command()
+@click.option('--release', default=None, help='Brewblox release track')
+@click.option('--pull/--no-pull', default=True)
+@click.option('-c', '--command', default='')
+def particle(release, pull, command):
+    """Start a Docker container with access to the Particle CLI.
+
+    This requires the Spark to be connected over USB.
+
+    \b
+    Steps:
+        - Stop running services.
+        - Pull flasher image.
+        - Start flasher image.
+    """
+    utils.confirm_mode()
+    utils.confirm_usb()
+    prepare_flasher(release, pull)
+
+    utils.info('Starting Particle image...')
+    utils.info("Type 'exit' and press enter to exit the shell")
+    run_flasher(release, command)

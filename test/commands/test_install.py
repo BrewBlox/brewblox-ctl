@@ -151,3 +151,11 @@ def test_bootloader(m_utils, m_sh):
 def test_wifi(m_utils, m_sh):
     invoke(install.wifi, '--release develop --pull')
     assert m_sh.call_count == 3
+
+
+def test_particle(m_utils, m_sh):
+    invoke(install.particle, '--release develop --pull -c testey')
+    assert m_sh.call_count == 3
+    m_sh.assert_called_with(
+        'SUDO docker run -it --rm --privileged -v /dev:/dev ' +
+        'brewblox/firmware-flasher:develop testey')
