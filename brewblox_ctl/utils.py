@@ -140,6 +140,11 @@ def optsudo():
     return 'sudo ' if not is_docker_user() else ''
 
 
+def tag_prefix():  # pragma: no cover
+    """Present for backwards compatibility with older versions of ctl-lib"""
+    return ''
+
+
 def docker_tag(release=None):
     release = release or getenv(const.RELEASE_KEY)
     if not release:
