@@ -239,34 +239,8 @@ def flash(release, pull):
 @cli.command()
 @click.option('--release', default=None, help='Brewblox release track')
 @click.option('--pull/--no-pull', default=True)
-@click.option('--force', is_flag=True, help='Force flashing the bootloader')
-def bootloader(release, pull, force):
-    """Flash bootloader on Spark.
-
-    The bootloader is updated only very rarely.
-    You do not have to run this command for every update.
-
-    This requires the Spark to be connected over USB.
-
-    \b
-    Steps:
-        - Stop running services.
-        - Pull flasher image.
-        - Run bootloader command.
-    """
-    utils.confirm_mode()
-    utils.confirm_usb()
-    prepare_flasher(release, pull)
-
-    utils.info('Flashing bootloader...')
-    run_flasher(release, 'flash-bootloader')
-
-
-@cli.command()
-@click.option('--release', default=None, help='Brewblox release track')
-@click.option('--pull/--no-pull', default=True)
 def wifi(release, pull):
-    """Configure Spark Wifi settings.
+    """DISABLED: Configure Spark Wifi settings.
 
     This requires the Spark to be connected over USB.
 
@@ -276,12 +250,15 @@ def wifi(release, pull):
         - Pull flasher image.
         - Run wifi command.
     """
-    utils.confirm_mode()
-    utils.confirm_usb()
-    prepare_flasher(release, pull)
+    utils.info('This command is temporarily disabled')
+    utils.info('To set up Wifi, connect to the Spark over USB')
+    utils.info('On the Spark service page (actions, top right), you can configure Wifi settings')
+    # utils.confirm_mode()
+    # utils.confirm_usb()
+    # prepare_flasher(release, pull)
 
-    utils.info('Configuring wifi...')
-    run_flasher(release, 'wifi')
+    # utils.info('Configuring wifi...')
+    # run_flasher(release, 'wifi')
 
 
 @cli.command()
