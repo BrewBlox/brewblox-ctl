@@ -283,3 +283,24 @@ def particle(release, pull, command):
     utils.info('Starting Particle image...')
     utils.info("Type 'exit' and press enter to exit the shell")
     run_flasher(release, command)
+
+
+@cli.command()
+def disable_ipv6():
+    """Disable IPv6 support on the host machine.
+
+    Reason: https://github.com/docker/for-linux/issues/914
+    Should only be used if your services are having stability issues
+    """
+    utils.confirm_mode()
+    is_disabled = sh('cat /proc/sys/net/ipv6/conf/all/disable_ipv6', capture=True).strip()
+    if is_disabled == '1':
+        utils.info('IPv6 is already disabled')
+    elif is_disabled == '0' or utils.ctx_opts().dry_run:
+        utils.info('Disabling IPv6...')
+        sh('echo "net.ipv6.conf.all.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf')
+        sh('echo "net.ipv6.conf.default.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf')
+        sh('echo "net.ipv6.conf.lo.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf')
+        sh('sudo sysctl -p')
+    else:
+        utils.info('Invalid result when checking IPv6 status: ' + is_disabled)

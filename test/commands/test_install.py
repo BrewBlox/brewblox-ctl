@@ -152,3 +152,18 @@ def test_particle(m_utils, m_sh):
     m_sh.assert_called_with(
         'SUDO docker run -it --rm --privileged -v /dev:/dev ' +
         'brewblox/firmware-flasher:develop testey')
+
+
+def test_disable_ipv6(m_utils, m_sh):
+    m_sh.return_value = '1\n'
+    invoke(install.disable_ipv6)
+    assert m_sh.call_count == 1
+
+    m_sh.return_value = 'wat\n'
+    m_utils.ctx_opts.return_value.dry_run = False
+    invoke(install.disable_ipv6)
+    assert m_sh.call_count == 2
+
+    m_sh.return_value = '0\n'
+    invoke(install.disable_ipv6)
+    assert m_sh.call_count == 3 + 4
