@@ -341,3 +341,18 @@ def test_load_ctl_lib(mocker):
     with pytest.raises(KeyError):
         utils.load_ctl_lib()
     assert m_sh.call_count == 0
+
+
+def test_pip_install(mocker):
+    m_sh = mocker.patch(TESTED + '.sh')
+    m_getenv = mocker.patch(TESTED + '.getenv')
+    mocker.patch(TESTED + '.Path')
+    mocker.patch(TESTED + '.const.PY', '/PY')
+
+    m_getenv.return_value = 'ussr'
+    utils.pip_install('lib')
+    m_sh.assert_called_with('/PY -m pip install --user --upgrade --no-cache-dir lib')
+
+    m_getenv.return_value = None
+    utils.pip_install('lib')
+    m_sh.assert_called_with('sudo /PY -m pip install --upgrade --no-cache-dir lib')

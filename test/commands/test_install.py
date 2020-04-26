@@ -52,7 +52,8 @@ def test_install_full(m_utils, m_sh):
         False,  # docker-compose
     ]
     invoke(install.install)
-    assert m_sh.call_count == 7
+    assert m_sh.call_count == 6
+    m_utils.pip_install.assert_called_with('docker-compose')
 
 
 def test_install_decline(m_utils, m_sh):
