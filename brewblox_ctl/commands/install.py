@@ -165,7 +165,7 @@ def install(use_defaults,
     # Install docker-compose
     if docker_compose_install:
         utils.info('Installing docker-compose...')
-        sh('sudo {} -m pip install -U docker-compose'.format(const.PY))
+        utils.pip_install('docker-compose')
     else:
         utils.info('Skipped: docker-compose install.')
 

@@ -6,6 +6,7 @@ from distutils.util import strtobool
 from os import getcwd
 from os import getenv as getenv_
 from os import path
+from pathlib import Path
 from platform import machine
 from shutil import which
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, run
@@ -194,6 +195,15 @@ def check_ok(cmd):
         return True
     except CalledProcessError:
         return False
+
+
+def pip_install(*libs):
+    user = getenv('USER')
+    args = '--upgrade --no-cache-dir ' + ' '.join(libs)
+    if user and Path('/home/{}'.format(user)).is_dir():
+        return sh('{} -m pip install --user {}'.format(const.PY, args))
+    else:
+        return sh('sudo {} -m pip install {}'.format(const.PY, args))
 
 
 def info(msg):
