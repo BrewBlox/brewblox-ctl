@@ -77,6 +77,7 @@ def install(use_defaults,
     apt_deps = 'curl net-tools libssl-dev libffi-dev'
     user = utils.getenv('USER')
     default_dir = path.abspath('./brewblox')
+    prompt_reboot = True
 
     if use_defaults is None:
         use_defaults = utils.confirm('Do you want to install with default settings?')
@@ -137,6 +138,10 @@ def install(use_defaults,
         if not utils.confirm('{} already exists. Do you want to continue?'.format(dir)):
             return
 
+    if not no_reboot:
+        prompt_reboot = utils.confirm('A reboot is required after installation. ' +
+                                      'Do you want to be prompted before that happens?')
+
     # Install Apt packages
     if apt_install:
         utils.info('Installing apt packages...')
@@ -185,8 +190,12 @@ def install(use_defaults,
 
     # Reboot
     if not no_reboot:
-        utils.info('Rebooting in 10 seconds...')
-        sleep(10)
+        if prompt_reboot:
+            utils.info('Press ENTER to reboot.')
+            input()
+        else:
+            utils.info('Rebooting in 10 seconds...')
+            sleep(10)
         sh('sudo reboot')
     else:
         utils.info('Skipped: reboot.')
