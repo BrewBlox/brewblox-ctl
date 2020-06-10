@@ -17,6 +17,12 @@ def m_sleep(mocker):
     return m
 
 
+@pytest.fixture(autouse=True)
+def m_input(mocker):
+    m = mocker.patch(TESTED + '.input')
+    return m
+
+
 @pytest.fixture
 def m_utils(mocker):
     m = mocker.patch(TESTED + '.utils')
@@ -100,6 +106,7 @@ def test_install_existing_continue(m_utils, m_sh):
     m_utils.confirm.side_effect = [
         True,  # ok using dir
         True,  # continue existing dir
+        False,  # prompt reboot
     ]
     m_utils.is_docker_user.return_value = True
     m_utils.command_exists.side_effect = [
@@ -108,7 +115,7 @@ def test_install_existing_continue(m_utils, m_sh):
         True,  # docker-compose
     ]
     invoke(install.install, '--no-use-defaults')
-    m_utils.confirm.assert_called_with(matching(r'.*brewblox already exists.*'))
+    m_utils.confirm.assert_any_call(matching(r'.*brewblox already exists.*'))
     assert m_sh.call_count == 3
     m_sh.assert_called_with('sudo reboot')
 
