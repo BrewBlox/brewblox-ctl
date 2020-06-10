@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "brewblox-ctl"
-version = "0.21.1"
+version = "0.21.2"
 description = "Brewblox management tool"
 authors = ["BrewPi <development@brewpi.com>"]
 license = "GPL-3.0"
@@ -10,7 +10,7 @@ readme = "README.md"
 python = ">=3.5"
 requests = "^2.23.0"
 click = "^7.1.1"
-python-dotenv = {extras = ["cli"], version = "^0.12.0"}
+python-dotenv = {version = "^0.13.0", extras = ["cli"]}
 pyyaml = "^5.3.1"
 pprint = "^0.1"
 
