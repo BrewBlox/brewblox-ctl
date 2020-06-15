@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "brewblox-ctl"
-version = "0.21.3"
+version = "0.21.4"
 description = "Brewblox management tool"
 authors = ["BrewPi <development@brewpi.com>"]
 license = "GPL-3.0"
@@ -13,6 +13,8 @@ click = "^7.1.1"
 python-dotenv = {version = "^0.13.0", extras = ["cli"]}
 pyyaml = "^5.3.1"
 pprint = "^0.1"
+docker = "^4.2.1"
+docker-compose = "^1.26.0"
 
 [tool.poetry.dev-dependencies]
 pytest-cov = "^2.8.1"
