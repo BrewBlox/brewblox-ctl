@@ -29,9 +29,6 @@ def cli():
 @click.option('--docker-user/--no-docker-user',
               default=None,
               help='Add user to docker group. Overrides --use-defaults if set.')
-@click.option('--docker-compose-install/--no-docker-compose-install',
-              default=None,
-              help='Install docker-compose. Overrides --use-defaults if set.')
 @click.option('--dir',
               help='Install directory.')
 @click.option('--no-reboot',
@@ -44,7 +41,6 @@ def install(use_defaults,
             apt_install,
             docker_install,
             docker_user,
-            docker_compose_install,
             no_reboot,
             dir,
             release):
@@ -53,7 +49,7 @@ def install(use_defaults,
     Brewblox can be installed multiple times on the same computer.
     Settings and databases are stored in a Brewblox directory (default: ./brewblox).
 
-    This command also installs system-wide dependencies (docker, docker-compose).
+    This command also installs system-wide dependencies (docker).
     After `brewblox-ctl install`, run `brewblox-ctl setup` in the created Brewblox directory.
 
     A reboot is required after installing docker, or adding the user to the 'docker' group.
@@ -66,7 +62,6 @@ def install(use_defaults,
     Steps:
         - Install apt packages.
         - Install docker.
-        - Install docker-compose.
         - Add user to 'docker' group.
         - Create Brewblox directory (default ./brewblox).
         - Set variables in .env file.
@@ -116,17 +111,6 @@ def install(use_defaults,
         else:
             docker_user = utils.confirm('Do you want to run docker commands without sudo?')
 
-    # Check if docker-compose should be installed
-    if utils.command_exists('docker-compose'):
-        utils.info('docker-compose is already installed.')
-        docker_compose_install = False
-
-    if docker_compose_install is None:
-        if use_defaults:
-            docker_compose_install = True
-        else:
-            docker_compose_install = utils.confirm('Do you want to install docker-compose (from pip)?')
-
     # Check used directory
     if dir is None:
         if use_defaults or utils.confirm("The default directory is '{}'. Do you want to continue?".format(default_dir)):
@@ -166,13 +150,6 @@ def install(use_defaults,
         sh('sudo usermod -aG docker $USER')
     else:
         utils.info("Skipped: adding {} to 'docker' group.".format(user))
-
-    # Install docker-compose
-    if docker_compose_install:
-        utils.info('Installing docker-compose...')
-        utils.pip_install('docker-compose')
-    else:
-        utils.info('Skipped: docker-compose install.')
 
     # Create install directory
     utils.info('Creating Brewblox directory ({})...'.format(dir))

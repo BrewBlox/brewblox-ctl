@@ -59,7 +59,6 @@ def test_install_full(m_utils, m_sh):
     ]
     invoke(install.install)
     assert m_sh.call_count == 6
-    m_utils.pip_install.assert_called_with('docker-compose')
 
 
 def test_install_decline(m_utils, m_sh):
@@ -69,17 +68,15 @@ def test_install_decline(m_utils, m_sh):
     m_utils.command_exists.side_effect = [
         True,  # apt
         False,  # docker
-        False,  # docker-compose
     ]
     invoke(install.install, '--dir ./brewblox --no-reboot')
     print(m_utils.confirm.call_args_list)
-    assert m_utils.confirm.call_count == 5
+    assert m_utils.confirm.call_count == 4
 
     m_utils.confirm.reset_mock()
     m_utils.command_exists.side_effect = [
         True,  # apt
         False,  # docker
-        False,  # docker-compose
     ]
 
     invoke(install.install)
@@ -95,7 +92,6 @@ def test_install_existing_declined(m_utils, m_sh):
     m_utils.command_exists.side_effect = [
         True,  # apt
         False,  # docker
-        False,  # docker-compose
     ]
     invoke(install.install)
     m_sh.assert_not_called()
@@ -112,7 +108,6 @@ def test_install_existing_continue(m_utils, m_sh):
     m_utils.command_exists.side_effect = [
         False,  # apt
         True,  # docker
-        True,  # docker-compose
     ]
     invoke(install.install, '--no-use-defaults')
     m_utils.confirm.assert_any_call(matching(r'.*brewblox already exists.*'))
