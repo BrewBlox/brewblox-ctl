@@ -95,6 +95,9 @@ def confirm_mode():  # pragma: no cover
         opts.dry_run = True
     elif v in ('v', 'verbose'):
         opts.verbose = True
+    else:
+        # Don't require additional confirmation for subcommands
+        opts.skip_confirm = True
 
 
 def getenv(key, default=None):
