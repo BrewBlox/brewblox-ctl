@@ -38,7 +38,7 @@ def ctx_opts():
 
 
 def confirm(question, default=True):
-    default_val = 'Yes' if default else 'No'
+    default_val = 'yes' if default else 'no'
     prompt = "{} [Press ENTER for default value '{}']".format('{}', default_val)
     click.echo(prompt.format(question))
     while True:
