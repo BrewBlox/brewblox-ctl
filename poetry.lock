@@ -206,6 +206,14 @@ version = "2.10"
 
 [[package]]
 category = "main"
+description = "Cross-platform network interface and IP address enumeration library"
+name = "ifaddr"
+optional = false
+python-versions = "*"
+version = "0.1.7"
+
+[[package]]
+category = "main"
 description = "Read metadata from Python packages"
 marker = "python_version < \"3.8\""
 name = "importlib-metadata"
@@ -520,6 +528,17 @@ six = "*"
 
 [[package]]
 category = "main"
+description = "Pure Python Multicast DNS Service Discovery Library (Bonjour/Avahi compatible)"
+name = "zeroconf"
+optional = false
+python-versions = "*"
+version = "0.28.1"
+
+[package.dependencies]
+ifaddr = ">=0.1.7"
+
+[[package]]
+category = "main"
 description = "Backport of pathlib-compatible object wrapper for zip files"
 marker = "python_version < \"3.8\""
 name = "zipp"
@@ -532,7 +551,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["pathlib2", "unittest2", "jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "a5b1023e13b5a3bb9bbfa7b28f0e38ef0a7914ec4a6a3c2504f7634bb18b65a8"
+content-hash = "4ed4478b8b92387bbe44a1e73d3b9a9de87ac44eb3bc1febf8a0e70640924b1c"
 python-versions = ">=3.5"
 
 [metadata.files]
@@ -640,6 +659,10 @@ flake8-quotes = [
 idna = [
     {file = "idna-2.10-py2.py3-none-any.whl", hash = "sha256:b97d804b1e9b523befed77c48dacec60e6dcb0b5391d57af6a65a312a90648c0"},
     {file = "idna-2.10.tar.gz", hash = "sha256:b307872f855b18632ce0c21c5e45be78c0ea7ae4c15c828c20788b26921eb3f6"},
+]
+ifaddr = [
+    {file = "ifaddr-0.1.7-py2.py3-none-any.whl", hash = "sha256:d1f603952f0a71c9ab4e705754511e4e03b02565bc4cec7188ad6415ff534cd3"},
+    {file = "ifaddr-0.1.7.tar.gz", hash = "sha256:1f9e8a6ca6f16db5a37d3356f07b6e52344f6f9f7e806d618537731669eb1a94"},
 ]
 importlib-metadata = [
     {file = "importlib_metadata-1.7.0-py2.py3-none-any.whl", hash = "sha256:dc15b2969b4ce36305c51eebe62d418ac7791e9a157911d58bfb1f9ccd8e2070"},
@@ -762,6 +785,10 @@ urllib3 = [
 websocket-client = [
     {file = "websocket_client-0.57.0-py2.py3-none-any.whl", hash = "sha256:0fc45c961324d79c781bab301359d5a1b00b13ad1b10415a4780229ef71a5549"},
     {file = "websocket_client-0.57.0.tar.gz", hash = "sha256:d735b91d6d1692a6a181f2a8c9e0238e5f6373356f561bb9dc4c7af36f452010"},
+]
+zeroconf = [
+    {file = "zeroconf-0.28.1-py3-none-any.whl", hash = "sha256:aae48e790f0f7c213c3893654ae2f53f7de01e05a34271bf17aa4c99def73940"},
+    {file = "zeroconf-0.28.1.tar.gz", hash = "sha256:902e6c3ca4cc752577d650d05a3e7102a897b647fe76da7c0d322cd493cbd1a3"},
 ]
 zipp = [
     {file = "zipp-1.2.0-py2.py3-none-any.whl", hash = "sha256:e0d9e63797e483a30d27e09fffd308c59a700d365ec34e93cc100844168bf921"},
