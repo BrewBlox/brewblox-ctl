@@ -23,6 +23,7 @@ def mocked_ext(mocker):
         'machine',
         'run',
         'set_key',
+        'unset_key',
     ]
     return {k: mocker.patch(TESTED + '.' + k) for k in mocked}
 
@@ -92,6 +93,20 @@ def test_setenv(mocked_ext, mocked_opts):
     mocked_opts.dry_run = True
     utils.setenv('key', 'val-dry')
     assert set_mock.call_count == 2
+
+
+def test_clearenv(mocked_ext, mocked_opts):
+    m_unset = mocked_ext['unset_key']
+
+    utils.clearenv('key')
+    m_unset.assert_called_with(path.abspath('.env'), 'key', quote_mode='never')
+
+    utils.clearenv('key', '.other-env')
+    m_unset.assert_called_with('.other-env', 'key', quote_mode='never')
+
+    mocked_opts.dry_run = True
+    utils.clearenv('key')
+    assert m_unset.call_count == 2
 
 
 def test_path_exists(mocked_ext):
