@@ -13,7 +13,7 @@ from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, run
 from types import GeneratorType
 
 import click
-from dotenv import set_key
+from dotenv import set_key, unset_key
 
 from brewblox_ctl import const
 
@@ -110,6 +110,14 @@ def setenv(key, value, dotenv_path=path.abspath('.env')):
         click.secho('{} {}={}'.format(const.LOG_ENV, key, value), fg='magenta', color=opts.color)
     if not opts.dry_run:
         set_key(dotenv_path, key, value, quote_mode='never')
+
+
+def clearenv(key, dotenv_path=path.abspath('.env')):
+    opts = ctx_opts()
+    if opts.dry_run or opts.verbose:
+        click.secho('{} unset {}'.format(const.LOG_ENV, key), fg='magenta', color=opts.color)
+    if not opts.dry_run:
+        unset_key(dotenv_path, key, quote_mode='never')
 
 
 def path_exists(path_name):
