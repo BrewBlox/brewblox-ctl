@@ -13,13 +13,12 @@ description = "Classes Without Boilerplate"
 name = "attrs"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-version = "19.3.0"
+version = "20.1.0"
 
 [package.extras]
-azure-pipelines = ["coverage", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "zope.interface", "pytest-azurepipelines"]
-dev = ["coverage", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "zope.interface", "sphinx", "pre-commit"]
-docs = ["sphinx", "zope.interface"]
-tests = ["coverage", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "zope.interface"]
+dev = ["coverage (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "zope.interface", "sphinx", "sphinx-rtd-theme", "pre-commit"]
+docs = ["sphinx", "sphinx-rtd-theme", "zope.interface"]
+tests = ["coverage (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "zope.interface"]
 
 [[package]]
 category = "dev"
@@ -107,7 +106,7 @@ description = "A Python library for the Docker Engine API."
 name = "docker"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
-version = "4.3.0"
+version = "4.3.1"
 
 [package.dependencies]
 pywin32 = "227"
@@ -532,7 +531,7 @@ description = "Pure Python Multicast DNS Service Discovery Library (Bonjour/Avah
 name = "zeroconf"
 optional = false
 python-versions = "*"
-version = "0.28.1"
+version = "0.28.2"
 
 [package.dependencies]
 ifaddr = ">=0.1.7"
@@ -551,7 +550,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["pathlib2", "unittest2", "jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "4ed4478b8b92387bbe44a1e73d3b9a9de87ac44eb3bc1febf8a0e70640924b1c"
+content-hash = "6b1a42662b7a2bed50bad01b7fe4af66dee6fe71a0b45481a267f8c118b5ed3d"
 python-versions = ">=3.5"
 
 [metadata.files]
@@ -560,8 +559,8 @@ atomicwrites = [
     {file = "atomicwrites-1.4.0.tar.gz", hash = "sha256:ae70396ad1a434f9c7046fd2dd196fc04b12f9e91ffb859164193be8b6168a7a"},
 ]
 attrs = [
-    {file = "attrs-19.3.0-py2.py3-none-any.whl", hash = "sha256:08a96c641c3a74e44eb59afb61a24f2cb9f4d7188748e76ba4bb5edfa3cb7d1c"},
-    {file = "attrs-19.3.0.tar.gz", hash = "sha256:f7b7ce16570fe9965acd6d30101a28f62fb4a7f9e926b3bbc9b61f8b04247e72"},
+    {file = "attrs-20.1.0-py2.py3-none-any.whl", hash = "sha256:2867b7b9f8326499ab5b0e2d12801fa5c98842d2cbd22b35112ae04bf85b4dff"},
+    {file = "attrs-20.1.0.tar.gz", hash = "sha256:0ef97238856430dcf9228e07f316aefc17e8939fc8507e18c6501b761ef1a42a"},
 ]
 autopep8 = [
     {file = "autopep8-1.5.4.tar.gz", hash = "sha256:d21d3901cb0da6ebd1e83fc9b0dfbde8b46afc2ede4fe32fbda0c7c6118ca094"},
@@ -636,8 +635,8 @@ distro = [
     {file = "distro-1.5.0.tar.gz", hash = "sha256:0e58756ae38fbd8fc3020d54badb8eae17c5b9dcbed388b17bb55b8a5928df92"},
 ]
 docker = [
-    {file = "docker-4.3.0-py2.py3-none-any.whl", hash = "sha256:ba118607b0ba6bfc1b236ec32019a355c47b5d012d01d976467d4692ef443929"},
-    {file = "docker-4.3.0.tar.gz", hash = "sha256:431a268f2caf85aa30613f9642da274c62f6ee8bae7d70d968e01529f7d6af93"},
+    {file = "docker-4.3.1-py2.py3-none-any.whl", hash = "sha256:13966471e8bc23b36bfb3a6fb4ab75043a5ef1dac86516274777576bed3b9828"},
+    {file = "docker-4.3.1.tar.gz", hash = "sha256:bad94b8dd001a8a4af19ce4becc17f41b09f228173ffe6a4e0355389eef142f2"},
 ]
 docker-compose = [
     {file = "docker-compose-1.26.2.tar.gz", hash = "sha256:576b0f81d1a1325941b3ce3436efd51f28b9ecd85b10dd6daa7d51793e187b30"},
@@ -787,8 +786,8 @@ websocket-client = [
     {file = "websocket_client-0.57.0.tar.gz", hash = "sha256:d735b91d6d1692a6a181f2a8c9e0238e5f6373356f561bb9dc4c7af36f452010"},
 ]
 zeroconf = [
-    {file = "zeroconf-0.28.1-py3-none-any.whl", hash = "sha256:aae48e790f0f7c213c3893654ae2f53f7de01e05a34271bf17aa4c99def73940"},
-    {file = "zeroconf-0.28.1.tar.gz", hash = "sha256:902e6c3ca4cc752577d650d05a3e7102a897b647fe76da7c0d322cd493cbd1a3"},
+    {file = "zeroconf-0.28.2-py3-none-any.whl", hash = "sha256:ab9bd4dfc76db2b1c5c18b279b8216162c754c7252f12b7525ea7f6819f83779"},
+    {file = "zeroconf-0.28.2.tar.gz", hash = "sha256:447d6da0b6426c0c67d5c29339e51b2d75e2c1f129605ad35a0cb84a454f09bc"},
 ]
 zipp = [
     {file = "zipp-1.2.0-py2.py3-none-any.whl", hash = "sha256:e0d9e63797e483a30d27e09fffd308c59a700d365ec34e93cc100844168bf921"},
