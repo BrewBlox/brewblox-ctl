@@ -69,7 +69,7 @@ def install(use_defaults,
     """
     utils.confirm_mode()
 
-    apt_deps = 'curl net-tools libssl-dev libffi-dev'
+    apt_deps = 'curl net-tools libssl-dev libffi-dev avahi-daemon'
     user = utils.getenv('USER')
     default_dir = path.abspath('./brewblox')
     prompt_reboot = True
