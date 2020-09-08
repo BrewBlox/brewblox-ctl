@@ -2,7 +2,7 @@
 Utility functions
 """
 
-from distutils.util import strtobool
+import re
 from os import getcwd
 from os import getenv as getenv_
 from os import path
@@ -16,6 +16,11 @@ import click
 from dotenv import set_key, unset_key
 
 from brewblox_ctl import const
+
+# Matches API of distutils.util.strtobool
+# https://docs.python.org/3/distutils/apiref.html#distutils.util.strtobool
+TRUE_PATTERN = re.compile('^(y|yes|t|true|on|1)$', re.IGNORECASE)
+FALSE_PATTERN = re.compile('^(n|no|f|false|off|0)$', re.IGNORECASE)
 
 
 class ContextOpts:
@@ -37,13 +42,21 @@ def ctx_opts():
     return click.get_current_context().find_object(ContextOpts)
 
 
+def strtobool(val):
+    if re.match(TRUE_PATTERN, val):
+        return True
+    if re.match(FALSE_PATTERN, val):
+        return False
+    raise ValueError()
+
+
 def confirm(question, default=True):
     default_val = 'yes' if default else 'no'
     prompt = "{} [Press ENTER for default value '{}']".format('{}', default_val)
     click.echo(prompt.format(question))
     while True:
         try:
-            return bool(strtobool(input().lower() or str(default)))
+            return strtobool(input() or default_val)
         except ValueError:
             click.echo("Please type 'y(es)' or 'n(o)' and press ENTER.")
 
