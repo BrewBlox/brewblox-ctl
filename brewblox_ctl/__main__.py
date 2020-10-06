@@ -1,7 +1,6 @@
 """
 Entrypoint for the Brewblox commands menu
 """
-
 import sys
 from os import getcwd, path
 from subprocess import CalledProcessError
@@ -12,6 +11,8 @@ from dotenv import load_dotenv
 
 from brewblox_ctl import click_helpers, const, utils
 from brewblox_ctl.commands import docker, env, http, install
+
+SUPPORTED_PYTHON_MINOR = 6
 
 
 def check_lib():
@@ -84,6 +85,10 @@ def main(args=sys.argv[1:]):
             and not utils.confirm(
                 'Raspberry Pi models 0 and 1 are not supported. Do you want to continue?', False):
             raise SystemExit(0)
+
+        if sys.version_info[1] < SUPPORTED_PYTHON_MINOR:
+            click.echo('WARNING: You are using an old version of Python.')
+            click.echo('We recommend upgrading your OS to a current release.\n')
 
         @click.group(
             cls=click_helpers.OrderedCommandCollection,

@@ -3,10 +3,9 @@ Tests brewblox_ctl.__main__
 """
 
 import pytest
-from click.exceptions import UsageError
-
 from brewblox_ctl import __main__ as main
 from brewblox_ctl import utils
+from click.exceptions import UsageError
 
 TESTED = main.__name__
 
@@ -83,6 +82,9 @@ def test_is_v6(mocked_utils, mocker):
 
 
 def test_exception(mocked_utils, mocker):
+    # Should not raise an error
+    mocker.patch(TESTED + '.SUPPORTED_PYTHON_MINOR', 100)
+
     mocked_utils.is_root.return_value = False
     mocked_utils.is_v6.return_value = False
     mocked_utils.getenv.return_value = None
