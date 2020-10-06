@@ -10,7 +10,7 @@ from click.exceptions import ClickException, UsageError
 from dotenv import load_dotenv
 
 from brewblox_ctl import click_helpers, const, utils
-from brewblox_ctl.commands import docker, env, http, install
+from brewblox_ctl.commands import docker, env, http, install, snapshot
 
 SUPPORTED_PYTHON_MINOR = 6
 
@@ -99,6 +99,7 @@ def main(args=sys.argv[1:]):
             sources=[
                 docker.cli,
                 install.cli,
+                snapshot.cli,
                 env.cli,
                 http.cli,
                 *local_commands(),
