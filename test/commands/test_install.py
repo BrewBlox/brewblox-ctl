@@ -4,11 +4,11 @@ Tests brewblox_ctl.commands.install
 
 
 import pytest.__main__
-
 from brewblox_ctl.commands import install
 from brewblox_ctl.testing import check_sudo, invoke, matching
 
 TESTED = install.__name__
+SNAPSHOT = install.snapshot.__name__
 
 
 @pytest.fixture(autouse=True)
@@ -38,6 +38,22 @@ def m_sh(mocker):
     return m
 
 
+@pytest.fixture(autouse=True)
+def m_snapshot_utils(mocker):
+    m = mocker.patch(SNAPSHOT + '.utils')
+    m.optsudo.return_value = 'SUDO '
+    m.is_brewblox_cwd.return_value = False
+    m.docker_tag.side_effect = lambda v: v
+    return m
+
+
+@pytest.fixture(autouse=True)
+def m_snapshot_sh(mocker):
+    m = mocker.patch(SNAPSHOT + '.sh')
+    m.side_effect = check_sudo
+    return m
+
+
 def test_install_short(m_utils, m_sh):
     m_utils.path_exists.return_value = False
     m_utils.command_exists.side_effect = [
@@ -59,6 +75,18 @@ def test_install_full(m_utils, m_sh):
     ]
     invoke(install.install)
     assert m_sh.call_count == 6
+
+
+def test_install_snapshot(m_utils, m_sh):
+    m_utils.path_exists.return_value = False
+    m_utils.is_docker_user.return_value = False
+    m_utils.command_exists.side_effect = [
+        True,  # apt
+        False,  # docker
+        False,  # docker-compose
+    ]
+    invoke(install.install, '--snapshot brewblox.tar.gz')
+    assert m_sh.call_count == 4
 
 
 def test_install_decline(m_utils, m_sh):
@@ -110,9 +138,20 @@ def test_install_existing_continue(m_utils, m_sh):
         True,  # docker
     ]
     invoke(install.install, '--no-use-defaults')
-    m_utils.confirm.assert_any_call(matching(r'.*brewblox already exists.*'))
+    m_utils.confirm.assert_any_call(matching(r'.*brewblox` directory already exists.*'))
     assert m_sh.call_count == 3
     m_sh.assert_called_with('sudo reboot')
+
+
+def test_init(m_utils, m_sh):
+    m_utils.path_exists.return_value = True
+    m_utils.confirm.return_value = False
+
+    invoke(install.init)
+    assert m_sh.call_count == 0
+
+    invoke(install.init, '--force')
+    assert m_sh.call_count > 0
 
 
 def test_prepare_flasher(m_utils, m_sh):
