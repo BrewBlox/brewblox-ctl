@@ -87,8 +87,12 @@ def main(args=sys.argv[1:]):
             raise SystemExit(0)
 
         if sys.version_info[1] < SUPPORTED_PYTHON_MINOR:
-            click.echo('WARNING: You are using an old version of Python.')
-            click.echo('We recommend upgrading your OS to a current release.\n')
+            major = sys.version_info[0]
+            minor = sys.version_info[1]
+            click.echo('WARNING: You are using Python {}.{}, which is no longer maintained.'.format(major, minor))
+            click.echo('We recommend upgrading your system.')
+            click.echo('For more information, please visit https://brewblox.netlify.app/user/system_upgrades.html')
+            click.echo('')
 
         @click.group(
             cls=click_helpers.OrderedCommandCollection,
