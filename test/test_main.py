@@ -82,15 +82,25 @@ def test_is_v6(mocked_utils, mocker):
 
 
 def test_exception(mocked_utils, mocker):
-    # Should not raise an error
-    mocker.patch(TESTED + '.SUPPORTED_PYTHON_MINOR', 100)
-
     mocked_utils.is_root.return_value = False
     mocked_utils.is_v6.return_value = False
     mocked_utils.getenv.return_value = None
 
     with pytest.raises(SystemExit):
         main.main(['pancakes'])
+
+
+def test_supported(mocked_utils, mocker):
+    mocked_utils.is_root.return_value = False
+    mocked_utils.is_v6.return_value = False
+    mocked_utils.getenv.return_value = None
+
+    # Neither should raise an error
+    mocker.patch(TESTED + '.SUPPORTED_PYTHON_MINOR', 100)
+    main.main(['--help'])
+
+    mocker.patch(TESTED + '.SUPPORTED_PYTHON_MINOR', 1)
+    main.main(['--help'])
 
 
 def test_usage_hint(mocker, mocked_utils):
