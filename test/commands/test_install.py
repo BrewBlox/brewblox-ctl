@@ -139,12 +139,15 @@ def test_install_existing_continue(m_utils, m_sh):
     ]
     invoke(install.install, '--no-use-defaults')
     m_utils.confirm.assert_any_call(matching(r'.*brewblox` directory already exists.*'))
-    assert m_sh.call_count == 4
+    assert m_sh.call_count == 3
     m_sh.assert_called_with('sudo reboot')
 
 
-def test_init(m_utils, m_sh):
+def test_init_force(m_utils, m_sh):
     m_utils.path_exists.return_value = True
+    m_utils.is_empty_dir.return_value = False
+    m_utils.confirm.return_value = False
+    m_utils.is_brewblox_dir.return_value = True
     m_utils.confirm.return_value = False
 
     invoke(install.init)
@@ -152,6 +155,14 @@ def test_init(m_utils, m_sh):
 
     invoke(install.init, '--force')
     assert m_sh.call_count > 0
+
+
+def test_init_invalid_dir(m_utils, m_sh):
+    m_utils.path_exists.return_value = True
+    m_utils.is_empty_dir.return_value = False
+    m_utils.is_brewblox_dir.return_value = False
+
+    invoke(install.init, _err=FileExistsError)
 
 
 def test_prepare_flasher(m_utils, m_sh):

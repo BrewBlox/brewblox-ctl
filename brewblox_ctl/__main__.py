@@ -54,7 +54,7 @@ def usage_hint(ex):
             'Many commands only work if your current directory is a Brewblox directory.',
         ]
 
-        if utils.path_exists('{}/docker-compose.yml'.format(default_dir)):
+        if utils.is_brewblox_dir(default_dir):
             prompt += [
                 'It looks like you installed Brewblox in the default location.',
                 'To navigate there, run:',

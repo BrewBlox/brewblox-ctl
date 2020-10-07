@@ -6,8 +6,7 @@ from os import path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError
 
 import pytest
-
-from brewblox_ctl import testing, utils
+from brewblox_ctl import const, testing, utils
 
 TESTED = utils.__name__
 
@@ -19,11 +18,13 @@ def mocked_ext(mocker):
         'getcwd',
         'getenv_',
         'path',
+        'listdir',
         'which',
         'machine',
         'run',
         'set_key',
         'unset_key',
+        'dotenv_values',
     ]
     return {k: mocker.patch(TESTED + '.' + k) for k in mocked}
 
@@ -172,6 +173,46 @@ def test_is_brewblox_cwd(mocked_ext):
     ]
     assert not utils.is_brewblox_cwd()
     assert utils.is_brewblox_cwd()
+
+
+def test_is_brewblox_dir(mocked_ext):
+    mocked_ext['path'].isfile.side_effect = [
+        False,
+        True,
+        True,
+        True,
+    ]
+    mocked_ext['dotenv_values'].side_effect = [
+        {},
+        {'test': False},
+        {const.CFG_VERSION_KEY: '0.0.0'}
+    ]
+    # is not dir
+    assert not utils.is_brewblox_dir('a')
+    # is dir, empty .env
+    assert not utils.is_brewblox_dir('b')
+    # is dir, cfg key not in env
+    assert not utils.is_brewblox_dir('c')
+    # is dir, cfg key in env
+    assert utils.is_brewblox_dir('d')
+
+
+def test_is_empty_dir(mocked_ext):
+    mocked_ext['path'].isdir.side_effect = [
+        False,
+        True,
+        True,
+    ]
+    mocked_ext['listdir'].side_effect = [
+        ['content'],
+        []
+    ]
+    # not dir
+    assert not utils.is_empty_dir('a')
+    # dir, not empty
+    assert not utils.is_empty_dir('a')
+    # dir, empty
+    assert utils.is_empty_dir('a')
 
 
 def test_optsudo(mocker):

@@ -5,7 +5,7 @@ Utility functions
 import re
 from os import getcwd
 from os import getenv as getenv_
-from os import path
+from os import listdir, path
 from pathlib import Path
 from platform import machine
 from shutil import which
@@ -14,6 +14,7 @@ from types import GeneratorType
 
 import click
 from dotenv import set_key, unset_key
+from dotenv.main import dotenv_values
 
 from brewblox_ctl import const
 
@@ -159,6 +160,17 @@ def is_docker_user():
 
 def is_brewblox_cwd():
     return bool(getenv(const.CFG_VERSION_KEY))
+
+
+def is_brewblox_dir(dir):
+    env_path = dir + '/.env'
+    if not path.isfile(env_path):
+        return False
+    return const.CFG_VERSION_KEY in dotenv_values(env_path)
+
+
+def is_empty_dir(dir):
+    return path.isdir(dir) and not listdir(dir)
 
 
 def optsudo():

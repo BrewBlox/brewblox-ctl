@@ -113,11 +113,11 @@ def test_usage_hint(mocker, mocked_utils):
     assert mocked_utils.is_brewblox_cwd.call_count == 1
 
     mocked_utils.is_brewblox_cwd.return_value = False
-    mocked_utils.path_exists.return_value = False
+    mocked_utils.is_brewblox_dir.return_value = False
 
     main.usage_hint(UsageError('No such command'))
 
-    mocked_utils.path_exists.return_value = True
+    mocked_utils.is_brewblox_dir.return_value = True
 
     main.usage_hint(UsageError('No such command'))
 

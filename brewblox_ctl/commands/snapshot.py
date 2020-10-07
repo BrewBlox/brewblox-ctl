@@ -22,16 +22,14 @@ def snapshot():
 
 @snapshot.command()
 @click.option('--dir',
-              default='./brewblox',
               help='Brewblox directory')
 @click.option('--file',
-              default='./brewblox.tar.gz',
               help='Snapshot file')
 @click.option('--force',
               is_flag=True,
               help='Remove previous tarfile if it exists')
 def save(dir, file, force):
-    """Save Brewblox directory to snapshot
+    """Save Brewblox directory to snapshot.
 
     This can be used to move Brewblox installations between hosts.
     To load the snapshot, use `brewblox-ctl install --snapshot ARCHIVE`
@@ -39,29 +37,37 @@ def save(dir, file, force):
 
     Block data stored on Spark controllers is not included in the snapshot.
     """
+    utils.confirm_mode()
 
     if utils.is_brewblox_cwd():
-        raise RuntimeError('Please run this command outside a Brewblox directory')
+        dir = dir or '.'
+        file = file or '../brewblox.tar.gz'
+    else:
+        dir = dir or './brewblox'
+        file = file or './brewblox.tar.gz'
 
-    if not utils.path_exists('{}/docker-compose.yml'.format(dir)):
-        raise ValueError('`{}` is not a Brewblox dir'.format(dir))
+    dir = path.abspath(dir)
+
+    if not utils.is_brewblox_dir(dir):
+        raise ValueError('`{}` is not a Brewblox directory'.format(dir))
 
     if utils.path_exists(file):
-        if force:
+        if force or utils.confirm('`{}` already exists. '.format(file) +
+                                  'Do you want to overwrite it?'):
             sh('rm -f {}'.format(file))
         else:
-            raise FileExistsError('The `{}` snapshot already exists'.format(file))
+            return
 
-    sh('sudo tar -czf {} {}'.format(file, dir))
+    basedir = path.basename(dir)
+    parent = dir + '/..'
+    sh('sudo tar -C {} -czf {} {}'.format(parent, file, basedir))
     click.echo(path.abspath(path.expanduser(file)))
 
 
 @snapshot.command()
 @click.option('--dir',
-              default='./brewblox',
               help='Brewblox directory')
 @click.option('--file',
-              default='./brewblox.tar.gz',
               help='Snapshot file')
 @click.option('--force',
               is_flag=True,
@@ -72,12 +78,26 @@ def load(dir, file, force):
     This can be used to move Brewblox installations between hosts.
     To create a snapshot, use `brewblox-ctl snapshot save`
     """
-    if utils.is_brewblox_cwd():
-        raise RuntimeError('Please run this command outside a Brewblox directory')
+    utils.confirm_mode()
 
-    if utils.path_exists(dir) and not force:
-        raise FileExistsError('The `{}` directory already exists. '.format(dir) +
-                              'Please remove it before loading a snapshot, or use the --force option.')
+    if utils.is_brewblox_cwd():
+        dir = dir or '.'
+        file = file or '../brewblox.tar.gz'
+    else:
+        dir = dir or './brewblox'
+        file = file or './brewblox.tar.gz'
+
+    dir = path.abspath(dir)
+
+    if utils.path_exists(dir) and not utils.is_empty_dir(dir):
+        if not utils.is_brewblox_dir(dir):
+            raise FileExistsError('`{}` is not a Brewblox directory.'.format(dir))
+        if force or utils.confirm('`{}` already exists. '.format(dir) +
+                                  'Do you want to continue and erase its content?'):
+            # we'll do the actual rm after unpacking files
+            utils.info('Contents of `{}` will be removed'.format(dir))
+        else:
+            return
 
     with TemporaryDirectory() as tmpdir:
         utils.info('Extracting snapshot to {} directory...'.format(dir))
@@ -87,5 +107,7 @@ def load(dir, file, force):
             content = ['brewblox']
         if len(content) != 1:
             raise ValueError('Multiple files found in snapshot: {}'.format(content))
-        sh('rm -rf {}'.format(dir))
-        sh('mv {}/{} {}'.format(tmpdir, content[0], dir))
+        sh('sudo rm -rf {}/*'.format(dir))
+        # We need to explicitly include dotfiles in the mv glob
+        src = '{}/{}'.format(tmpdir, content[0])
+        sh('mv {}/.[!.]* {}/* {}/'.format(src, src, dir))
