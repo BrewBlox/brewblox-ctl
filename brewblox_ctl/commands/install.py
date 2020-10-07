@@ -207,10 +207,12 @@ def init(dir, release, force, skip_confirm):
     """
     utils.confirm_mode()
 
-    if utils.path_exists(dir):
-        if force or utils.confirm('The `{}` directory already exists. '
-                                  'Do you want to continue and erase the current contents?'.format(dir)):
-            sh('sudo rm -rf {}'.format(dir))
+    if utils.path_exists(dir) and not utils.is_empty_dir(dir):
+        if not utils.is_brewblox_dir(dir):
+            raise FileExistsError('`{}` is not a Brewblox directory.'.format(dir))
+        if force or utils.confirm('`{}` already exists. '.format(dir) +
+                                  'Do you want to continue and erase its content?'):
+            sh('sudo rm -rf {}/*'.format(dir))
         else:
             return
 
