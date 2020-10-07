@@ -3,6 +3,8 @@ Tests brewblox_ctl.commands.snapshot
 """
 
 
+from os import path
+
 import pytest.__main__
 from brewblox_ctl.commands import snapshot
 from brewblox_ctl.testing import check_sudo, invoke, matching
@@ -58,7 +60,8 @@ def test_save_defaults(m_utils, m_sh):
 
     m_utils.is_brewblox_cwd.return_value = True
     invoke(snapshot.save)
-    m_sh.assert_called_with(matching(r'sudo tar -C .* -czf ../brewblox.tar.gz brewblox-ctl'))
+    cwd = path.basename(path.abspath('.'))
+    m_sh.assert_called_with(matching(r'sudo tar -C .* -czf ../brewblox.tar.gz ' + cwd))
 
 
 def test_save_file_exists(m_utils, m_sh):
@@ -96,7 +99,8 @@ def test_load_defaults(m_utils, m_sh):
 
     m_utils.is_brewblox_cwd.return_value = True
     invoke(snapshot.load)
-    m_sh.assert_called_with(matching(r'.*brewblox-ctl/'))
+    cwd = path.basename(path.abspath('.')) + '/'
+    m_sh.assert_called_with(matching(r'.*' + cwd))
 
 
 def test_load_empty(m_utils, m_sh):
