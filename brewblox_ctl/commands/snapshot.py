@@ -33,7 +33,7 @@ def snapshot():
 def save(dir, file, force):
     """Save Brewblox directory to snapshot
 
-    This can be used to move systems between hosts.
+    This can be used to move Brewblox installations between hosts.
     To load the snapshot, use `brewblox-ctl install --snapshot ARCHIVE`
     or `brewblox-ctl snapshot load --file ARCHIVE`
 
@@ -69,7 +69,7 @@ def save(dir, file, force):
 def load(dir, file, force):
     """Create Brewblox directory from snapshot.
 
-    This can be used to move systems between hosts.
+    This can be used to move Brewblox installations between hosts.
     To create a snapshot, use `brewblox-ctl snapshot save`
     """
     if utils.is_brewblox_cwd():

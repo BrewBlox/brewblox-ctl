@@ -139,7 +139,7 @@ def test_install_existing_continue(m_utils, m_sh):
     ]
     invoke(install.install, '--no-use-defaults')
     m_utils.confirm.assert_any_call(matching(r'.*brewblox` directory already exists.*'))
-    assert m_sh.call_count == 3
+    assert m_sh.call_count == 4
     m_sh.assert_called_with('sudo reboot')
 
 

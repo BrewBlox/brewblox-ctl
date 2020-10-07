@@ -128,7 +128,8 @@ def install(ctx: click.Context,
             return
 
     if utils.path_exists(dir):
-        if not utils.confirm('The `{}` directory already exists. Do you want to continue?'.format(dir)):
+        if not utils.confirm('The `{}` directory already exists. '
+                             'Do you want to continue and erase the current contents?'.format(dir)):
             return
 
     if not no_reboot:
@@ -204,15 +205,16 @@ def init(dir, release, force, skip_confirm):
 
     This is also called by `brewblox-ctl install`.
     """
-    # Create install directory
     utils.confirm_mode()
 
-    if utils.path_exists(dir) \
-            and not force \
-            and not utils.confirm('The `{}` directory already exists. Do you want to continue?'.format(dir)):
-        return
+    if utils.path_exists(dir):
+        if force or utils.confirm('The `{}` directory already exists. '
+                                  'Do you want to continue and erase the current contents?'.format(dir)):
+            sh('sudo rm -rf {}'.format(dir))
+        else:
+            return
 
-    utils.info('Creating Brewblox directory ({})...'.format(dir))
+    utils.info('Creating Brewblox directory `{}`...'.format(dir))
     sh('mkdir -p {}'.format(dir))
 
     # Set variables in .env file
