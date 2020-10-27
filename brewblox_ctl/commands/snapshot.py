@@ -107,6 +107,7 @@ def load(dir, file, force):
             content = ['brewblox']
         if len(content) != 1:
             raise ValueError('Multiple files found in snapshot: {}'.format(content))
+        sh('mkdir -p {}'.format(dir))
         sh('sudo rm -rf {}/*'.format(dir))
         # We need to explicitly include dotfiles in the mv glob
         src = '{}/{}'.format(tmpdir, content[0])
