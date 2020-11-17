@@ -150,7 +150,7 @@ def install(ctx: click.Context,
     # Install docker
     if docker_install:
         utils.info('Installing docker...')
-        sh('curl -sL get.docker.com | sh')
+        sh('curl -sL get.docker.com | sh', check=False)
     else:
         utils.info('Skipped: docker install.')
 
