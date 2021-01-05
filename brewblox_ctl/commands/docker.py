@@ -4,7 +4,6 @@ Brewblox-ctl docker commands
 
 
 import click
-
 from brewblox_ctl import click_helpers, utils
 from brewblox_ctl.utils import sh
 
@@ -18,31 +17,31 @@ def cli():
 def up():
     """Start all services.
 
-    This wraps `docker-compose up -d --remove-orphans`
+    This wraps `docker-compose up -d`
     """
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh('{}docker-compose up -d --remove-orphans'.format(sudo))
+    sh('{}docker-compose up -d'.format(sudo))
 
 
 @cli.command()
 def down():
     """Stop all services.
 
-    This wraps `docker-compose down --remove-orphans`
+    This wraps `docker-compose down`
     """
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh('{}docker-compose down --remove-orphans'.format(sudo))
+    sh('{}docker-compose down'.format(sudo))
 
 
 @cli.command()
 def restart():
     """Stop and start all services.
 
-    This wraps `docker-compose down --remove-orphans; docker-compose up -d`
+    This wraps `docker-compose down; docker-compose up -d`
 
     Note: `docker-compose restart` also exists -
     it restarts containers without recreating them.
@@ -50,7 +49,7 @@ def restart():
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh('{}docker-compose down --remove-orphans'.format(sudo))
+    sh('{}docker-compose down'.format(sudo))
     sh('{}docker-compose up -d'.format(sudo))
 
 
