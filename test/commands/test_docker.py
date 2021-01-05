@@ -6,7 +6,6 @@ Tests brewblox_ctl.commands.docker
 from unittest.mock import call
 
 import pytest
-
 from brewblox_ctl.commands import docker
 from brewblox_ctl.testing import check_sudo, invoke
 
@@ -29,18 +28,18 @@ def m_sh(mocker):
 
 def test_up(m_utils, m_sh):
     invoke(docker.up)
-    m_sh.assert_called_once_with('SUDO docker-compose up -d --remove-orphans')
+    m_sh.assert_called_once_with('SUDO docker-compose up -d')
 
 
 def test_down(m_utils, m_sh):
     invoke(docker.down)
-    m_sh.assert_called_once_with('SUDO docker-compose down --remove-orphans')
+    m_sh.assert_called_once_with('SUDO docker-compose down')
 
 
 def test_restart(m_utils, m_sh):
     invoke(docker.restart)
     m_sh.assert_has_calls([
-        call('SUDO docker-compose down --remove-orphans'),
+        call('SUDO docker-compose down'),
         call('SUDO docker-compose up -d'),
     ])
 
