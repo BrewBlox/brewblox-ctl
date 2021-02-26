@@ -423,14 +423,17 @@ def test_enable_ipv6(mocker, mocked_opts):
         /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
         grep --color=auto dockerd
         """,  # ps aux
+        None,  # chmod
         '{}',  # read file
         None,  # write file
         None,  # restart
         # with config provided, no restart
+        None,  # chmod
         '{}',  # read file
         None,  # write file
         None,  # restart
         # with config, service command not found
+        None,  # chmod
         '{}',  # read file
         None,  # write file
     ]

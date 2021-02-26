@@ -277,6 +277,8 @@ def load_ctl_lib(opts=None):
 
 
 def enable_ipv6(config_file=None, restart=True):
+    info('Enabling IPv6 support in Docker...')
+
     # Config is either provided, or parsed from active daemon process
     if not config_file:
         default_config_file = '/etc/docker/daemon.json'
@@ -286,16 +288,19 @@ def enable_ipv6(config_file=None, restart=True):
 
     # Read config if exists
     if not ctx_opts().dry_run and path_exists(config_file):
-        config = sh("sudo cat '{}'".format(config_file), capture=True)
+        sh("sudo chmod a+rw '{}'".format(config_file))
+        config = sh("cat '{}'".format(config_file), capture=True)
     else:
         config = '{}'
+
+    info('Using Docker config file {}'.format(config_file))
 
     # Edit and write. Do not overwrite existing values
     config = json.loads(config)
     config.setdefault('ipv6', True)
     config.setdefault('fixed-cidr-v6', '2001:db8:1::/64')
     config_str = json.dumps(config, indent=2)
-    sh("sudo echo '{}' > '{}'".format(config_str, config_file))
+    sh("echo '{}' > '{}'".format(config_str, config_file))
 
     # Restart daemon
     if restart:

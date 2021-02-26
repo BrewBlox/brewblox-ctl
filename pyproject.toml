@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "brewblox-ctl"
-version = "0.24.1"
+version = "0.24.2"
 description = "Brewblox management tool"
 authors = ["BrewPi <development@brewpi.com>"]
 license = "GPL-3.0"
