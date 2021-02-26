@@ -2,6 +2,7 @@
 Utility functions
 """
 
+import json
 import re
 from os import getcwd
 from os import getenv as getenv_
@@ -273,3 +274,25 @@ def load_ctl_lib(opts=None):
 
     if sudo:
         sh('sudo chown -R $USER ./brewblox_ctl_lib/', opts)
+
+
+def enable_ipv6(config_file=None):
+    # Config is either provided, or parsed from active daemon process
+    if not config_file:
+        default_config_file = '/etc/docker/daemon.json'
+        dockerd_proc = sh('ps aux | grep dockerd', capture=True)
+        proc_match = re.match(r'.*--config-file[\s=](?P<file>.*\.json).*', dockerd_proc, flags=re.MULTILINE)
+        config_file = proc_match and proc_match.group('file') or default_config_file
+
+    # Read config if exists
+    if not ctx_opts().dry_run and path_exists(config_file):
+        config = sh("sudo cat '{}'".format(config_file), capture=True)
+    else:
+        config = '{}'
+
+    # Edit and write. Do not overwrite existing values
+    config = json.loads(config)
+    config.setdefault('ipv6', True)
+    config.setdefault('fixed-cidr-v6', '2001:db8:1::/64')
+    config_str = json.dumps(config, indent=2)
+    sh("sudo echo '{}' > '{}'".format(config_str, config_file))
