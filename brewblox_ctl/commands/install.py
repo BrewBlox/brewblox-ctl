@@ -154,8 +154,8 @@ def install(ctx: click.Context,
     else:
         utils.info('Skipped: docker install.')
 
-    # Always enable IPv6 for Docker
-    ctx.invoke(enable_ipv6)
+    # Always enable IPv6 for Docker.
+    utils.enable_ipv6(None, False)
 
     # Add user to 'docker' group
     if docker_user:

@@ -276,7 +276,7 @@ def load_ctl_lib(opts=None):
         sh('sudo chown -R $USER ./brewblox_ctl_lib/', opts)
 
 
-def enable_ipv6(config_file=None):
+def enable_ipv6(config_file=None, restart=True):
     # Config is either provided, or parsed from active daemon process
     if not config_file:
         default_config_file = '/etc/docker/daemon.json'
@@ -296,3 +296,11 @@ def enable_ipv6(config_file=None):
     config.setdefault('fixed-cidr-v6', '2001:db8:1::/64')
     config_str = json.dumps(config, indent=2)
     sh("sudo echo '{}' > '{}'".format(config_str, config_file))
+
+    # Restart daemon
+    if restart:
+        if command_exists('service'):
+            info('Restarting Docker service...')
+            sh('sudo service docker restart')
+        else:
+            warn('"service" command not found. Please restart your machine to apply config changes.')

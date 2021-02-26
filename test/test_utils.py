@@ -415,6 +415,7 @@ def test_pip_install(mocker):
 
 
 def test_enable_ipv6(mocker, mocked_opts):
+    m_exists = mocker.patch(TESTED + '.command_exists')
     m_sh = mocker.patch(TESTED + '.sh')
     m_sh.side_effect = [
         # autodetect config
@@ -423,11 +424,19 @@ def test_enable_ipv6(mocker, mocked_opts):
         grep --color=auto dockerd
         """,  # ps aux
         '{}',  # read file
-        '{}',  # write file
-        # with config provided
+        None,  # write file
+        None,  # restart
+        # with config provided, no restart
         '{}',  # read file
-        '{}',  # write file
+        None,  # write file
+        None,  # restart
+        # with config, service command not found
+        '{}',  # read file
+        None,  # write file
     ]
 
     utils.enable_ipv6()
+    utils.enable_ipv6('/etc/file.json', False)
+
+    m_exists.return_value = False
     utils.enable_ipv6('/etc/file.json')
