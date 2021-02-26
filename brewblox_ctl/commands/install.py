@@ -154,6 +154,9 @@ def install(ctx: click.Context,
     else:
         utils.info('Skipped: docker install.')
 
+    # Always enable IPv6 for Docker
+    ctx.invoke(enable_ipv6)
+
     # Add user to 'docker' group
     if docker_user:
         utils.info("Adding {} to 'docker' group...".format(user))
@@ -322,21 +325,16 @@ def particle(release, pull, command):
 
 
 @cli.command()
-def disable_ipv6():
-    """Disable IPv6 support on the host machine.
+@click.option('--config-file', help='Path to Docker daemon config. Defaults to /etc/docker/daemon.json.')
+def enable_ipv6(config_file):
+    """Enable IPv6 support on the host machine.
 
     Reason: https://github.com/docker/for-linux/issues/914
-    Should only be used if your services are having stability issues
+    Unlike globally disabling IPv6 support on the host,
+    this has no impact outside the Docker environment.
+
+    Some hosts (Synology) may be using a custom location for the daemon config file.
+    If the --config-file argument is not set, the --config-file argument for the active docker daemon is used.
+    If it is not set, the default /etc/docker/daemon.json is used.
     """
-    utils.confirm_mode()
-    is_disabled = sh('cat /proc/sys/net/ipv6/conf/all/disable_ipv6', capture=True).strip()
-    if is_disabled == '1':
-        utils.info('IPv6 is already disabled')
-    elif is_disabled == '0' or utils.ctx_opts().dry_run:
-        utils.info('Disabling IPv6...')
-        sh('echo "net.ipv6.conf.all.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf')
-        sh('echo "net.ipv6.conf.default.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf')
-        sh('echo "net.ipv6.conf.lo.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf')
-        sh('sudo sysctl -p')
-    else:
-        utils.info('Invalid result when checking IPv6 status: ' + is_disabled)
+    utils.enable_ipv6(config_file)

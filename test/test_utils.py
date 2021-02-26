@@ -412,3 +412,22 @@ def test_pip_install(mocker):
     m_getenv.return_value = None
     utils.pip_install('lib')
     m_sh.assert_called_with('sudo /PY -m pip install --upgrade --no-cache-dir lib')
+
+
+def test_enable_ipv6(mocker, mocked_opts):
+    m_sh = mocker.patch(TESTED + '.sh')
+    m_sh.side_effect = [
+        # autodetect config
+        """
+        /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+        grep --color=auto dockerd
+        """,  # ps aux
+        '{}',  # read file
+        '{}',  # write file
+        # with config provided
+        '{}',  # read file
+        '{}',  # write file
+    ]
+
+    utils.enable_ipv6()
+    utils.enable_ipv6('/etc/file.json')
