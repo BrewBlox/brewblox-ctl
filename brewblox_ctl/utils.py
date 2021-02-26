@@ -286,17 +286,15 @@ def enable_ipv6(config_file=None, restart=True):
         proc_match = re.match(r'.*--config-file[\s=](?P<file>.*\.json).*', dockerd_proc, flags=re.MULTILINE)
         config_file = proc_match and proc_match.group('file') or default_config_file
 
-    # Read config if exists
-    if not ctx_opts().dry_run and path_exists(config_file):
-        sh("sudo chmod a+rw '{}'".format(config_file))
-        config = sh("cat '{}'".format(config_file), capture=True)
-    else:
-        config = '{}'
-
     info('Using Docker config file {}'.format(config_file))
 
+    # Read config. Create file if not exists
+    sh("sudo touch '{}'".format(config_file))
+    sh("sudo chmod a+rw '{}'".format(config_file))
+    config = sh("cat '{}'".format(config_file), capture=True)
+
     # Edit and write. Do not overwrite existing values
-    config = json.loads(config)
+    config = json.loads(config or '{}')
     config.setdefault('ipv6', True)
     config.setdefault('fixed-cidr-v6', '2001:db8:1::/64')
     config_str = json.dumps(config, indent=2)
