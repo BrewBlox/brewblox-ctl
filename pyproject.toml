@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "brewblox-ctl"
-version = "0.24.4"
+version = "0.24.5"
 description = "Brewblox management tool"
 authors = ["BrewPi <development@brewpi.com>"]
 license = "GPL-3.0"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.6,<4"
+python = ">=3.5,<4"
 requests = "^2.25.1"
 click = "^7.1.2"
 python-dotenv = {version = "^0.13.0", extras = ["cli"]}
@@ -15,7 +15,7 @@ docker = "^4.4.4"
 docker-compose = "^1.28.5"
 configobj = "^5.0.6"
 zeroconf = "^0.28.8"
-PyYAML = "^5.4.1"
+PyYAML = "^5.3"
 
 [tool.poetry.dev-dependencies]
 pytest-cov = "^2.11.1"
