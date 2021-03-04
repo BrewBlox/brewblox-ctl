@@ -1,5 +1,5 @@
 pool:
-  vmImage: 'Ubuntu-18.04'
+  vmImage: 'Ubuntu-20.04'
 
 trigger:
   tags:
@@ -24,7 +24,7 @@ steps:
 - task: UsePythonVersion@0
   inputs:
     addToPath: true
-    versionSpec: '3.5'
+    versionSpec: '3.6'
     architecture: 'x64'
 
 - bash: |
