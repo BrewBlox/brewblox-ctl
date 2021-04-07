@@ -290,15 +290,14 @@ def enable_ipv6(config_file=None, restart=True):
 
     # Read config. Create file if not exists
     sh("sudo touch '{}'".format(config_file))
-    sh("sudo chmod a+rw '{}'".format(config_file))
-    config = sh("cat '{}'".format(config_file), capture=True)
+    config = sh("sudo cat '{}'".format(config_file), capture=True)
 
     # Edit and write. Do not overwrite existing values
     config = json.loads(config or '{}')
     config.setdefault('ipv6', True)
     config.setdefault('fixed-cidr-v6', '2001:db8:1::/64')
     config_str = json.dumps(config, indent=2)
-    sh("echo '{}' > '{}'".format(config_str, config_file))
+    sh("echo '{}' | sudo tee '{}' > /dev/null".format(config_str, config_file))
 
     # Restart daemon
     if restart:
