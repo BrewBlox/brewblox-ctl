@@ -13,8 +13,11 @@ def cli():
     """Command collector"""
 
 
-@cli.command()
-def up():
+@cli.command(context_settings=dict(
+    ignore_unknown_options=True,
+))
+@click.argument('compose_args', nargs=-1, type=click.UNPROCESSED)
+def up(compose_args):
     """Start all services.
 
     This wraps `docker-compose up -d`
@@ -22,11 +25,14 @@ def up():
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh('{}docker-compose up -d'.format(sudo))
+    sh('{}docker-compose up -d {}'.format(sudo, ' '.join(list(compose_args))))
 
 
-@cli.command()
-def down():
+@cli.command(context_settings=dict(
+    ignore_unknown_options=True,
+))
+@click.argument('compose_args', nargs=-1, type=click.UNPROCESSED)
+def down(compose_args):
     """Stop all services.
 
     This wraps `docker-compose down`
@@ -34,14 +40,17 @@ def down():
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh('{}docker-compose down'.format(sudo))
+    sh('{}docker-compose down {}'.format(sudo, ' '.join(list(compose_args))))
 
 
-@cli.command()
-def restart():
-    """Stop and start all services.
+@cli.command(context_settings=dict(
+    ignore_unknown_options=True,
+))
+@click.argument('compose_args', nargs=-1, type=click.UNPROCESSED)
+def restart(compose_args):
+    """Recreates all services.
 
-    This wraps `docker-compose down; docker-compose up -d`
+    This wraps `docker-compose up -d --force-recreate`
 
     Note: `docker-compose restart` also exists -
     it restarts containers without recreating them.
@@ -49,8 +58,7 @@ def restart():
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh('{}docker-compose down'.format(sudo))
-    sh('{}docker-compose up -d'.format(sudo))
+    sh('{}docker-compose up -d --force-recreate {}'.format(sudo, ' '.join(list(compose_args))))
 
 
 @cli.command()
