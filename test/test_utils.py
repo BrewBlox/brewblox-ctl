@@ -419,30 +419,41 @@ def test_enable_ipv6(mocker, mocked_opts):
     m_sh = mocker.patch(TESTED + '.sh')
     m_sh.side_effect = [
         # autodetect config
+        '',    # WSL check
         """
         /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
         grep --color=auto dockerd
-        """,  # ps aux
+        """,   # ps aux
         None,  # touch
-        None,  # chmod
         '{}',  # read file
         None,  # write file
         None,  # restart
+
         # with config provided, no restart
+        '',  # WSL check
         None,  # touch
-        None,  # chmod
         '',    # empty file
         None,  # write file
-        None,  # restart
+
         # with config, service command not found
+        '',    # WSL check
         None,  # touch
-        None,  # chmod
         '{}',  # read file
         None,  # write file
+
+        # WSL detected, abort
+        'Linux version 5.4.0-73-generic-microsoft-stable',
     ]
 
     utils.enable_ipv6()
+    assert m_sh.call_count == 6
+
     utils.enable_ipv6('/etc/file.json', False)
+    assert m_sh.call_count == 6 + 4
 
     m_exists.return_value = False
     utils.enable_ipv6('/etc/file.json')
+    assert m_sh.call_count == 6 + 4 + 4
+
+    utils.enable_ipv6('/etc/file.json')
+    assert m_sh.call_count == 6 + 4 + 4 + 1
