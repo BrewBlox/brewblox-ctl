@@ -279,6 +279,11 @@ def load_ctl_lib(opts=None):
 def enable_ipv6(config_file=None, restart=True):
     info('Enabling IPv6 support in Docker...')
 
+    os_version = sh('cat /proc/version', capture=True) or ''
+    if re.match(r'.*(Microsoft|WSL)', os_version, flags=re.IGNORECASE):
+        info('WSL environment detected. Skipping IPv6 config changes.')
+        return
+
     # Config is either provided, or parsed from active daemon process
     if not config_file:
         default_config_file = '/etc/docker/daemon.json'
