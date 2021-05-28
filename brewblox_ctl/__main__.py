@@ -59,7 +59,7 @@ def usage_hint(ex):
                 'It looks like you installed Brewblox in the default location.',
                 'To navigate there, run:',
                 '',
-                '    cd {}'.format(default_dir),
+                f'    cd {default_dir}',
                 ''
             ]
 
@@ -89,7 +89,7 @@ def main(args=sys.argv[1:]):
         if sys.version_info[1] < SUPPORTED_PYTHON_MINOR:
             major = sys.version_info[0]
             minor = sys.version_info[1]
-            click.echo('WARNING: You are using Python {}.{}, which is no longer maintained.'.format(major, minor))
+            click.echo(f'WARNING: You are using Python {major}.{minor}, which is no longer maintained.')
             click.echo('We recommend upgrading your system.')
             click.echo('For more information, please visit https://brewblox.netlify.app/user/system_upgrades.html')
             click.echo('')

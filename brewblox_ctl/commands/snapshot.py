@@ -49,18 +49,18 @@ def save(dir, file, force):
     dir = path.abspath(dir)
 
     if not utils.is_brewblox_dir(dir):
-        raise ValueError('`{}` is not a Brewblox directory'.format(dir))
+        raise ValueError(f'`{dir}` is not a Brewblox directory')
 
     if utils.path_exists(file):
-        if force or utils.confirm('`{}` already exists. '.format(file) +
+        if force or utils.confirm(f'`{file}` already exists. ' +
                                   'Do you want to overwrite it?'):
-            sh('rm -f {}'.format(file))
+            sh(f'rm -f {file}')
         else:
             return
 
     basedir = path.basename(dir)
     parent = dir + '/..'
-    sh('sudo tar -C {} -czf {} {}'.format(parent, file, basedir))
+    sh(f'sudo tar -C {parent} -czf {file} {basedir}')
     click.echo(path.abspath(path.expanduser(file)))
 
 
@@ -91,24 +91,24 @@ def load(dir, file, force):
 
     if utils.path_exists(dir) and not utils.is_empty_dir(dir):
         if not utils.is_brewblox_dir(dir):
-            raise FileExistsError('`{}` is not a Brewblox directory.'.format(dir))
-        if force or utils.confirm('`{}` already exists. '.format(dir) +
+            raise FileExistsError(f'`{dir}` is not a Brewblox directory.')
+        if force or utils.confirm(f'`{dir}` already exists. ' +
                                   'Do you want to continue and erase its content?'):
             # we'll do the actual rm after unpacking files
-            utils.info('Contents of `{}` will be removed'.format(dir))
+            utils.info(f'Contents of `{dir}` will be removed')
         else:
             return
 
     with TemporaryDirectory() as tmpdir:
-        utils.info('Extracting snapshot to {} directory...'.format(dir))
-        sh('tar -xzf {} -C {}'.format(file, tmpdir))
+        utils.info(f'Extracting snapshot to {dir} directory...')
+        sh(f'tar -xzf {file} -C {tmpdir}')
         content = listdir(tmpdir)
         if utils.ctx_opts().dry_run:
             content = ['brewblox']
         if len(content) != 1:
-            raise ValueError('Multiple files found in snapshot: {}'.format(content))
-        sh('mkdir -p {}'.format(dir))
-        sh('sudo rm -rf {}/*'.format(dir))
+            raise ValueError(f'Multiple files found in snapshot: {content}')
+        sh(f'mkdir -p {dir}')
+        sh(f'sudo rm -rf {dir}/*')
         # We need to explicitly include dotfiles in the mv glob
-        src = '{}/{}'.format(tmpdir, content[0])
-        sh('mv {}/.[!.]* {}/* {}/'.format(src, src, dir))
+        src = f'{tmpdir}/{content[0]}'
+        sh(f'mv {src}/.[!.]* {src}/* {dir}/')

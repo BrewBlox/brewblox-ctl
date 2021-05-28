@@ -25,7 +25,7 @@ def up(compose_args):
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh('{}docker-compose up -d {}'.format(sudo, ' '.join(list(compose_args))))
+    sh(f'{sudo}docker-compose up -d ' + ' '.join(list(compose_args)))
 
 
 @cli.command(context_settings=dict(
@@ -40,7 +40,7 @@ def down(compose_args):
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh('{}docker-compose down {}'.format(sudo, ' '.join(list(compose_args))))
+    sh(f'{sudo}docker-compose down ' + ' '.join(list(compose_args)))
 
 
 @cli.command(context_settings=dict(
@@ -58,7 +58,7 @@ def restart(compose_args):
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh('{}docker-compose up -d --force-recreate {}'.format(sudo, ' '.join(list(compose_args))))
+    sh(f'{sudo}docker-compose up -d --force-recreate ' + ' '.join(list(compose_args)))
 
 
 @cli.command()
@@ -82,7 +82,7 @@ def follow(services):
     """
     utils.check_config()
     sudo = utils.optsudo()
-    sh('{}docker-compose logs --follow {}'.format(sudo, ' '.join(services)))
+    sh(f'{sudo}docker-compose logs --follow ' + ' '.join(services))
 
 
 @cli.command()
@@ -93,4 +93,4 @@ def kill():
     """
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh('{}docker rm --force $({}docker ps -aq)'.format(sudo, sudo), check=False)
+    sh(f'{sudo}docker rm --force $({sudo}docker ps -aq)', check=False)

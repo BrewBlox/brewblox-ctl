@@ -5,7 +5,6 @@ Brewblox-ctl .env commands
 
 import click
 import dotenv
-
 from brewblox_ctl import click_helpers, const, utils
 
 
@@ -48,7 +47,7 @@ def list_env():
     """
     utils.check_config()
     for k, v in dotenv.dotenv_values('.env').items():
-        click.echo('{} = {}'.format(k, v))
+        click.echo(f'{k} = {v}')
 
 
 @env.command(name='get')

@@ -18,7 +18,7 @@ def invoke(*args, _err=None, **kwargs):
     if (_err is None) != (result.exception is None):
         click.echo(result.stdout)
         click.echo(result)
-        raise result.exception or AssertionError('expected {}, got {}'.format(_err, type(result.exception)))
+        raise result.exception or AssertionError(f'expected {_err}, got {type(result.exception)}')
     return result
 
 
@@ -47,6 +47,6 @@ def check_sudo(shell_cmd, *args, **kwargs):
     if isinstance(shell_cmd, (GeneratorType, list, tuple)):
         return [check_sudo(cmd) for cmd in shell_cmd]
     elif re.match(r'(^|.*[;&\|])\s*docker', shell_cmd):
-        raise AssertionError('Found docker call without sudo: "{}"'.format(shell_cmd))
+        raise AssertionError(f'Found docker call without sudo: `{shell_cmd}`')
     else:
         return DEFAULT
