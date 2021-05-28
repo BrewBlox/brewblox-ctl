@@ -54,8 +54,7 @@ def strtobool(val):
 
 def confirm(question, default=True):
     default_val = 'yes' if default else 'no'
-    prompt = "{} [Press ENTER for default value '{}']".format('{}', default_val)
-    click.echo(prompt.format(question))
+    click.echo(f"{question} [Press ENTER for default value '{default_val}']")
     while True:
         try:
             return strtobool(input() or default_val)
@@ -64,9 +63,8 @@ def confirm(question, default=True):
 
 
 def select(question, default=''):
-    answer = input('{} {}'.format(
-        question,
-        "[press ENTER for default value '{}']".format(default) if default else ''))
+    default_prompt = f"[press ENTER for default value '{default}']" if default else ''
+    answer = input(f'{question} {default_prompt}')
     return answer or default
 
 
@@ -81,11 +79,10 @@ def confirm_mode():  # pragma: no cover
 
     ctx = click.get_current_context()
     short_help = click.style(ctx.command.get_short_help_str(100), fg='cyan')
-    click.echo('Command is about to: {}'.format(short_help), color=opts.color)
+    click.echo(f'Command is about to: {short_help}', color=opts.color)
 
-    suffix = " ({}es, {}o, {}erbose, {}ry-run) [press ENTER for default value 'yes']".format(
-        *[click.style(v, underline=True) for v in 'ynvd']
-    )
+    y, n, v, d = [click.style(v, underline=True) for v in 'ynvd']
+    suffix = f" ({y}es, {n}o, {v}erbose, {d}ry-run) [press ENTER for default value 'yes']"
 
     retv = click.prompt('Do you want to continue?',
                         type=click.Choice([
@@ -122,7 +119,7 @@ def getenv(key, default=None):
 def setenv(key, value, dotenv_path=path.abspath('.env')):
     opts = ctx_opts()
     if opts.dry_run or opts.verbose:
-        click.secho('{} {}={}'.format(const.LOG_ENV, key, value), fg='magenta', color=opts.color)
+        click.secho(f'{const.LOG_ENV} {key}={value}', fg='magenta', color=opts.color)
     if not opts.dry_run:
         set_key(dotenv_path, key, value, quote_mode='never')
 
@@ -130,7 +127,7 @@ def setenv(key, value, dotenv_path=path.abspath('.env')):
 def clearenv(key, dotenv_path=path.abspath('.env')):
     opts = ctx_opts()
     if opts.dry_run or opts.verbose:
-        click.secho('{} unset {}'.format(const.LOG_ENV, key), fg='magenta', color=opts.color)
+        click.secho(f'{const.LOG_ENV} unset {key}', fg='magenta', color=opts.color)
     if not opts.dry_run:
         unset_key(dotenv_path, key, quote_mode='never')
 
@@ -197,8 +194,8 @@ def check_config(required=True):
         click.echo('Please run brewblox-ctl in a Brewblox directory.')
         raise SystemExit(1)
     elif confirm(
-        'No Brewblox configuration found in current directory ({}). '.format(getcwd()) +
-            'Are you sure you want to continue?'):
+            f'No Brewblox configuration found in current directory ({getcwd()}).' +
+            ' Are you sure you want to continue?'):
         return False
     else:
         raise SystemExit(0)
@@ -210,7 +207,7 @@ def sh(shell_cmd, opts=None, check=True, capture=False, silent=False):
     else:
         opts = opts or ctx_opts()
         if opts.verbose or opts.dry_run:
-            click.secho('{} {}'.format(const.LOG_SHELL, shell_cmd), fg='magenta', color=opts.color)
+            click.secho(f'{const.LOG_SHELL} {shell_cmd}', fg='magenta', color=opts.color)
         if not opts.dry_run:
             stderr = STDOUT if check and not silent else DEVNULL
             stdout = PIPE if capture or silent else None
@@ -237,26 +234,26 @@ def check_ok(cmd):
 def pip_install(*libs):
     user = getenv('USER')
     args = '--upgrade --no-cache-dir ' + ' '.join(libs)
-    if user and Path('/home/{}'.format(user)).is_dir():
-        return sh('{} -m pip install --user {}'.format(const.PY, args))
+    if user and Path(f'/home/{user}').is_dir():
+        return sh(f'{const.PY} -m pip install --user {args}')
     else:
-        return sh('sudo {} -m pip install {}'.format(const.PY, args))
+        return sh(f'sudo {const.PY} -m pip install {args}')
 
 
 def info(msg):
     opts = ctx_opts()
     if not opts.quiet:
-        click.secho('{} {}'.format(const.LOG_INFO, msg), fg='cyan', color=opts.color)
+        click.secho(f'{const.LOG_INFO} {msg}', fg='cyan', color=opts.color)
 
 
 def warn(msg):
     opts = ctx_opts()
-    click.secho('{} {}'.format(const.LOG_WARN, msg), fg='yellow', color=opts.color)
+    click.secho(f'{const.LOG_WARN} {msg}', fg='yellow', color=opts.color)
 
 
 def error(msg):
     opts = ctx_opts()
-    click.secho('{} {}'.format(const.LOG_ERR, msg), fg='red', color=opts.color)
+    click.secho(f'{const.LOG_ERR} {msg}', fg='red', color=opts.color)
 
 
 def load_ctl_lib(opts=None):
@@ -265,12 +262,12 @@ def load_ctl_lib(opts=None):
     if not release:
         raise KeyError('Failed to identify Brewblox release.')
 
-    sh('{}docker rm ctl-lib'.format(sudo), opts, check=False)
-    sh('{}docker pull brewblox/brewblox-ctl-lib:{}'.format(sudo, release), opts)
-    sh('{}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{}'.format(sudo, release), opts)
+    sh(f'{sudo}docker rm ctl-lib', opts, check=False)
+    sh(f'{sudo}docker pull brewblox/brewblox-ctl-lib:{release}', opts)
+    sh(f'{sudo}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{release}', opts)
     sh('rm -rf ./brewblox_ctl_lib', opts, check=False)
-    sh('{}docker cp ctl-lib:/brewblox_ctl_lib ./'.format(sudo), opts)
-    sh('{}docker rm ctl-lib'.format(sudo), opts)
+    sh(f'{sudo}docker cp ctl-lib:/brewblox_ctl_lib ./', opts)
+    sh(f'{sudo}docker rm ctl-lib', opts)
 
     if sudo:
         sh('sudo chown -R $USER ./brewblox_ctl_lib/', opts)
@@ -291,18 +288,18 @@ def enable_ipv6(config_file=None, restart=True):
         proc_match = re.match(r'.*--config-file[\s=](?P<file>.*\.json).*', dockerd_proc, flags=re.MULTILINE)
         config_file = proc_match and proc_match.group('file') or default_config_file
 
-    info('Using Docker config file {}'.format(config_file))
+    info(f'Using Docker config file {config_file}')
 
     # Read config. Create file if not exists
-    sh("sudo touch '{}'".format(config_file))
-    config = sh("sudo cat '{}'".format(config_file), capture=True)
+    sh(f"sudo touch '{config_file}'")
+    config = sh(f"sudo cat '{config_file}'", capture=True)
 
     # Edit and write. Do not overwrite existing values
     config = json.loads(config or '{}')
     config.setdefault('ipv6', True)
     config.setdefault('fixed-cidr-v6', '2001:db8:1::/64')
     config_str = json.dumps(config, indent=2)
-    sh("echo '{}' | sudo tee '{}' > /dev/null".format(config_str, config_file))
+    sh(f"echo '{config_str}' | sudo tee '{config_file}' > /dev/null")
 
     # Restart daemon
     if restart:

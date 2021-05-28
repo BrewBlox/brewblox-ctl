@@ -10,9 +10,8 @@ from time import sleep
 import click
 import requests
 import urllib3
-from requests.exceptions import ConnectionError, HTTPError
-
 from brewblox_ctl import click_helpers, utils
+from requests.exceptions import ConnectionError, HTTPError
 
 RETRY_COUNT = 60
 RETRY_INTERVAL_S = 10
@@ -23,7 +22,7 @@ def wait(url, info_updates=False):
     echo = utils.info if info_updates else click.echo
     for i in range(RETRY_COUNT):
         with suppress(ConnectionError, HTTPError):
-            echo('Connecting {}, attempt {}/{}'.format(url, i+1, RETRY_COUNT))
+            echo(f'Connecting {url}, attempt {i+1}/{RETRY_COUNT}')
             requests.get(url, verify=False).raise_for_status()
             echo('Success!')
             return
@@ -86,5 +85,5 @@ def http(method, url, json_body, file, data, header, param, quiet, pretty, allow
         resp.raise_for_status()
     except Exception as ex:
         if not allow_fail:
-            click.echo('Error: {}'.format(ex))
+            click.echo(f'Error: {ex}')
             raise SystemExit(1)

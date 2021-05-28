@@ -89,14 +89,14 @@ def install(ctx: click.Context,
     # Check if packages should be installed
     if not utils.command_exists('apt'):
         utils.info('Apt is not available. You may need to find another way to install dependencies.')
-        utils.info('Apt packages: "{}"'.format(apt_deps))
+        utils.info(f'Apt packages: "{apt_deps}"')
         apt_install = False
 
     if apt_install is None:
         if use_defaults:
             apt_install = True
         else:
-            apt_install = utils.confirm('Do you want to install apt packages "{}"?'.format(apt_deps))
+            apt_install = utils.confirm(f'Do you want to install apt packages "{apt_deps}"?')
 
     # Check if docker should be installed
     if utils.command_exists('docker'):
@@ -111,7 +111,7 @@ def install(ctx: click.Context,
 
     # Check if user should be added to docker group
     if utils.is_docker_user():
-        utils.info('{} already belongs to the docker group.'.format(user))
+        utils.info(f'{user} already belongs to the docker group.')
         docker_user = False
 
     if docker_user is None:
@@ -122,14 +122,14 @@ def install(ctx: click.Context,
 
     # Check used directory
     if dir is None:
-        if use_defaults or utils.confirm("The default directory is '{}'. Do you want to continue?".format(default_dir)):
+        if use_defaults or utils.confirm(f"The default directory is '{default_dir}'. Do you want to continue?"):
             dir = default_dir
         else:
             return
 
     if utils.path_exists(dir):
-        if not utils.confirm('The `{}` directory already exists. '
-                             'Do you want to continue and erase the current contents?'.format(dir)):
+        if not utils.confirm(f'The `{dir}` directory already exists.' +
+                             ' Do you want to continue and erase the current contents?'):
             return
 
     if not no_reboot:
@@ -142,7 +142,7 @@ def install(ctx: click.Context,
         sh([
             'sudo apt update',
             'sudo apt upgrade -y',
-            'sudo apt install -y {}'.format(apt_deps),
+            f'sudo apt install -y {apt_deps}',
         ])
     else:
         utils.info('Skipped: apt install.')
@@ -159,10 +159,10 @@ def install(ctx: click.Context,
 
     # Add user to 'docker' group
     if docker_user:
-        utils.info("Adding {} to 'docker' group...".format(user))
+        utils.info(f"Adding {user} to 'docker' group...")
         sh('sudo usermod -aG docker $USER')
     else:
-        utils.info("Skipped: adding {} to 'docker' group.".format(user))
+        utils.info(f"Skipped: adding {user} to 'docker' group.")
 
     if snapshot_file:
         ctx.invoke(snapshot.load,
@@ -212,20 +212,20 @@ def init(dir, release, force, skip_confirm):
 
     if utils.path_exists(dir) and not utils.is_empty_dir(dir):
         if not utils.is_brewblox_dir(dir):
-            raise FileExistsError('`{}` is not a Brewblox directory.'.format(dir))
-        if force or utils.confirm('`{}` already exists. '.format(dir) +
-                                  'Do you want to continue and erase its content?'):
-            sh('sudo rm -rf {}/*'.format(dir))
+            raise FileExistsError(f'`{dir}` is not a Brewblox directory.')
+        if force or utils.confirm(f'`{dir}` already exists. ' +
+                                  'Do you want to continue and erase its contents?'):
+            sh(f'sudo rm -rf "{dir}"/*')
         else:
             return
 
-    utils.info('Creating Brewblox directory `{}`...'.format(dir))
-    sh('mkdir -p {}'.format(dir))
+    utils.info(f'Creating Brewblox directory `{dir}`...')
+    sh(f'mkdir -p "{dir}"')
 
     # Set variables in .env file
     utils.info('Setting variables in .env file...')
-    dotenv_path = path.abspath('{}/.env'.format(dir))
-    sh('touch {}'.format(dotenv_path))
+    dotenv_path = path.abspath(f'"{dir}"/.env')
+    sh(f'touch {dotenv_path}')
     utils.setenv(const.RELEASE_KEY, release, dotenv_path)
     utils.setenv(const.CFG_VERSION_KEY, '0.0.0', dotenv_path)
     utils.setenv(const.SKIP_CONFIRM_KEY, str(skip_confirm), dotenv_path)
@@ -237,18 +237,18 @@ def prepare_flasher(release, pull):
 
     if pull:
         utils.info('Pulling flasher image...')
-        sh('{}docker pull brewblox/firmware-flasher:{}'.format(sudo, tag))
+        sh(f'{sudo}docker pull brewblox/firmware-flasher:{tag}')
 
     if utils.path_exists('./docker-compose.yml'):
         utils.info('Stopping services...')
-        sh('{}docker-compose down'.format(sudo))
+        sh(f'{sudo}docker-compose down')
 
 
 def run_flasher(release, args):
     tag = utils.docker_tag(release)
     sudo = utils.optsudo()
     opts = '-it --rm --privileged -v /dev:/dev'
-    sh('{}docker run {} brewblox/firmware-flasher:{} {}'.format(sudo, opts, tag, args))
+    sh(f'{sudo}docker run {opts} brewblox/firmware-flasher:{tag} {args}')
 
 
 @cli.command()
