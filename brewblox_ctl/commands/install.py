@@ -215,16 +215,16 @@ def init(dir, release, force, skip_confirm):
             raise FileExistsError(f'`{dir}` is not a Brewblox directory.')
         if force or utils.confirm(f'`{dir}` already exists. ' +
                                   'Do you want to continue and erase its contents?'):
-            sh(f'sudo rm -rf "{dir}"/*')
+            sh(f'sudo rm -rf {dir}/*')
         else:
             return
 
     utils.info(f'Creating Brewblox directory `{dir}`...')
-    sh(f'mkdir -p "{dir}"')
+    sh(f'mkdir -p {dir}')
 
     # Set variables in .env file
     utils.info('Setting variables in .env file...')
-    dotenv_path = path.abspath(f'"{dir}"/.env')
+    dotenv_path = path.abspath(f'{dir}/.env')
     sh(f'touch {dotenv_path}')
     utils.setenv(const.RELEASE_KEY, release, dotenv_path)
     utils.setenv(const.CFG_VERSION_KEY, '0.0.0', dotenv_path)
