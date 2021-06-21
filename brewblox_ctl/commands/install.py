@@ -2,8 +2,10 @@
 Brewblox-ctl installation commands
 """
 
+import re
 from os import path
 from time import sleep
+from typing import List
 
 import click
 from brewblox_ctl import click_helpers, const, utils
@@ -231,24 +233,69 @@ def init(dir, release, force, skip_confirm):
     utils.setenv(const.SKIP_CONFIRM_KEY, str(skip_confirm), dotenv_path)
 
 
-def prepare_flasher(release, pull):
+def run_particle_flasher(release: str, pull: bool, cmd: str):
     tag = utils.docker_tag(release)
     sudo = utils.optsudo()
 
-    if pull:
-        utils.info('Pulling flasher image...')
-        sh(f'{sudo}docker pull brewblox/firmware-flasher:{tag}')
+    opts = ' '.join([
+        '-it',
+        '--rm',
+        '--privileged',
+        '-v /dev:/dev',
+        '--pull ' + ('always' if pull else 'missing'),
+    ])
 
-    if utils.path_exists('./docker-compose.yml'):
-        utils.info('Stopping services...')
-        sh(f'{sudo}docker-compose down')
+    sh(f'{sudo}docker-compose --log-level CRITICAL down', check=False)
+    sh(f'{sudo}docker run {opts} brewblox/firmware-flasher:{tag} {cmd}')
 
 
-def run_flasher(release, args):
+def run_esp_flasher(release: str, pull: bool):
     tag = utils.docker_tag(release)
     sudo = utils.optsudo()
-    opts = '-it --rm --privileged -v /dev:/dev'
-    sh(f'{sudo}docker run {opts} brewblox/firmware-flasher:{tag} {args}')
+
+    cmd = '/app/firmware-bin/scripts/flash'
+    opts = ' '.join([
+        '-it',
+        '--rm',
+        '--privileged',
+        '-v /dev:/dev',
+        '--entrypoint bash',
+        '--pull ' + ('always' if pull else 'missing'),
+    ])
+
+    sh(f'{sudo}docker-compose --log-level CRITICAL down', check=False)
+    sh(f'{sudo}docker run {opts} brewblox/brewblox-devcon-spark:{tag} {cmd}')
+
+
+def discover_usb_sparks() -> List[str]:
+    devices = sh('lsusb', capture=True)
+    output = []
+    for match in re.finditer(r'ID (?P<id>\w{4}:\w{4})',
+                             devices,
+                             re.MULTILINE):
+        id = match.group('id').lower()
+        if id in ['2b04:c006', '2b04:d006']:  # photon, photon DFU
+            output.append('Spark v2')
+        if id in ['2b04:c008', '2b04:d008']:  # p1, p1 DFU
+            output.append('Spark v3')
+        if id in ['10c4:ea60']:  # ESP32
+            output.append('Spark v4')
+
+    return output
+
+
+def prompt_usb_spark() -> str:
+    while True:
+        devices = discover_usb_sparks()
+        num_devices = len(devices)
+        if num_devices == 0:
+            utils.warn('No USB-connected Spark detected')
+            utils.confirm_usb()
+        elif num_devices == 1:
+            return devices[0]
+        else:
+            utils.warn(f'Multiple USB-connected Sparks detected: {", ".join(devices)}')
+            utils.confirm_usb()
 
 
 @cli.command()
@@ -268,11 +315,16 @@ def flash(release, pull):
         - Run flash command.
     """
     utils.confirm_mode()
-    utils.confirm_usb()
-    prepare_flasher(release, pull)
+    spark = prompt_usb_spark()
 
-    utils.info('Flashing Spark...')
-    run_flasher(release, 'flash')
+    utils.info(f'Flashing {spark}...')
+
+    if spark in ['Spark v2', 'Spark v3']:
+        run_particle_flasher(release, pull, 'flash')
+    elif spark in ['Spark v4']:
+        run_esp_flasher(release, pull)
+    else:
+        raise ValueError(f'Unknown device "{spark}"')
 
 
 @cli.command()
@@ -294,10 +346,10 @@ def wifi(release, pull):
     utils.info('On the Spark service page (actions, top right), you can configure Wifi settings')
     # utils.confirm_mode()
     # utils.confirm_usb()
-    # prepare_flasher(release, pull)
+    # prepare_particle_flasher(release, pull)
 
     # utils.info('Configuring wifi...')
-    # run_flasher(release, 'wifi')
+    # run_particle_flasher(release, 'wifi')
 
 
 @cli.command()
@@ -317,11 +369,10 @@ def particle(release, pull, command):
     """
     utils.confirm_mode()
     utils.confirm_usb()
-    prepare_flasher(release, pull)
 
     utils.info('Starting Particle image...')
     utils.info("Type 'exit' and press enter to exit the shell")
-    run_flasher(release, command)
+    run_particle_flasher(release, pull, command)
 
 
 @cli.command()

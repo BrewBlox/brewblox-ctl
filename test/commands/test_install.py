@@ -165,32 +165,75 @@ def test_init_invalid_dir(m_utils, m_sh):
     invoke(install.init, _err=FileExistsError)
 
 
-def test_prepare_flasher(m_utils, m_sh):
-    install.prepare_flasher('taggart', True)
-    m_sh.assert_any_call('SUDO docker pull brewblox/firmware-flasher:taggart')
-    m_sh.assert_any_call('SUDO docker-compose down')
-
-    # No-op call
-    m_sh.reset_mock()
-    m_utils.path_exists.return_value = False
-
-    install.prepare_flasher('taggart', False)
-    m_sh.assert_not_called()
-
-
-def test_run_flasher(m_utils, m_sh):
-    install.run_flasher('taggart', 'do-stuff')
+def test_run_particle_flasher(m_utils, m_sh):
+    install.run_particle_flasher('taggart', True, 'do-stuff')
     m_sh.assert_called_with(
-        'SUDO docker run -it --rm --privileged -v /dev:/dev ' +
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
         'brewblox/firmware-flasher:taggart do-stuff')
 
 
-def test_flash(m_utils, m_sh):
+def test_discover_usb_sparks(m_utils, m_sh):
+    m_sh.return_value = '\n'.join([
+        'Bus 004 Device 002: ID 05e3:0616',
+        'Bus 004 Device 001: ID 1d6b:0003',
+        'Bus 003 Device 006: ID 2b04:c008',  # P1
+        'Bus 003 Device 006: ID 10c4:ea60',  # ESP
+        'Bus 003 Device 006: ID 2b04:d006',  # Photon
+    ])
+    assert install.discover_usb_sparks() == ['Spark v3', 'Spark v4', 'Spark v2']
+
+
+def test_prompt_usb_spark(m_utils, m_sh):
+    m_sh.side_effect = [
+        '\n'.join([
+            'Bus 004 Device 002: ID 05e3:0616',
+            'Bus 004 Device 001: ID 1d6b:0003',
+            'Bus 003 Device 006: ID 2b04:c008',  # P1
+            'Bus 003 Device 006: ID 10c4:ea60',  # ESP
+            'Bus 003 Device 006: ID 2b04:d006',  # Photon
+        ]),
+        '',
+        '\n'.join([
+            'Bus 004 Device 001: ID 1d6b:0003',
+            'Bus 003 Device 006: ID 2b04:c008',  # P1
+        ]),
+    ]
+
+    assert install.prompt_usb_spark() == 'Spark v3'
+    assert m_utils.confirm_usb.call_count == 2
+
+
+def test_particle_flash(m_utils, m_sh):
+    m_sh.return_value = '\n'.join([
+        'Bus 004 Device 002: ID 05e3:0616',
+        'Bus 004 Device 001: ID 1d6b:0003',
+        'Bus 003 Device 006: ID 2b04:c008',  # P1
+    ])
     invoke(install.flash, '--release develop --pull')
     assert m_sh.call_count == 3
     m_sh.assert_called_with(
-        'SUDO docker run -it --rm --privileged -v /dev:/dev ' +
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
         'brewblox/firmware-flasher:develop flash')
+
+
+def test_esp_flash(m_utils, m_sh):
+    m_sh.return_value = '\n'.join([
+        'Bus 004 Device 002: ID 05e3:0616',
+        'Bus 004 Device 001: ID 1d6b:0003',
+        'Bus 003 Device 006: ID 10c4:ea60',  # ESP
+    ])
+    invoke(install.flash, '--release develop --pull')
+    assert m_sh.call_count == 3
+    m_sh.assert_called_with(
+        'SUDO docker run -it --rm --privileged ' +
+        '-v /dev:/dev --entrypoint bash --pull always ' +
+        'brewblox/brewblox-devcon-spark:develop ' +
+        '/app/firmware-bin/scripts/flash')
+
+
+def test_invalid_flash(m_utils, m_sh, mocker):
+    mocker.patch(TESTED + '.prompt_usb_spark').return_value = 'Spark NaN'
+    invoke(install.flash, _err=True)
 
 
 def test_wifi(m_utils, m_sh):
@@ -201,25 +244,10 @@ def test_wifi(m_utils, m_sh):
 
 def test_particle(m_utils, m_sh):
     invoke(install.particle, '--release develop --pull -c testey')
-    assert m_sh.call_count == 3
+    assert m_sh.call_count == 2
     m_sh.assert_called_with(
-        'SUDO docker run -it --rm --privileged -v /dev:/dev ' +
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
         'brewblox/firmware-flasher:develop testey')
-
-
-# def test_disable_ipv6(m_utils, m_sh):
-#     m_sh.return_value = '1\n'
-#     invoke(install.disable_ipv6)
-#     assert m_sh.call_count == 1
-
-#     m_sh.return_value = 'wat\n'
-#     m_utils.ctx_opts.return_value.dry_run = False
-#     invoke(install.disable_ipv6)
-#     assert m_sh.call_count == 2
-
-#     m_sh.return_value = '0\n'
-#     invoke(install.disable_ipv6)
-#     assert m_sh.call_count == 3 + 4
 
 
 def test_enable_ipv6(m_utils, m_sh):
