@@ -69,7 +69,7 @@ def select(question, default=''):
 
 
 def confirm_usb():
-    input('Please press ENTER when your Spark is connected over USB')
+    input('Please connect a single Spark over USB, and press ENTER')
 
 
 def confirm_mode():  # pragma: no cover
