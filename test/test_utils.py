@@ -441,6 +441,11 @@ def test_enable_ipv6(mocker, mocked_opts):
         '{}',  # read file
         None,  # write file
 
+        # with config, config already set
+        '',    # WSL check
+        None,  # touch
+        '{"fixed-cidr-v6": "2001:db8:1::/64"}',  # read file
+
         # WSL detected, abort
         'Linux version 5.4.0-73-generic-microsoft-stable',
     ]
@@ -456,4 +461,7 @@ def test_enable_ipv6(mocker, mocked_opts):
     assert m_sh.call_count == 6 + 4 + 4
 
     utils.enable_ipv6('/etc/file.json')
-    assert m_sh.call_count == 6 + 4 + 4 + 1
+    assert m_sh.call_count == 6 + 4 + 4 + 3
+
+    utils.enable_ipv6('/etc/file.json')
+    assert m_sh.call_count == 6 + 4 + 4 + 3 + 1

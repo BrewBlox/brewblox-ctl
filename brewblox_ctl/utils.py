@@ -294,6 +294,10 @@ def enable_ipv6(config_file=None, restart=True):
     sh(f"sudo touch '{config_file}'")
     config = sh(f"sudo cat '{config_file}'", capture=True)
 
+    if 'fixed-cidr-v6' in config:
+        info('IPv6 is already enabled. Making no changes.')
+        return
+
     # Edit and write. Do not overwrite existing values
     config = json.loads(config or '{}')
     config.setdefault('ipv6', True)
