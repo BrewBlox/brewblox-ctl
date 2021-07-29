@@ -3,6 +3,8 @@ Brewblox-ctl docker commands
 """
 
 
+import re
+
 import click
 from brewblox_ctl import click_helpers, utils
 from brewblox_ctl.utils import sh
@@ -86,11 +88,27 @@ def follow(services):
 
 
 @cli.command()
-def kill():
+@click.option('--zombies', is_flag=True, help='Find and kill all zombie processes.')
+def kill(zombies):
     """Stop and remove all containers on this computer.
 
     This includes those not from Brewblox.
+
+    If the --zombies flag is set,
+    leftover processes that are still claiming a port will be forcibly removed.
+    Use this if you get "port is already allocated" errors after your system crashed.
     """
     utils.confirm_mode()
     sudo = utils.optsudo()
     sh(f'{sudo}docker rm --force $({sudo}docker ps -aq)', check=False)
+
+    if zombies:
+        procs = re.findall(
+            r'(\d+)/docker-proxy',
+            sh('sudo netstat -pna', capture=True))
+
+        if procs:
+            utils.info(f'Removing {len(procs)} zombies...')
+            sh('sudo service docker stop')
+            sh('sudo kill -9 ' + ' '.join(procs))
+            sh('sudo service docker start')
