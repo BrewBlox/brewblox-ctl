@@ -414,7 +414,7 @@ def test_pip_install(mocker):
     m_sh.assert_called_with('sudo /PY -m pip install --upgrade --no-cache-dir lib')
 
 
-def test_enable_ipv6(mocker, mocked_opts):
+def test_fix_ipv6(mocker, mocked_opts):
     m_exists = mocker.patch(TESTED + '.command_exists')
     m_sh = mocker.patch(TESTED + '.sh')
     m_sh.side_effect = [
@@ -450,18 +450,18 @@ def test_enable_ipv6(mocker, mocked_opts):
         'Linux version 5.4.0-73-generic-microsoft-stable',
     ]
 
-    utils.enable_ipv6()
+    utils.fix_ipv6()
     assert m_sh.call_count == 6
 
-    utils.enable_ipv6('/etc/file.json', False)
+    utils.fix_ipv6('/etc/file.json', False)
     assert m_sh.call_count == 6 + 4
 
     m_exists.return_value = False
-    utils.enable_ipv6('/etc/file.json')
+    utils.fix_ipv6('/etc/file.json')
     assert m_sh.call_count == 6 + 4 + 4
 
-    utils.enable_ipv6('/etc/file.json')
+    utils.fix_ipv6('/etc/file.json')
     assert m_sh.call_count == 6 + 4 + 4 + 3
 
-    utils.enable_ipv6('/etc/file.json')
+    utils.fix_ipv6('/etc/file.json')
     assert m_sh.call_count == 6 + 4 + 4 + 3 + 1

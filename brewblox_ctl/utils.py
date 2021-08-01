@@ -273,8 +273,8 @@ def load_ctl_lib(opts=None):
         sh('sudo chown -R $USER ./brewblox_ctl_lib/', opts)
 
 
-def enable_ipv6(config_file=None, restart=True):
-    info('Enabling IPv6 support in Docker...')
+def fix_ipv6(config_file=None, restart=True):
+    info('Fixing Docker IPv6 settings...')
 
     os_version = sh('cat /proc/version', capture=True) or ''
     if re.match(r'.*(Microsoft|WSL)', os_version, flags=re.IGNORECASE):
@@ -295,12 +295,12 @@ def enable_ipv6(config_file=None, restart=True):
     config = sh(f"sudo cat '{config_file}'", capture=True)
 
     if 'fixed-cidr-v6' in config:
-        info('IPv6 is already enabled. Making no changes.')
+        info('IPv6 settings are already present. Making no changes.')
         return
 
     # Edit and write. Do not overwrite existing values
     config = json.loads(config or '{}')
-    config.setdefault('ipv6', True)
+    config.setdefault('ipv6', False)
     config.setdefault('fixed-cidr-v6', '2001:db8:1::/64')
     config_str = json.dumps(config, indent=2)
     sh(f"echo '{config_str}' | sudo tee '{config_file}' > /dev/null")
@@ -312,3 +312,7 @@ def enable_ipv6(config_file=None, restart=True):
             sh('sudo service docker restart')
         else:
             warn('"service" command not found. Please restart your machine to apply config changes.')
+
+
+# Preserve backwards compatibility
+enable_ipv6 = fix_ipv6

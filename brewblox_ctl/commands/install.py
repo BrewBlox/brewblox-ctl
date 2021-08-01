@@ -156,8 +156,8 @@ def install(ctx: click.Context,
     else:
         utils.info('Skipped: docker install.')
 
-    # Always enable IPv6 for Docker.
-    utils.enable_ipv6(None, False)
+    # Always fix IPv6 for Docker.
+    utils.fix_ipv6(None, False)
 
     # Add user to 'docker' group
     if docker_user:
@@ -377,8 +377,8 @@ def particle(release, pull, command):
 
 @cli.command()
 @click.option('--config-file', help='Path to Docker daemon config. Defaults to /etc/docker/daemon.json.')
-def enable_ipv6(config_file):
-    """Enable IPv6 support on the host machine.
+def fix_ipv6(config_file):
+    """Fix IPv6 support on the host machine.
 
     Reason: https://github.com/docker/for-linux/issues/914
     Unlike globally disabling IPv6 support on the host,
@@ -388,4 +388,4 @@ def enable_ipv6(config_file):
     If the --config-file argument is not set, the --config-file argument for the active docker daemon is used.
     If it is not set, the default /etc/docker/daemon.json is used.
     """
-    utils.enable_ipv6(config_file)
+    utils.fix_ipv6(config_file)

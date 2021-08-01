@@ -250,6 +250,6 @@ def test_particle(m_utils, m_sh):
         'brewblox/firmware-flasher:develop testey')
 
 
-def test_enable_ipv6(m_utils, m_sh):
-    invoke(install.enable_ipv6)
-    assert m_utils.enable_ipv6.call_count == 1
+def test_fix_ipv6(m_utils, m_sh):
+    invoke(install.fix_ipv6)
+    assert m_utils.fix_ipv6.call_count == 1
