@@ -253,18 +253,18 @@ def run_esp_flasher(release: str, pull: bool):
     tag = utils.docker_tag(release)
     sudo = utils.optsudo()
 
-    cmd = '/app/firmware-bin/scripts/flash'
     opts = ' '.join([
         '-it',
         '--rm',
         '--privileged',
         '-v /dev:/dev',
+        '-w /app/firmware',
         '--entrypoint bash',
         '--pull ' + ('always' if pull else 'missing'),
     ])
 
     sh(f'{sudo}docker-compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} brewblox/brewblox-devcon-spark:{tag} {cmd}')
+    sh(f'{sudo}docker run {opts} brewblox/brewblox-devcon-spark:{tag} flash')
 
 
 def discover_usb_sparks() -> List[str]:

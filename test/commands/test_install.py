@@ -226,9 +226,8 @@ def test_esp_flash(m_utils, m_sh):
     assert m_sh.call_count == 3
     m_sh.assert_called_with(
         'SUDO docker run -it --rm --privileged ' +
-        '-v /dev:/dev --entrypoint bash --pull always ' +
-        'brewblox/brewblox-devcon-spark:develop ' +
-        '/app/firmware-bin/scripts/flash')
+        '-v /dev:/dev -w /app/firmware --entrypoint bash --pull always ' +
+        'brewblox/brewblox-devcon-spark:develop flash')
 
 
 def test_invalid_flash(m_utils, m_sh, mocker):
