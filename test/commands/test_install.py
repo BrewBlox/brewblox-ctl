@@ -3,6 +3,8 @@ Tests brewblox_ctl.commands.install
 """
 
 
+from unittest.mock import Mock
+
 import pytest.__main__
 from brewblox_ctl.commands import install
 from brewblox_ctl.testing import check_sudo, invoke, matching
@@ -235,10 +237,49 @@ def test_invalid_flash(m_utils, m_sh, mocker):
     invoke(install.flash, _err=True)
 
 
-def test_wifi(m_utils, m_sh):
-    invoke(install.wifi, '--release develop --pull')
-    # Disabled for now
-    # assert m_sh.call_count == 3
+def test_wifi(m_utils, m_sh, mocker):
+    mocker.patch(TESTED + '.LISTEN_MODE_WAIT_S', 0.0001)
+    m_find = mocker.patch(TESTED + '.usb.core.find')
+    m_glob = mocker.patch(TESTED + '.glob')
+    m_glob.return_value = ['GLOB_PATH']
+    m_utils.ctx_opts.return_value.dry_run = False
+
+    m_find.reset_mock()
+    m_sh.reset_mock()
+    m_find.side_effect = [Mock(), None]  # particle
+    invoke(install.wifi)
+    m_sh.assert_called_once_with('miniterm.py -q GLOB_PATH 2>/dev/null')
+
+    m_find.reset_mock()
+    m_sh.reset_mock()
+    m_glob.return_value = []  # expect path to fallback to /dev/ttyACM0
+    m_find.side_effect = [Mock(), None]  # particle
+    invoke(install.wifi)
+    m_sh.assert_called_once_with('miniterm.py -q /dev/ttyACM0 2>/dev/null')
+
+    m_find.reset_mock()
+    m_sh.reset_mock()
+    m_find.side_effect = [None, Mock()]  # ESP
+    invoke(install.wifi)
+    assert m_sh.call_count == 0
+    assert m_find.call_count == 2
+
+    m_find.reset_mock()
+    m_sh.reset_mock()
+    m_find.side_effect = [None, None, None, Mock()]  # ESP, second try
+    invoke(install.wifi)
+    assert m_sh.call_count == 0
+    assert m_find.call_count == 4
+
+    # No USB calls should be made in dry runs
+    m_utils.ctx_opts.return_value.dry_run = True
+    m_glob.return_value = ['GLOB_PATH']
+    m_find.reset_mock()
+    m_sh.reset_mock()
+    m_find.side_effect = [Mock(), None]  # particle
+    invoke(install.wifi)
+    m_sh.assert_called_once_with('miniterm.py -q GLOB_PATH 2>/dev/null')
+    assert m_find.return_value.call_count == 0
 
 
 def test_particle(m_utils, m_sh):
