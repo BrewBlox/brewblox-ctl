@@ -51,7 +51,7 @@ steps:
     az storage blob upload
     --account-name brewblox
     --container-name ctl
-    --sas-token $(CTL_SAS_TOKEN)
+    --sas-token '$(CTL_SAS_TOKEN)'
     --name "brewblox-ctl-$(TAG).tar.gz"
     --file "./dist/brewblox-ctl-$(VERSION).tar.gz"
   displayName: Upload to Azure Storage
