@@ -27,6 +27,8 @@ autopep8 = "^1.5.7"
 pytest-mock = "^3.6.1"
 pathlib2 = "^2.3.6"
 flake8-quotes = "^3.2.0"
+httpretty = "1.0.5"
+importlib-metadata = "^4.8.1"
 
 [tool.poetry.scripts]
 brewblox-ctl = 'brewblox_ctl.__main__:main'

@@ -2,72 +2,23 @@
 Entrypoint for the Brewblox commands menu
 """
 import sys
-from os import getcwd, path
-from subprocess import CalledProcessError
+from os import path
 
 import click
-from click.exceptions import ClickException, UsageError
+from click.exceptions import ClickException
 from dotenv import load_dotenv
 
 from brewblox_ctl import click_helpers, const, utils
-from brewblox_ctl.commands import docker, env, http, install, snapshot
+from brewblox_ctl.commands import (add_device, backup, database, diagnostic,
+                                   docker, env, http, install, service, setup,
+                                   snapshot, update)
 
 SUPPORTED_PYTHON_MINOR = 6
 
 
-def check_lib():
-    if utils.is_brewblox_cwd() \
-        and not utils.path_exists('./brewblox_ctl_lib/__init__.py') \
-            and utils.confirm(
-                'brewblox-ctl requires extensions that match your Brewblox release. ' +
-                'Do you want to download them now?'):
-        utils.load_ctl_lib(utils.ContextOpts(dry_run=False, verbose=True))
-
-
-def local_commands():  # pragma: no cover
-    if not utils.is_brewblox_cwd():
-        return []
-
-    try:
-        check_lib()
-        sys.path.append(getcwd())
-        from brewblox_ctl_lib import loader
-        return loader.cli_sources()
-
-    except ImportError:
-        click.echo('No brewblox-ctl extensions found in current directory')
-        return []
-
-    except KeyboardInterrupt:
-        raise SystemExit(0)
-
-    except CalledProcessError as ex:
-        click.echo('\n' + 'Error: ' + str(ex))
-        raise SystemExit(1)
-
-
-def usage_hint(ex):
-    if ex.message and 'No such command' in ex.message and not utils.is_brewblox_cwd():
-        default_dir = path.expanduser('~/brewblox')
-        prompt = [
-            '',
-            'Many commands only work if your current directory is a Brewblox directory.',
-        ]
-
-        if utils.is_brewblox_dir(default_dir):
-            prompt += [
-                'It looks like you installed Brewblox in the default location.',
-                'To navigate there, run:',
-                '',
-                f'    cd {default_dir}',
-                ''
-            ]
-
-        click.echo('\n'.join(prompt))
-
-
 def escalate(ex):
-    if utils.getenv(const.DEBUG_KEY):
+    # TODO(Bob) test this
+    if utils.getenv(const.DEBUG_KEY):  # pragma: no cover
         raise ex
     else:
         raise SystemExit(1)
@@ -102,7 +53,13 @@ def main(args=sys.argv[1:]):
                 snapshot.cli,
                 env.cli,
                 http.cli,
-                *local_commands(),
+                setup.cli,
+                add_device.cli,
+                service.cli,
+                database.cli,
+                update.cli,
+                diagnostic.cli,
+                backup.cli
             ])
         @click.option('-y', '--yes',
                       is_flag=True,
@@ -125,13 +82,6 @@ def main(args=sys.argv[1:]):
             """
             The Brewblox management tool.
 
-            It can be used to create and control Brewblox configurations.
-            More commands are available when used in a Brewblox installation directory.
-
-            If the command you're looking for was not found, please check your current directory.
-
-            By default, Brewblox is installed to ~/brewblox.
-
             Example calls:
 
             \b
@@ -147,11 +97,6 @@ def main(args=sys.argv[1:]):
             opts.color = color
 
         cli(args=args, standalone_mode=False)
-
-    except UsageError as ex:
-        ex.show()
-        usage_hint(ex)
-        escalate(ex)
 
     except ClickException as ex:  # pragma: no cover
         ex.show()
