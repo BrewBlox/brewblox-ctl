@@ -1,0 +1,165 @@
+#!/bin/env bash
+set -euo pipefail
+
+if [[ $EUID -eq 0 ]]; then
+   echo "This script must not be run as root, or using sudo."
+   exit 1
+fi
+
+ARGS=("$@")
+BREWBLOX_DIR=""
+
+# Args:
+# - var name
+# - env file path
+read_var() {
+    VAR=$(grep "$1" "$2" | cut -d '=' -f2)
+    echo "${VAR}"
+}
+
+# Args:
+# - target directory
+is_brewblox_dir() {
+    [[ -f "$1/.env" ]] && grep -q "BREWBLOX_RELEASE" "$1/.env"
+    return
+}
+
+# Args: none
+# Assumes PWD is the brewblox directory
+install_ctl() {
+    # Determine BREWBLOX_RELEASE
+    # Priority is given to:
+    # - Environment variable
+    # - Value for previous install
+    # - Default
+    if [ -z "${BREWBLOX_RELEASE:-}" ]
+    then
+        if is_brewblox_dir "${PWD}"
+        then
+            BREWBLOX_RELEASE=$(read_var BREWBLOX_RELEASE .env)
+        else
+            BREWBLOX_RELEASE="edge"
+        fi
+    fi
+
+    # Create virtual env
+    python3 -m venv .venv
+
+    # Download the sdist tarball
+    echo "Downloading brewblox-ctl for ${BREWBLOX_RELEASE}"
+    wget -q \
+        -O "./brewblox-ctl.tar.gz" \
+        "https://brewblox.blob.core.windows.net/ctl/${BREWBLOX_RELEASE}/brewblox-ctl.tar.gz"
+
+    # Activate virtual env
+    # shellcheck source=/dev/null
+    source .venv/bin/activate
+
+    # Install packages into the virtual env
+    echo "Installing Python packages..."
+    python3 -m pip install -q setuptools wheel
+    python3 -m pip install -q ./brewblox-ctl.tar.gz
+}
+
+# Args: none
+install_brewblox() {
+    if [ -z "${BREWBLOX_DIR:-}" ]
+    then
+        if is_brewblox_dir "${PWD}"
+        then
+            BREWBLOX_DIR="${PWD}"
+        else
+            BREWBLOX_DIR="${PWD}/brewblox"
+        fi
+    fi
+
+    # Check if dir exists, but is not a brewblox dir, and is not empty
+    if [[ -d "${BREWBLOX_DIR}" ]] \
+        && ! is_brewblox_dir "$BREWBLOX_DIR" \
+        && [ -n "$(ls -A "${BREWBLOX_DIR:?}")" ]
+    then
+        echo "WARN: ${BREWBLOX_DIR} already exists, and is not a Brewblox directory."
+        read -rp "Remove directory and continue? (y/N)" response
+        if [[ "${response}" =~ ^y(es)? ]]
+        then
+            rm -rf "${BREWBLOX_DIR:?}/*"
+        else
+            exit 1
+        fi
+    fi
+
+    # Ensure that the Brewblox dir is cwd
+    if [[ ${BREWBLOX_DIR} != "${PWD}" ]]
+    then
+        mkdir -p "${BREWBLOX_DIR}"
+        pushd "${BREWBLOX_DIR}" > /dev/null
+    fi
+
+    install_ctl
+}
+
+# Args: none
+run_ctl() {
+    if [[ ${BREWBLOX_DIR} != "${PWD}" ]]
+    then
+        pushd "${BREWBLOX_DIR}" > /dev/null
+    fi
+
+    if [[ ! -d .venv ]]
+    then
+        install_ctl
+    fi
+
+    # shellcheck source=/dev/null
+    source .venv/bin/activate
+    python3 -m brewblox_ctl "${ARGS[@]}"
+    return
+}
+
+# Default use case:
+# brewblox-ctl is called while PWD is a Brewblox dir
+# -> Run brewblox-ctl in Python
+if is_brewblox_dir "${PWD}"
+then
+    BREWBLOX_DIR="${PWD}"
+    run_ctl
+    exit $?
+fi
+
+# Special use case:
+# (re-)installing brewblox
+# -> Always first download brewblox-ctl, then run install command
+for arg in "${ARGS[@]}"
+do
+    if [[ "${arg}" == "install" ]]
+    then
+        install_brewblox
+        run_ctl
+        exit $?
+    fi
+done
+
+# Common error scenario:
+# brewblox-ctl is called from a non-Brewblox dir,
+# but a Brewblox dir is found in a common or adjacent place.
+# -> Prompt the user how and where to retry the command.
+for dir in "/home/${USER}/brewblox" "./brewblox" "../brewblox"
+do
+    if is_brewblox_dir "${dir}"
+    then
+        echo "ERROR: Current directory is not a Brewblox install directory."
+        echo "ERROR: A Brewblox installation was found in ${dir}."
+        echo "ERROR: Navigate there, and re-run the command."
+        echo ""
+        echo "       cd ${dir}"
+        echo "       $0 ${ARGS[*]}"
+        echo ""
+        exit 1
+    fi
+done
+
+# We haven't found any Brewblox directory, and we're not about to install it
+# -> Give up.
+echo "ERROR: Current directory is not a Brewblox install directory."
+echo "ERROR: No other Brewblox install directory was detected."
+exit 1

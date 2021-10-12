@@ -51,7 +51,7 @@ def m_sh(mocker):
 
 def test_libs(m_utils, m_sh):
     invoke(update.libs)
-    m_utils.load_ctl_lib.assert_called_once_with()
+    m_utils.download_ctl.assert_called_once_with()
     m_sh.assert_not_called()
 
 

@@ -34,10 +34,8 @@ steps:
 - bash: |
     BRANCH=$(echo $(Build.SourceBranch) | grep -oP "^refs/heads/\K.*")
     TAG=$(echo $BRANCH | tr '/' '-' | tr '[:upper:]' '[:lower:]')
-    VERSION=$(poetry version --no-ansi | cut -d " " -f2)
     echo "##vso[task.setvariable variable=BRANCH]$BRANCH"
     echo "##vso[task.setvariable variable=TAG]$TAG"
-    echo "##vso[task.setvariable variable=VERSION]$VERSION"
   displayName: Export build variables
 
 - bash: poetry run pytest
@@ -52,7 +50,7 @@ steps:
     --account-name brewblox
     --container-name ctl
     --sas-token '$(CTL_SAS_TOKEN)'
-    --name "brewblox-ctl-$(TAG).tar.gz"
-    --file "./dist/brewblox-ctl-$(VERSION).tar.gz"
+    --name "$(TAG)/brewblox-ctl.tar.gz"
+    --file "./dist/brewblox-ctl-1.0.0.tar.gz"
   displayName: Upload to Azure Storage
   condition: and(succeeded(), variables.BRANCH)

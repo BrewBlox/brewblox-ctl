@@ -3,7 +3,7 @@ Tests brewblox_ctl.utils
 """
 
 import json
-from os import path
+from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError
 from unittest.mock import call
 
@@ -100,7 +100,7 @@ def test_setenv(mocked_ext, mocked_opts):
     set_mock = mocked_ext['set_key']
 
     utils.setenv('key', 'val')
-    set_mock.assert_called_with(path.abspath('.env'), 'key', 'val', quote_mode='never')
+    set_mock.assert_called_with(Path('.env').resolve(), 'key', 'val', quote_mode='never')
 
     utils.setenv('key', 'other', '.other-env')
     set_mock.assert_called_with('.other-env', 'key', 'other', quote_mode='never')
@@ -114,7 +114,7 @@ def test_clearenv(mocked_ext, mocked_opts):
     m_unset = mocked_ext['unset_key']
 
     utils.clearenv('key')
-    m_unset.assert_called_with(path.abspath('.env'), 'key', quote_mode='never')
+    m_unset.assert_called_with(Path('.env').resolve(), 'key', quote_mode='never')
 
     utils.clearenv('key', '.other-env')
     m_unset.assert_called_with('.other-env', 'key', quote_mode='never')
@@ -388,7 +388,7 @@ def test_logs(mocker):
     assert m_secho.call_count == 5
 
 
-def test_load_ctl_lib(mocker):
+def test_download_ctl(mocker):
     m_sudo = mocker.patch(TESTED + '.optsudo')
     m_sh = mocker.patch(TESTED + '.sh')
     m_getenv = mocker.patch(TESTED + '.getenv')
@@ -397,19 +397,19 @@ def test_load_ctl_lib(mocker):
     m_sh.side_effect = testing.check_sudo
     m_getenv.return_value = 'release'
 
-    utils.load_ctl_lib()
+    utils.download_ctl()
     assert m_sh.call_count == 7
 
     m_sh.reset_mock()
     m_sh.side_effect = None  # remove check_sudo
     m_sudo.return_value = ''
-    utils.load_ctl_lib()
+    utils.download_ctl()
     assert m_sh.call_count == 6
 
     m_sh.reset_mock()
     m_getenv.return_value = None
     with pytest.raises(KeyError):
-        utils.load_ctl_lib()
+        utils.download_ctl()
     assert m_sh.call_count == 0
 
 
@@ -604,7 +604,7 @@ def test_sh_stream_empty(mocker):
     assert list(utils.sh_stream('cmd')) == []
 
 
-def test_update_avahi_config(mocker, m_sh):
+def test_enable_mdns_reflection(mocker, m_sh):
     m_info = mocker.patch(TESTED + '.info')
     m_warn = mocker.patch(TESTED + '.warn')
     m_command_exists = mocker.patch(TESTED + '.command_exists')
@@ -616,7 +616,7 @@ def test_update_avahi_config(mocker, m_sh):
 
     # File not found
     m_config.side_effect = OSError
-    utils.update_avahi_config()
+    utils.enable_mdns_reflection()
     assert m_info.call_count == 1
     assert m_warn.call_count == 1
     assert m_sh.call_count == 0
@@ -627,7 +627,7 @@ def test_update_avahi_config(mocker, m_sh):
     m_sh.reset_mock()
     m_warn.reset_mock()
     config['reflector'] = {'enable-reflector': 'no'}
-    utils.update_avahi_config()
+    utils.enable_mdns_reflection()
     assert m_sh.call_count == 0
     assert m_warn.call_count == 2
     assert config['reflector']['enable-reflector'] == 'no'
@@ -636,7 +636,7 @@ def test_update_avahi_config(mocker, m_sh):
     m_sh.reset_mock()
     m_warn.reset_mock()
     config.clear()
-    utils.update_avahi_config()
+    utils.enable_mdns_reflection()
     assert m_sh.call_count == 3
     assert m_warn.call_count == 0
     assert config['reflector']['enable-reflector'] == 'yes'
@@ -645,7 +645,7 @@ def test_update_avahi_config(mocker, m_sh):
     m_sh.reset_mock()
     m_warn.reset_mock()
     config['reflector'] = {'enable-reflector': 'yes'}
-    utils.update_avahi_config()
+    utils.enable_mdns_reflection()
     assert m_sh.call_count == 0
     assert m_warn.call_count == 0
     assert config['reflector']['enable-reflector'] == 'yes'
@@ -655,7 +655,7 @@ def test_update_avahi_config(mocker, m_sh):
     m_warn.reset_mock()
     m_command_exists.return_value = False
     config.clear()
-    utils.update_avahi_config()
+    utils.enable_mdns_reflection()
     assert m_sh.call_count == 2
     assert m_warn.call_count == 1
     assert config['reflector']['enable-reflector'] == 'yes'

@@ -8,16 +8,16 @@ import zipfile
 from contextlib import suppress
 from datetime import datetime
 from glob import glob
-from os import getgid, getuid, mkdir, path
+from os import getgid, getuid, mkdir
+from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 import click
 import requests
 import urllib3
 import yaml
-from brewblox_ctl import click_helpers, sh
+from brewblox_ctl import click_helpers, const, sh, utils
 from brewblox_ctl.commands import http
-from brewblox_ctl import const, utils
 from dotenv import load_dotenv
 
 
@@ -73,7 +73,7 @@ def save(save_compose, ignore_spark_error):
 
     file = f'backup/brewblox_backup_{datetime.now().strftime("%Y%m%d_%H%M")}.zip'
     with suppress(FileExistsError):
-        mkdir(path.abspath('backup/'))
+        mkdir(Path('backup/').resolve())
 
     store_url = utils.datastore_url()
 
@@ -123,7 +123,7 @@ def save(save_compose, ignore_spark_error):
         zipf.write(fname)
 
     zipf.close()
-    click.echo(path.abspath(file))
+    click.echo(Path(file).resolve())
     utils.info('Done!')
 
 
@@ -215,7 +215,7 @@ def load(archive,
             sh(f'cp -f {tmp.name} .env')
 
         utils.info('Reading .env values')
-        load_dotenv(path.abspath('.env'))
+        load_dotenv(Path('.env').resolve())
 
     if load_compose:
         if 'docker-compose.yml' in available:

@@ -1,8 +1,9 @@
 """
 Entrypoint for the Brewblox commands menu
 """
+
 import sys
-from os import path
+from pathlib import Path
 
 import click
 from click.exceptions import ClickException
@@ -10,8 +11,8 @@ from dotenv import load_dotenv
 
 from brewblox_ctl import click_helpers, const, utils
 from brewblox_ctl.commands import (add_device, backup, database, diagnostic,
-                                   docker, env, http, install, service, setup,
-                                   snapshot, update)
+                                   docker, env, flash_device, http, install,
+                                   service, snapshot, update)
 
 SUPPORTED_PYTHON_MINOR = 6
 
@@ -26,7 +27,7 @@ def escalate(ex):
 
 def main(args=sys.argv[1:]):
     try:
-        load_dotenv(path.abspath('.env'))
+        load_dotenv(Path('.env').resolve())
 
         if utils.is_root():
             click.echo('brewblox-ctl should not be run as root.')
@@ -50,16 +51,16 @@ def main(args=sys.argv[1:]):
             sources=[
                 docker.cli,
                 install.cli,
-                snapshot.cli,
+                flash_device.cli,
                 env.cli,
                 http.cli,
-                setup.cli,
                 add_device.cli,
                 service.cli,
                 database.cli,
                 update.cli,
                 diagnostic.cli,
-                backup.cli
+                backup.cli,
+                snapshot.cli,
             ])
         @click.option('-y', '--yes',
                       is_flag=True,

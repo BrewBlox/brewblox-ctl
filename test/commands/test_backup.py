@@ -4,14 +4,14 @@ Tests brewblox_ctl.commands.backup
 
 import json
 import zipfile
-from os import path
+from pathlib import Path
 from unittest.mock import call
 
 import httpretty
 import pytest
 import yaml
-from brewblox_ctl.testing import check_sudo, invoke, matching
 from brewblox_ctl.commands import backup
+from brewblox_ctl.testing import check_sudo, invoke, matching
 from requests import HTTPError
 
 TESTED = backup.__name__
@@ -191,7 +191,7 @@ def test_save_backup(mocker, m_utils, f_read_compose):
 
     invoke(backup.save)
 
-    m_mkdir.assert_called_once_with(path.abspath('backup/'))
+    m_mkdir.assert_called_once_with(Path('backup/').resolve())
     m_zipfile.assert_called_once_with(
         matching(r'^backup/brewblox_backup_\d{8}_\d{4}.zip'), 'w', zipfile.ZIP_DEFLATED)
     m_zipfile.return_value.write.assert_any_call('docker-compose.yml')

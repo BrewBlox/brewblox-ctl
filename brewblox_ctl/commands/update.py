@@ -5,8 +5,7 @@ Migration scripts
 from distutils.version import StrictVersion
 
 import click
-from brewblox_ctl import click_helpers, sh
-from brewblox_ctl import const, migration, utils
+from brewblox_ctl import click_helpers, const, fixes, migration, sh, utils
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -24,31 +23,6 @@ def check_version(prev_version: StrictVersion):
         utils.error('Your system is running a version newer than the selected release. ' +
                     'This may be due to switching release tracks.' +
                     'You can use the --from-version flag if you know what you are doing.')
-        raise SystemExit(1)
-
-
-def check_sudo_install():
-    """
-    Early versions were installed using 'sudo pip install brewblox-ctl'.
-    This should be fixed to avoid duplicate installs.
-    """
-    if utils.user_home_exists() and utils.path_exists('/usr/local/bin/brewblox-ctl'):  # pragma: no cover
-        utils.warn('brewblox-ctl appears to have been installed using sudo.')
-        if utils.confirm('Do you want to fix this now?'):
-            sh(f'sudo {const.PY} -m pip uninstall -y brewblox-ctl docker-compose', check=False)
-            utils.pip_install('brewblox-ctl')  # docker-compose is a dependency
-            raise SystemExit(1)
-
-
-def check_path():
-    """
-    Verify that ~/.local/bin is in $PATH.
-    This was not the default for Debian Stretch, and is always good to check.
-    """
-    if utils.user_home_exists() and '.local/bin' not in utils.getenv('PATH'):
-        sh('echo \'export PATH="$HOME/.local/bin:$PATH"\' >> ~/.bashrc')
-        utils.info('Added the ~/.local/bin directory to $PATH')
-        utils.warn('Please run "exec $SHELL --login" to apply the changes to $PATH')
         raise SystemExit(1)
 
 
@@ -95,8 +69,9 @@ def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
     # Always apply shared config files
     apply_config_files()
-    utils.update_avahi_config()
     utils.add_particle_udev_rules()
+    fixes.fix_pip_install()
+    fixes.unset_avahi_reflection()
 
     if prev_version < StrictVersion('0.3.0'):
         migration.migrate_compose_split()
@@ -136,7 +111,7 @@ def upped_migrate(prev_version):
 def libs():
     """Reinstall local libs."""
     utils.confirm_mode()
-    utils.load_ctl_lib()
+    utils.download_ctl()
 
 
 @cli.command()
@@ -208,16 +183,11 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     sudo = utils.optsudo()
 
     prev_version = StrictVersion(from_version)
-
     check_version(prev_version)
-    check_sudo_install()
-    check_path()
 
     if update_ctl and not update_ctl_done:
         utils.info('Updating brewblox-ctl...')
-        utils.pip_install('brewblox-ctl')
-        utils.info('Updating brewblox-ctl lib...')
-        utils.load_ctl_lib()
+        utils.download_ctl()
         # Restart ctl - we just replaced the source code
         sh(' '.join([const.PY, *const.ARGS, '--update-ctl-done']))
         return

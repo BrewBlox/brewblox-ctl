@@ -87,4 +87,4 @@ def test_no_pull(m_utils, m_sh):
 def test_no_avahi(m_utils, m_sh):
     m_utils.path_exists.return_value = False
     invoke(setup.setup, '--no-avahi-config')
-    assert m_utils.update_avahi_config.call_count == 0
+    assert m_utils.enable_mdns_reflection.call_count == 0

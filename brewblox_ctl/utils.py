@@ -3,23 +3,19 @@ Utility functions
 """
 
 import json
+import os
 import re
 import shlex
 import subprocess
-from os import getcwd
-from os import getenv as getenv_
-from os import listdir, path
 from pathlib import Path
 from platform import machine
 from shutil import which
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, run
-from tempfile import NamedTemporaryFile
 from types import GeneratorType
 from typing import Generator
 
 import click
 import yaml
-from configobj import ConfigObj
 from dotenv import set_key, unset_key
 from dotenv.main import dotenv_values
 
@@ -119,10 +115,10 @@ def confirm_mode():  # pragma: no cover
 
 
 def getenv(key, default=None):
-    return getenv_(key, default)
+    return os.getenv(key, default)
 
 
-def setenv(key, value, dotenv_path=path.abspath('.env')):
+def setenv(key, value, dotenv_path=Path('.env').absolute()):
     opts = ctx_opts()
     if opts.dry_run or opts.verbose:
         click.secho(f'{const.LOG_ENV} {key}={value}', fg='magenta', color=opts.color)
@@ -130,7 +126,7 @@ def setenv(key, value, dotenv_path=path.abspath('.env')):
         set_key(dotenv_path, key, value, quote_mode='never')
 
 
-def clearenv(key, dotenv_path=path.abspath('.env')):
+def clearenv(key, dotenv_path=Path('.env').absolute()):
     opts = ctx_opts()
     if opts.dry_run or opts.verbose:
         click.secho(f'{const.LOG_ENV} unset {key}', fg='magenta', color=opts.color)
@@ -139,7 +135,7 @@ def clearenv(key, dotenv_path=path.abspath('.env')):
 
 
 def path_exists(path_name):
-    return path.exists(path_name)
+    return Path(path_name).exists()
 
 
 def command_exists(cmd):
@@ -159,7 +155,14 @@ def is_root():
 
 
 def is_docker_user():
-    return check_ok('id -nG $USER | grep -qw "docker"')
+    return 'docker' in sh('id -nG $USER', capture=True)
+
+
+def has_docker_rights():
+    # Can current user run docker commands without sudo?
+    # The shell must be reloaded after adding a user to the 'docker' group,
+    # so a strict group membership check is not sufficient
+    return 'permission denied' not in sh('docker version 2>&1', capture=True, check=False)
 
 
 def is_brewblox_cwd():
@@ -168,22 +171,18 @@ def is_brewblox_cwd():
 
 def is_brewblox_dir(dir):
     env_path = dir + '/.env'
-    if not path.isfile(env_path):
+    if not Path(env_path).is_file():
         return False
     return const.CFG_VERSION_KEY in dotenv_values(env_path)
 
 
 def is_empty_dir(dir):
-    return path.isdir(dir) and not listdir(dir)
+    path = Path(dir)
+    return path.is_dir() and not list(path.iterdir())
 
 
 def optsudo():
-    return 'sudo ' if not is_docker_user() else ''
-
-
-def tag_prefix():  # pragma: no cover
-    """Present for backwards compatibility with older versions of ctl-lib"""
-    return ''
+    return '' if has_docker_rights() else 'sudo -E env "PATH=$PATH" '
 
 
 def docker_tag(release=None):
@@ -200,7 +199,7 @@ def check_config(required=True):
         click.echo('Please run brewblox-ctl in a Brewblox directory.')
         raise SystemExit(1)
     elif confirm(
-            f'No Brewblox configuration found in current directory ({getcwd()}).' +
+            f'No Brewblox configuration found in current directory ({Path.cwd()}).' +
             ' Are you sure you want to continue?'):
         return False
     else:
@@ -238,12 +237,8 @@ def check_ok(cmd):
 
 
 def pip_install(*libs):
-    user = getenv('USER')
     args = '--upgrade --no-cache-dir ' + ' '.join(libs)
-    if user and Path(f'/home/{user}').is_dir():
-        return sh(f'{const.PY} -m pip install --user {args}')
-    else:
-        return sh(f'sudo {const.PY} -m pip install {args}')
+    return sh(f'{const.PY} -m pip install {args}')
 
 
 def info(msg):
@@ -260,68 +255,6 @@ def warn(msg):
 def error(msg):
     opts = ctx_opts()
     click.secho(f'{const.LOG_ERR} {msg}', fg='red', color=opts.color)
-
-
-def load_ctl_lib(opts=None):
-    sudo = optsudo()
-    release = getenv(const.LIB_RELEASE_KEY) or getenv(const.RELEASE_KEY)
-    if not release:
-        raise KeyError('Failed to identify Brewblox release.')
-
-    sh(f'{sudo}docker rm ctl-lib', opts, check=False)
-    sh(f'{sudo}docker pull brewblox/brewblox-ctl-lib:{release}', opts)
-    sh(f'{sudo}docker create --name ctl-lib brewblox/brewblox-ctl-lib:{release}', opts)
-    sh('rm -rf ./brewblox_ctl', opts, check=False)
-    sh(f'{sudo}docker cp ctl-lib:/brewblox_ctl ./', opts)
-    sh(f'{sudo}docker rm ctl-lib', opts)
-
-    if sudo:
-        sh('sudo chown -R $USER ./brewblox_ctl/', opts)
-
-
-def fix_ipv6(config_file=None, restart=True):
-    info('Fixing Docker IPv6 settings...')
-
-    os_version = sh('cat /proc/version', capture=True) or ''
-    if re.match(r'.*(Microsoft|WSL)', os_version, flags=re.IGNORECASE):
-        info('WSL environment detected. Skipping IPv6 config changes.')
-        return
-
-    # Config is either provided, or parsed from active daemon process
-    if not config_file:
-        default_config_file = '/etc/docker/daemon.json'
-        dockerd_proc = sh('ps aux | grep dockerd', capture=True)
-        proc_match = re.match(r'.*--config-file[\s=](?P<file>.*\.json).*', dockerd_proc, flags=re.MULTILINE)
-        config_file = proc_match and proc_match.group('file') or default_config_file
-
-    info(f'Using Docker config file {config_file}')
-
-    # Read config. Create file if not exists
-    sh(f"sudo touch '{config_file}'")
-    config = sh(f"sudo cat '{config_file}'", capture=True)
-
-    if 'fixed-cidr-v6' in config:
-        info('IPv6 settings are already present. Making no changes.')
-        return
-
-    # Edit and write. Do not overwrite existing values
-    config = json.loads(config or '{}')
-    config.setdefault('ipv6', False)
-    config.setdefault('fixed-cidr-v6', '2001:db8:1::/64')
-    config_str = json.dumps(config, indent=2)
-    sh(f"echo '{config_str}' | sudo tee '{config_file}' > /dev/null")
-
-    # Restart daemon
-    if restart:
-        if command_exists('service'):
-            info('Restarting Docker service...')
-            sh('sudo service docker restart')
-        else:
-            warn('"service" command not found. Please restart your machine to apply config changes.')
-
-
-# Preserve backwards compatibility
-enable_ipv6 = fix_ipv6
 
 
 def show_data(data):
@@ -420,46 +353,18 @@ def sh_stream(cmd: str) -> Generator[str, None, None]:
             yield output
 
 
-def update_avahi_config():
-    conf = const.AVAHI_CONF
-
-    info('Checking Avahi config...')
-
-    try:
-        config = ConfigObj(conf, file_error=True)
-    except OSError:
-        warn(f'Avahi config file not found: {conf}')
-        return
-
-    config.setdefault('reflector', {})
-    current_value = config['reflector'].get('enable-reflector')
-
-    if current_value == 'yes':
-        return
-
-    if current_value == 'no':
-        warn('Explicit "no" value found for ' +
-             'reflector/enable-reflector setting in Avahi config.')
-        warn('Aborting config change.')
-        return
-
-    config['reflector']['enable-reflector'] = 'yes'
-    show_data(config.dict())
-
-    with NamedTemporaryFile('w') as tmp:
-        config.filename = None
-        lines = config.write()
-        # avahi-daemon.conf requires a 'key=value' syntax
-        tmp.write('\n'.join(lines).replace(' = ', '=') + '\n')
-        tmp.flush()
-        sh(f'sudo chmod --reference={conf} {tmp.name}')
-        sh(f'sudo cp -fp {tmp.name} {conf}')
-
-    if command_exists('service'):
-        info('Restarting avahi-daemon service...')
-        sh('sudo service avahi-daemon restart')
-    else:
-        warn('"service" command not found. Please restart your machine to enable Wifi discovery.')
+def makecert(dir, release: str = None):
+    absdir = Path(dir).absolute()
+    sudo = optsudo()
+    tag = docker_tag(release)
+    sh(f'mkdir -p "{absdir}"')
+    sh(f'{sudo}docker run' +
+        ' --rm --privileged' +
+        ' --pull always' +
+        f' -v "{absdir}":/certs/' +
+        f' brewblox/omgwtfssl:{tag}')
+    sh(f'sudo chmod 644 "{absdir}/brewblox.crt"')
+    sh(f'sudo chmod 600 "{absdir}/brewblox.key"')
 
 
 def update_system_packages():
@@ -476,3 +381,50 @@ def add_particle_udev_rules():
         sh(f'sudo mkdir -p {rules_dir}')
         sh(f'sudo cp {const.CONFIG_DIR}/50-particle.rules {target}')
         sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
+
+
+def download_ctl():
+    release = getenv(const.CTL_RELEASE_KEY) or getenv(const.RELEASE_KEY)
+    sh(f'wget -q -O ./brewblox-ctl.tar.gz https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz')
+    sh(f'{const.PY} -m pip install --quiet --upgrade --upgrade-strategy eager --target ./lib ./brewblox-ctl.tar.gz')
+    if user_home_exists():
+        sh('mkdir -p $HOME/.local/bin')
+        sh(f'cp {const.SCRIPT_DIR}/brewblox-ctl $HOME/.local/bin/')
+        sh('chmod +x $HOME/.local/bin/brewblox-ctl')
+    else:
+        sh(f'sudo cp {const.SCRIPT_DIR}/brewblox-ctl /usr/local/bin/')
+        sh('sudo chmod 777 /usr/local/bin/brewblox-ctl')
+
+
+def check_ports():
+    if path_exists('./docker-compose.yml'):
+        info('Stopping services...')
+        sh(f'{optsudo()}docker-compose down')
+
+    ports = [
+        getenv(key, const.ENV_DEFAULTS[key]) for key in [
+            const.HTTP_PORT_KEY,
+            const.HTTPS_PORT_KEY,
+            const.MQTT_PORT_KEY,
+        ]]
+
+    retv = sh('sudo netstat -tulpn', capture=True)
+    lines = retv.split('\n')
+
+    used_ports = []
+    used_lines = []
+    for port in ports:
+        for line in lines:
+            if re.match(r'.*(:::|0.0.0.0:){}\s.*'.format(port), line):
+                used_ports.append(port)
+                used_lines.append(line)
+                break
+
+    if used_ports:
+        port_str = ', '.join(used_ports)
+        warn(f'Port(s) {port_str} already in use.')
+        warn('Run `brewblox-ctl service ports` to configure Brewblox ports.')
+        for line in used_lines:
+            warn(line)
+        if not confirm('Do you want to continue?'):
+            raise SystemExit(1)

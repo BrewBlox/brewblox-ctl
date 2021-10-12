@@ -3,7 +3,7 @@ Tests brewblox_ctl.commands.snapshot
 """
 
 
-from os import path
+from pathlib import Path
 
 import pytest.__main__
 from brewblox_ctl.commands import snapshot
@@ -60,7 +60,7 @@ def test_save_defaults(m_utils, m_sh):
 
     m_utils.is_brewblox_cwd.return_value = True
     invoke(snapshot.save)
-    cwd = path.basename(path.abspath('.'))
+    cwd = Path('.').resolve().name
     m_sh.assert_called_with(matching(r'sudo tar -C .* -czf ../brewblox.tar.gz ' + cwd))
 
 
@@ -99,7 +99,7 @@ def test_load_defaults(m_utils, m_sh):
 
     m_utils.is_brewblox_cwd.return_value = True
     invoke(snapshot.load)
-    cwd = path.basename(path.abspath('.')) + '/'
+    cwd = Path('.').resolve().name + '/'
     m_sh.assert_called_with(matching(r'.*' + cwd))
 
 
