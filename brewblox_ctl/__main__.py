@@ -10,8 +10,8 @@ from click.exceptions import ClickException
 from dotenv import load_dotenv
 
 from brewblox_ctl import click_helpers, const, utils
-from brewblox_ctl.commands import (add_device, backup, database, diagnostic,
-                                   docker, env, flash_device, http, install,
+from brewblox_ctl.commands import (add_service, backup, database, diagnostic,
+                                   docker, env, fix, flash, http, install,
                                    service, snapshot, update)
 
 SUPPORTED_PYTHON_MINOR = 6
@@ -33,7 +33,7 @@ def main(args=sys.argv[1:]):
             click.echo('brewblox-ctl should not be run as root.')
             raise SystemExit(1)
 
-        if utils.is_v6() \
+        if utils.is_armv6() \
             and not utils.confirm(
                 'Raspberry Pi models 0 and 1 are not supported. Do you want to continue?', False):
             raise SystemExit(0)
@@ -51,14 +51,15 @@ def main(args=sys.argv[1:]):
             sources=[
                 docker.cli,
                 install.cli,
-                flash_device.cli,
                 env.cli,
-                http.cli,
-                add_device.cli,
-                service.cli,
-                database.cli,
                 update.cli,
+                http.cli,
+                add_service.cli,
+                service.cli,
+                flash.cli,
                 diagnostic.cli,
+                fix.cli,
+                database.cli,
                 backup.cli,
                 snapshot.cli,
             ])

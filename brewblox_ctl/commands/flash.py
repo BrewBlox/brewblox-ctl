@@ -9,8 +9,7 @@ from typing import List
 
 import click
 import usb.core
-from brewblox_ctl import click_helpers, utils
-from brewblox_ctl.utils import sh
+from brewblox_ctl import click_helpers, sh, utils
 
 LISTEN_MODE_WAIT_S = 1
 

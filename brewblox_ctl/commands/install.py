@@ -5,7 +5,7 @@ Brewblox-ctl installation commands
 from time import sleep
 
 import click
-from brewblox_ctl import click_helpers, const, fixes, utils
+from brewblox_ctl import actions, click_helpers, const, fixes, utils
 from brewblox_ctl.commands import snapshot
 from brewblox_ctl.utils import sh
 
@@ -171,6 +171,8 @@ def install(ctx: click.Context,
     fixes.fix_ipv6(None, False)
     fixes.unset_avahi_reflection()
 
+    actions.add_particle_udev_rules()
+
     # Set variables in .env file
     # Set version number to 0.0.0 until snapshot load / init is done
     utils.info('Setting .env values...')
@@ -221,7 +223,7 @@ def install(ctx: click.Context,
             sh('sudo rm -rf ./traefik/; mkdir ./traefik/')
 
             utils.info('Creating SSL certificate...')
-            utils.makecert('./traefik', release)
+            actions.makecert('./traefik', release)
 
         if not skip_eventbus:
             utils.info('Creating mosquitto config directory...')
@@ -262,20 +264,4 @@ def makecert(dir, release):
         - Create brewblox.crt and brewblox.key files.
     """
     utils.confirm_mode()
-    utils.makecert(dir, release)
-
-
-@cli.command()
-@click.option('--config-file', help='Path to Docker daemon config. Defaults to /etc/docker/daemon.json.')
-def fix_ipv6(config_file):
-    """Fix IPv6 support on the host machine.
-
-    Reason: https://github.com/docker/for-linux/issues/914
-    Unlike globally disabling IPv6 support on the host,
-    this has no impact outside the Docker environment.
-
-    Some hosts (Synology) may be using a custom location for the daemon config file.
-    If the --config-file argument is not set, the --config-file argument for the active docker daemon is used.
-    If it is not set, the default /etc/docker/daemon.json is used.
-    """
-    fixes.fix_ipv6(config_file)
+    actions.makecert(dir, release)

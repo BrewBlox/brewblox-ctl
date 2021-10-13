@@ -5,7 +5,8 @@ Migration scripts
 from distutils.version import StrictVersion
 
 import click
-from brewblox_ctl import click_helpers, const, fixes, migration, sh, utils
+from brewblox_ctl import (actions, click_helpers, const, fixes, migration, sh,
+                          utils)
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -108,13 +109,6 @@ def upped_migrate(prev_version):
 
 
 @cli.command()
-def libs():
-    """Reinstall local libs."""
-    utils.confirm_mode()
-    utils.download_ctl()
-
-
-@cli.command()
 @click.option('--update-ctl/--no-update-ctl',
               default=True,
               help='Update brewblox-ctl.')
@@ -196,7 +190,7 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     sh(f'{sudo}docker-compose down')
 
     if update_system:
-        utils.update_system_packages()
+        actions.update_system_packages()
 
     if migrate:
         downed_migrate(prev_version)
@@ -218,3 +212,10 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
         upped_migrate(prev_version)
         utils.info(f'Configuration version: {prev_version} -> {const.CURRENT_VERSION}')
         utils.setenv(const.CFG_VERSION_KEY, const.CURRENT_VERSION)
+
+
+@cli.command()
+def update_ctl():
+    """Download and update brewblox-ctl itself."""
+    utils.confirm_mode()
+    utils.download_ctl()

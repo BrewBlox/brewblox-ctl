@@ -3,14 +3,12 @@ Tests brewblox_ctl.utils
 """
 
 import json
-from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError
 from unittest.mock import call
 
 import click
 import pytest
-from brewblox_ctl import const, testing, utils
-from configobj import ConfigObj
+from brewblox_ctl import const, utils
 
 TESTED = utils.__name__
 
@@ -29,15 +27,12 @@ def m_sh(mocker):
 def mocked_ext(mocker):
     mocked = [
         'input',
-        'getcwd',
-        'getenv_',
-        'path',
-        'listdir',
-        'which',
-        'machine',
+        'shutil.which',
+        'platform.machine',
+        'platform.version',
         'run',
-        'set_key',
-        'unset_key',
+        'dotenv.set_key',
+        'dotenv.unset_key',
         'dotenv_values',
     ]
     return {k: mocker.patch(TESTED + '.' + k) for k in mocked}
@@ -96,36 +91,9 @@ def test_confirm_usb(mocked_ext):
     assert mocked_ext['input'].call_count == 1
 
 
-def test_setenv(mocked_ext, mocked_opts):
-    set_mock = mocked_ext['set_key']
-
-    utils.setenv('key', 'val')
-    set_mock.assert_called_with(Path('.env').resolve(), 'key', 'val', quote_mode='never')
-
-    utils.setenv('key', 'other', '.other-env')
-    set_mock.assert_called_with('.other-env', 'key', 'other', quote_mode='never')
-
-    mocked_opts.dry_run = True
-    utils.setenv('key', 'val-dry')
-    assert set_mock.call_count == 2
-
-
-def test_clearenv(mocked_ext, mocked_opts):
-    m_unset = mocked_ext['unset_key']
-
-    utils.clearenv('key')
-    m_unset.assert_called_with(Path('.env').resolve(), 'key', quote_mode='never')
-
-    utils.clearenv('key', '.other-env')
-    m_unset.assert_called_with('.other-env', 'key', quote_mode='never')
-
-    mocked_opts.dry_run = True
-    utils.clearenv('key')
-    assert m_unset.call_count == 2
-
-
-def test_path_exists(mocked_ext):
-    mocked_ext['path'].exists.side_effect = [
+def test_path_exists(mocker):
+    m_path = mocker.patch(TESTED + '.Path').return_value
+    m_path.exists.side_effect = [
         True,
         False,
     ]
@@ -134,7 +102,7 @@ def test_path_exists(mocked_ext):
 
 
 def test_command_exists(mocked_ext):
-    m = mocked_ext['which']
+    m = mocked_ext['shutil.which']
     m.return_value = ''
     assert not utils.command_exists('wobberjacky')
 
@@ -143,100 +111,25 @@ def test_command_exists(mocked_ext):
 
 
 @pytest.mark.parametrize('combo', [
-    ('armv7hf', True),
-    ('armv6hf', True),
-    ('amd64', False),
-    ('x86-64', False)
-])
-def test_is_pi(combo, mocked_ext):
-    machine, result = combo
-    mocked_ext['machine'].return_value = machine
-    assert utils.is_pi() is result
-
-
-@pytest.mark.parametrize('combo', [
     ('armv7hf', False),
     ('armv6hf', True),
     ('amd64', False),
-    ('x86-64', False)
+    ('x86-64', False),
 ])
-def test_is_v6(combo, mocked_ext):
+def test_is_armv6(combo, mocked_ext):
     machine, result = combo
-    mocked_ext['machine'].return_value = machine
-    assert utils.is_v6() is result
+    mocked_ext['platform.machine'].return_value = machine
+    assert utils.is_armv6() is result
 
 
-def test_is_root(mocked_ext):
-    assert utils.is_root()
-
-    mocked_ext['run'].side_effect = CalledProcessError(1, 'permission denied')
-    assert not utils.is_root()
-
-
-def test_is_docker_user(mocked_ext):
-    assert utils.is_docker_user()
-
-    mocked_ext['run'].side_effect = CalledProcessError(1, 'not found')
-    assert not utils.is_docker_user()
-
-
-def test_is_brewblox_cwd(mocked_ext):
-    mocked_ext['getenv_'].side_effect = [
-        '',
-        '1.2.3',
-    ]
-    assert not utils.is_brewblox_cwd()
-    assert utils.is_brewblox_cwd()
-
-
-def test_is_brewblox_dir(mocked_ext):
-    mocked_ext['path'].isfile.side_effect = [
-        False,
-        True,
-        True,
-        True,
-    ]
-    mocked_ext['dotenv_values'].side_effect = [
-        {},
-        {'test': False},
-        {const.CFG_VERSION_KEY: '0.0.0'}
-    ]
-    # is not dir
-    assert not utils.is_brewblox_dir('a')
-    # is dir, empty .env
-    assert not utils.is_brewblox_dir('b')
-    # is dir, cfg key not in env
-    assert not utils.is_brewblox_dir('c')
-    # is dir, cfg key in env
-    assert utils.is_brewblox_dir('d')
-
-
-def test_is_empty_dir(mocked_ext):
-    mocked_ext['path'].isdir.side_effect = [
-        False,
-        True,
-        True,
-    ]
-    mocked_ext['listdir'].side_effect = [
-        ['content'],
-        []
-    ]
-    # not dir
-    assert not utils.is_empty_dir('a')
-    # dir, not empty
-    assert not utils.is_empty_dir('a')
-    # dir, empty
-    assert utils.is_empty_dir('a')
-
-
-def test_optsudo(mocker):
-    m = mocker.patch(TESTED + '.is_docker_user')
-    m.side_effect = [
-        True,
-        False,
-    ]
-    assert utils.optsudo() == ''
-    assert utils.optsudo() == 'sudo '
+@pytest.mark.parametrize('combo', [
+    ('Linux version 5.4.0-88-generic', False),
+    ('Linux version 5.4.0-88-Microsoft', True),
+])
+def test_is_wsl(combo, mocked_ext):
+    version, result = combo
+    mocked_ext['platform.version'].return_value = version
+    assert utils.is_wsl() is result
 
 
 def test_docker_tag(mocker):
@@ -254,8 +147,9 @@ def test_docker_tag_err(mocker):
         utils.docker_tag()
 
 
-def test_check_config(mocked_ext):
-    mocked_ext['getenv_'].side_effect = [
+def test_check_config(mocker, mocked_ext):
+    m_is_brewblox_dir = mocker.patch(TESTED + '.is_brewblox_dir')
+    m_is_brewblox_dir.side_effect = [
         '1.2.3',
         '',
         '',
@@ -367,6 +261,38 @@ def test_sh(mocker):
                              stderr=STDOUT)
 
 
+def test_sh_stream(mocker):
+    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts.verbose = False
+    m_popen = mocker.patch(TESTED + '.Popen')
+    m_popen.return_value.stdout.readline.side_effect = [
+        'line 1',
+        '',
+        'line 2',
+        'line 3',
+        ''
+    ]
+    m_popen.return_value.poll.side_effect = [
+        None,
+        0,
+    ]
+    assert list(utils.sh_stream('cmd')) == [
+        'line 1',
+        '',
+        'line 2',
+        'line 3',
+    ]
+
+
+def test_sh_stream_empty(mocker):
+    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts.verbose = True
+    m_popen = mocker.patch(TESTED + '.Popen')
+    m_popen.return_value.stdout.readline.side_effect = ['']
+    m_popen.return_value.poll.side_effect = [0]
+    assert list(utils.sh_stream('cmd')) == []
+
+
 def test_logs(mocker):
     m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
     m_secho = mocker.patch(TESTED + '.click.secho')
@@ -388,97 +314,10 @@ def test_logs(mocker):
     assert m_secho.call_count == 5
 
 
-def test_download_ctl(mocker):
-    m_sudo = mocker.patch(TESTED + '.optsudo')
-    m_sh = mocker.patch(TESTED + '.sh')
-    m_getenv = mocker.patch(TESTED + '.getenv')
-
-    m_sudo.return_value = 'SUDO '
-    m_sh.side_effect = testing.check_sudo
-    m_getenv.return_value = 'release'
-
-    utils.download_ctl()
-    assert m_sh.call_count == 7
-
-    m_sh.reset_mock()
-    m_sh.side_effect = None  # remove check_sudo
-    m_sudo.return_value = ''
-    utils.download_ctl()
-    assert m_sh.call_count == 6
-
-    m_sh.reset_mock()
-    m_getenv.return_value = None
-    with pytest.raises(KeyError):
-        utils.download_ctl()
-    assert m_sh.call_count == 0
-
-
-def test_pip_install(mocker):
-    m_sh = mocker.patch(TESTED + '.sh')
-    m_getenv = mocker.patch(TESTED + '.getenv')
-    mocker.patch(TESTED + '.Path')
+def test_pip_install(mocker, m_sh):
     mocker.patch(TESTED + '.const.PY', '/PY')
-
-    m_getenv.return_value = 'ussr'
-    utils.pip_install('lib')
-    m_sh.assert_called_with('/PY -m pip install --user --upgrade --no-cache-dir lib')
-
-    m_getenv.return_value = None
-    utils.pip_install('lib')
-    m_sh.assert_called_with('sudo /PY -m pip install --upgrade --no-cache-dir lib')
-
-
-def test_fix_ipv6(mocker, mocked_opts):
-    m_exists = mocker.patch(TESTED + '.command_exists')
-    m_sh = mocker.patch(TESTED + '.sh')
-    m_sh.side_effect = [
-        # autodetect config
-        '',    # WSL check
-        """
-        /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
-        grep --color=auto dockerd
-        """,   # ps aux
-        None,  # touch
-        '{}',  # read file
-        None,  # write file
-        None,  # restart
-
-        # with config provided, no restart
-        '',  # WSL check
-        None,  # touch
-        '',    # empty file
-        None,  # write file
-
-        # with config, service command not found
-        '',    # WSL check
-        None,  # touch
-        '{}',  # read file
-        None,  # write file
-
-        # with config, config already set
-        '',    # WSL check
-        None,  # touch
-        '{"fixed-cidr-v6": "2001:db8:1::/64"}',  # read file
-
-        # WSL detected, abort
-        'Linux version 5.4.0-73-generic-microsoft-stable',
-    ]
-
-    utils.fix_ipv6()
-    assert m_sh.call_count == 6
-
-    utils.fix_ipv6('/etc/file.json', False)
-    assert m_sh.call_count == 6 + 4
-
-    m_exists.return_value = False
-    utils.fix_ipv6('/etc/file.json')
-    assert m_sh.call_count == 6 + 4 + 4
-
-    utils.fix_ipv6('/etc/file.json')
-    assert m_sh.call_count == 6 + 4 + 4 + 3
-
-    utils.fix_ipv6('/etc/file.json')
-    assert m_sh.call_count == 6 + 4 + 4 + 3 + 1
+    utils.pip_install('lib', 'lib2')
+    m_sh.assert_called_with('/PY -m pip install --upgrade --no-cache-dir lib lib2')
 
 
 def test_show_data(mocker):
@@ -521,32 +360,16 @@ def test_host_ip(m_getenv):
     assert utils.host_ip() == '127.0.0.1'
 
 
-def test_user_home_exists(mocker):
-    m_home = mocker.patch(TESTED + '.Path').home.return_value
-
-    m_home.name = 'root'
-    m_home.exists.return_value = False
-    assert utils.user_home_exists() is False
-
-    m_home.name = 'pi'
-    m_home.exists.return_value = False
-    assert utils.user_home_exists() is False
-
-    m_home.name = 'pi'
-    m_home.exists.return_value = True
-    assert utils.user_home_exists() is True
-
-
 def test_list_services():
     services = utils.list_services(
         'brewblox/brewblox-devcon-spark',
-        'brewblox_ctl/data/config/docker-compose.yml')
+        'brewblox_ctl/deployed/config/docker-compose.yml')
     assert services == ['spark-one']
 
 
-def test_read_shared():
+def test_read_shared_compose():
     cfg = utils.read_shared_compose(
-        'brewblox_ctl/data/config/docker-compose.shared.yml')
+        'brewblox_ctl/deployed/config/docker-compose.shared.yml')
     assert 'history' in cfg['services']
 
 
@@ -570,120 +393,3 @@ def test_check_service_name(name):
 def test_check_service_name_err(name):
     with pytest.raises(click.BadParameter):
         utils.check_service_name(None, 'name', name)
-
-
-def test_sh_stream(mocker):
-    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
-    m_opts.verbose = False
-    m_popen = mocker.patch(TESTED + '.subprocess.Popen')
-    m_popen.return_value.stdout.readline.side_effect = [
-        'line 1',
-        '',
-        'line 2',
-        'line 3',
-        ''
-    ]
-    m_popen.return_value.poll.side_effect = [
-        None,
-        0,
-    ]
-    assert list(utils.sh_stream('cmd')) == [
-        'line 1',
-        '',
-        'line 2',
-        'line 3',
-    ]
-
-
-def test_sh_stream_empty(mocker):
-    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
-    m_opts.verbose = True
-    m_popen = mocker.patch(TESTED + '.subprocess.Popen')
-    m_popen.return_value.stdout.readline.side_effect = ['']
-    m_popen.return_value.poll.side_effect = [0]
-    assert list(utils.sh_stream('cmd')) == []
-
-
-def test_enable_mdns_reflection(mocker, m_sh):
-    m_info = mocker.patch(TESTED + '.info')
-    m_warn = mocker.patch(TESTED + '.warn')
-    m_command_exists = mocker.patch(TESTED + '.command_exists')
-    mocker.patch(TESTED + '.show_data')
-
-    config = ConfigObj()
-    m_config = mocker.patch(TESTED + '.ConfigObj')
-    m_config.return_value = config
-
-    # File not found
-    m_config.side_effect = OSError
-    utils.enable_mdns_reflection()
-    assert m_info.call_count == 1
-    assert m_warn.call_count == 1
-    assert m_sh.call_count == 0
-
-    # By default, the value is not set
-    # Do not change an explicit 'no' value
-    m_config.side_effect = None
-    m_sh.reset_mock()
-    m_warn.reset_mock()
-    config['reflector'] = {'enable-reflector': 'no'}
-    utils.enable_mdns_reflection()
-    assert m_sh.call_count == 0
-    assert m_warn.call_count == 2
-    assert config['reflector']['enable-reflector'] == 'no'
-
-    # Empty config
-    m_sh.reset_mock()
-    m_warn.reset_mock()
-    config.clear()
-    utils.enable_mdns_reflection()
-    assert m_sh.call_count == 3
-    assert m_warn.call_count == 0
-    assert config['reflector']['enable-reflector'] == 'yes'
-
-    # enable-reflector already 'yes'
-    m_sh.reset_mock()
-    m_warn.reset_mock()
-    config['reflector'] = {'enable-reflector': 'yes'}
-    utils.enable_mdns_reflection()
-    assert m_sh.call_count == 0
-    assert m_warn.call_count == 0
-    assert config['reflector']['enable-reflector'] == 'yes'
-
-    # Service command does not exist
-    m_sh.reset_mock()
-    m_warn.reset_mock()
-    m_command_exists.return_value = False
-    config.clear()
-    utils.enable_mdns_reflection()
-    assert m_sh.call_count == 2
-    assert m_warn.call_count == 1
-    assert config['reflector']['enable-reflector'] == 'yes'
-
-
-def test_update_system_packages(mocker, m_sh):
-    m_info = mocker.patch(TESTED + '.info')
-    m_command_exists = mocker.patch(TESTED + '.command_exists')
-
-    m_command_exists.return_value = False
-    utils.update_system_packages()
-    assert m_sh.call_count == 0
-
-    m_command_exists.return_value = True
-    utils.update_system_packages()
-    assert m_sh.call_count > 0
-    assert m_info.call_count == 1
-
-
-def test_add_particle_udev_rules(mocker, m_sh):
-    m_info = mocker.patch(TESTED + '.info')
-    m_path_exists = mocker.patch(TESTED + '.path_exists')
-
-    m_path_exists.return_value = True
-    utils.add_particle_udev_rules()
-    assert m_sh.call_count == 0
-
-    m_path_exists.return_value = False
-    utils.add_particle_udev_rules()
-    assert m_sh.call_count > 0
-    assert m_info.call_count == 1

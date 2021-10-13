@@ -1,12 +1,11 @@
 """
-Adding and configuring device services
+Add and configure optional services
 """
 
 from os import getgid, getuid
 
 import click
-from brewblox_ctl import click_helpers, sh
-from brewblox_ctl import const, utils
+from brewblox_ctl import click_helpers, const, sh, utils
 from brewblox_ctl.discovery import discover_device, find_device
 
 

@@ -5,9 +5,8 @@ User service management
 import re
 
 import click
-from brewblox_ctl import click_helpers, sh
+from brewblox_ctl import click_helpers, const, sh, utils
 from brewblox_ctl.commands.docker import up
-from brewblox_ctl import const, utils
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -17,7 +16,7 @@ def cli():
 
 @cli.group()
 def service():
-    """Show or edit services in docker-compose.yml."""
+    """Edit or remove services in docker-compose.yml."""
 
 
 def restart_services(ctx: click.Context, **kwargs):

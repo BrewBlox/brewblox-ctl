@@ -10,8 +10,7 @@ from brewblox_ctl import const, sh, utils
 def fix_ipv6(config_file=None, restart=True):
     utils.info('Fixing Docker IPv6 settings...')
 
-    os_version = sh('cat /proc/version', capture=True) or ''
-    if re.match(r'.*(Microsoft|WSL)', os_version, flags=re.IGNORECASE):
+    if utils.is_wsl():
         utils.info('WSL environment detected. Skipping IPv6 config changes.')
         return
 

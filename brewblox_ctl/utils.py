@@ -2,21 +2,21 @@
 Utility functions
 """
 
+import grp
 import json
 import os
+import platform
 import re
 import shlex
-import subprocess
+import shutil
 from pathlib import Path
-from platform import machine
-from shutil import which
-from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, run
+from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
 from types import GeneratorType
 from typing import Generator
 
 import click
+import dotenv
 import yaml
-from dotenv import set_key, unset_key
 from dotenv.main import dotenv_values
 
 from brewblox_ctl import const
@@ -114,74 +114,78 @@ def confirm_mode():  # pragma: no cover
         opts.skip_confirm = True
 
 
-def getenv(key, default=None):
+def getenv(key, default=None):  # pragma: no cover
     return os.getenv(key, default)
 
 
-def setenv(key, value, dotenv_path=Path('.env').absolute()):
+def setenv(key, value, dotenv_path=None):  # pragma: no cover
+    if dotenv_path is None:
+        dotenv_path = Path('.env').resolve()
     opts = ctx_opts()
     if opts.dry_run or opts.verbose:
         click.secho(f'{const.LOG_ENV} {key}={value}', fg='magenta', color=opts.color)
     if not opts.dry_run:
-        set_key(dotenv_path, key, value, quote_mode='never')
+        dotenv.set_key(dotenv_path, key, value, quote_mode='never')
 
 
-def clearenv(key, dotenv_path=Path('.env').absolute()):
+def clearenv(key, dotenv_path=None):  # pragma: no cover
+    if dotenv_path is None:
+        dotenv_path = Path('.env').resolve()
     opts = ctx_opts()
     if opts.dry_run or opts.verbose:
         click.secho(f'{const.LOG_ENV} unset {key}', fg='magenta', color=opts.color)
     if not opts.dry_run:
-        unset_key(dotenv_path, key, quote_mode='never')
+        dotenv.unset_key(dotenv_path, key, quote_mode='never')
 
 
-def path_exists(path_name):
+def path_exists(path_name):  # pragma: no cover
     return Path(path_name).exists()
 
 
-def command_exists(cmd):
-    return bool(which(cmd))
+def command_exists(cmd):  # pragma: no cover
+    return bool(shutil.which(cmd))
 
 
-def is_pi():
-    return machine().startswith('arm')
+def is_armv6() -> bool:
+    return platform.machine().startswith('armv6')
 
 
-def is_v6():
-    return machine().startswith('armv6')
+def is_wsl() -> bool:
+    return bool(re.match(r'.*(Microsoft|WSL)',
+                         platform.version(),
+                         flags=re.IGNORECASE))
 
 
-def is_root():
-    return check_ok('ls /root')
+def is_root() -> bool:  # pragma: no cover
+    return os.geteuid() == 0
 
 
-def is_docker_user():
-    return 'docker' in sh('id -nG $USER', capture=True)
+def is_docker_user() -> bool:  # pragma: no cover
+    return 'docker' in [grp.getgrgid(g).gr_name for g in os.getgroups()]
 
 
-def has_docker_rights():
+def has_docker_rights():  # pragma: no cover
     # Can current user run docker commands without sudo?
     # The shell must be reloaded after adding a user to the 'docker' group,
     # so a strict group membership check is not sufficient
-    return 'permission denied' not in sh('docker version 2>&1', capture=True, check=False)
+    return 'permission denied' not in sh('docker version', capture=True, check=False)
 
 
-def is_brewblox_cwd():
-    return bool(getenv(const.CFG_VERSION_KEY))
+def is_brewblox_dir(dir: str) -> bool:  # pragma: no cover
+    return const.CFG_VERSION_KEY in dotenv_values(f'{dir}/.env')
 
 
-def is_brewblox_dir(dir):
-    env_path = dir + '/.env'
-    if not Path(env_path).is_file():
-        return False
-    return const.CFG_VERSION_KEY in dotenv_values(env_path)
-
-
-def is_empty_dir(dir):
+def is_empty_dir(dir):  # pragma: no cover
     path = Path(dir)
-    return path.is_dir() and not list(path.iterdir())
+    return path.is_dir() and not next(path.iterdir(), None)
 
 
-def optsudo():
+def user_home_exists() -> bool:  # pragma: no cover
+    home = Path.home()
+    return home.name != 'root' and home.exists()
+
+
+def optsudo():  # pragma: no cover
     return '' if has_docker_rights() else 'sudo -E env "PATH=$PATH" '
 
 
@@ -193,7 +197,7 @@ def docker_tag(release=None):
 
 
 def check_config(required=True):
-    if is_brewblox_cwd():
+    if is_brewblox_dir('.'):
         return True
     elif required:
         click.echo('Please run brewblox-ctl in a Brewblox directory.')
@@ -228,6 +232,25 @@ def sh(shell_cmd, opts=None, check=True, capture=False, silent=False):
         return ''
 
 
+def sh_stream(cmd: str) -> Generator[str, None, None]:
+    opts = ctx_opts()
+    if opts.verbose:
+        click.secho(f'{const.LOG_SHELL} {cmd}', fg='magenta', color=opts.color)
+
+    process = Popen(
+        shlex.split(cmd),
+        stdout=PIPE,
+        universal_newlines=True,
+    )
+
+    while True:
+        output = process.stdout.readline()
+        if not output and process.poll() is not None:
+            break
+        else:
+            yield output
+
+
 def check_ok(cmd):
     try:
         run(cmd, shell=True, stderr=DEVNULL, check=True)
@@ -237,8 +260,7 @@ def check_ok(cmd):
 
 
 def pip_install(*libs):
-    args = '--upgrade --no-cache-dir ' + ' '.join(libs)
-    return sh(f'{const.PY} -m pip install {args}')
+    return sh(f'{const.PY} -m pip install --upgrade --no-cache-dir ' + ' '.join(libs))
 
 
 def info(msg):
@@ -286,11 +308,6 @@ def host_ip():
         return '127.0.0.1'
 
 
-def user_home_exists() -> bool:
-    home = Path.home()
-    return home.name != 'root' and home.exists()
-
-
 def read_file(fname):  # pragma: no cover
     with open(fname) as f:
         return '\n'.join(f.readlines())
@@ -319,9 +336,8 @@ def write_shared_compose(config, fname='docker-compose.shared.yml'):  # pragma: 
     write_compose(config, fname)
 
 
-def list_services(image=None, fname=None):
-    config = read_compose(fname) if fname else read_compose()
-
+def list_services(image=None, fname='docker-compose.yml'):
+    config = read_compose(fname)
     return [
         k for k, v in config['services'].items()
         if image is None or v.get('image', '').startswith(image)
@@ -332,99 +348,3 @@ def check_service_name(ctx, param, value):
     if not re.match(r'^[a-z0-9-_]+$', value):
         raise click.BadParameter('Names can only contain lowercase letters, numbers, - or _')
     return value
-
-
-def sh_stream(cmd: str) -> Generator[str, None, None]:
-    opts = ctx_opts()
-    if opts.verbose:
-        click.secho(f'{const.LOG_SHELL} {cmd}', fg='magenta', color=opts.color)
-
-    process = subprocess.Popen(
-        shlex.split(cmd),
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-    )
-
-    while True:
-        output = process.stdout.readline()
-        if not output and process.poll() is not None:
-            break
-        else:
-            yield output
-
-
-def makecert(dir, release: str = None):
-    absdir = Path(dir).absolute()
-    sudo = optsudo()
-    tag = docker_tag(release)
-    sh(f'mkdir -p "{absdir}"')
-    sh(f'{sudo}docker run' +
-        ' --rm --privileged' +
-        ' --pull always' +
-        f' -v "{absdir}":/certs/' +
-        f' brewblox/omgwtfssl:{tag}')
-    sh(f'sudo chmod 644 "{absdir}/brewblox.crt"')
-    sh(f'sudo chmod 600 "{absdir}/brewblox.key"')
-
-
-def update_system_packages():
-    if command_exists('apt'):
-        info('Updating apt packages...')
-        sh('sudo apt -qq update && sudo apt -qq upgrade -y')
-
-
-def add_particle_udev_rules():
-    rules_dir = '/etc/udev/rules.d'
-    target = f'{rules_dir}/50-particle.rules'
-    if not path_exists(target) and command_exists('udevadm'):
-        info('Adding udev rules for Particle devices...')
-        sh(f'sudo mkdir -p {rules_dir}')
-        sh(f'sudo cp {const.CONFIG_DIR}/50-particle.rules {target}')
-        sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
-
-
-def download_ctl():
-    release = getenv(const.CTL_RELEASE_KEY) or getenv(const.RELEASE_KEY)
-    sh(f'wget -q -O ./brewblox-ctl.tar.gz https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz')
-    sh(f'{const.PY} -m pip install --quiet --upgrade --upgrade-strategy eager --target ./lib ./brewblox-ctl.tar.gz')
-    if user_home_exists():
-        sh('mkdir -p $HOME/.local/bin')
-        sh(f'cp {const.SCRIPT_DIR}/brewblox-ctl $HOME/.local/bin/')
-        sh('chmod +x $HOME/.local/bin/brewblox-ctl')
-    else:
-        sh(f'sudo cp {const.SCRIPT_DIR}/brewblox-ctl /usr/local/bin/')
-        sh('sudo chmod 777 /usr/local/bin/brewblox-ctl')
-
-
-def check_ports():
-    if path_exists('./docker-compose.yml'):
-        info('Stopping services...')
-        sh(f'{optsudo()}docker-compose down')
-
-    ports = [
-        getenv(key, const.ENV_DEFAULTS[key]) for key in [
-            const.HTTP_PORT_KEY,
-            const.HTTPS_PORT_KEY,
-            const.MQTT_PORT_KEY,
-        ]]
-
-    retv = sh('sudo netstat -tulpn', capture=True)
-    lines = retv.split('\n')
-
-    used_ports = []
-    used_lines = []
-    for port in ports:
-        for line in lines:
-            if re.match(r'.*(:::|0.0.0.0:){}\s.*'.format(port), line):
-                used_ports.append(port)
-                used_lines.append(line)
-                break
-
-    if used_ports:
-        port_str = ', '.join(used_ports)
-        warn(f'Port(s) {port_str} already in use.')
-        warn('Run `brewblox-ctl service ports` to configure Brewblox ports.')
-        for line in used_lines:
-            warn(line)
-        if not confirm('Do you want to continue?'):
-            raise SystemExit(1)
