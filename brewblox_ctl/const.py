@@ -47,3 +47,11 @@ ENV_DEFAULTS = {
     COMPOSE_FILES_KEY: 'docker-compose.shared.yml:docker-compose.yml',
     COMPOSE_PROJECT_KEY: 'brewblox',
 }
+APT_DEPENDENCIES = [
+    'curl',
+    'net-tools',
+    'libssl-dev',
+    'libffi-dev',
+    'avahi-daemon',
+    'tio',
+]

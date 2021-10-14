@@ -5,8 +5,7 @@ Migration scripts
 from distutils.version import StrictVersion
 
 import click
-from brewblox_ctl import (actions, click_helpers, const, fixes, migration, sh,
-                          utils)
+from brewblox_ctl import actions, click_helpers, const, migration, sh, utils
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -70,9 +69,9 @@ def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
     # Always apply shared config files
     apply_config_files()
-    utils.add_particle_udev_rules()
-    fixes.fix_pip_install()
-    fixes.unset_avahi_reflection()
+    actions.add_particle_udev_rules()
+    actions.fix_pip_install()
+    actions.unset_avahi_reflection()
 
     if prev_version < StrictVersion('0.3.0'):
         migration.migrate_compose_split()

@@ -49,7 +49,7 @@ def save(file, force):
 
     basedir = dir.name
     sh(f'sudo tar -C {dir.parent} -czf {file} {basedir}')
-    click.echo(Path.resolve(file))
+    click.echo(Path(file).resolve())
 
 
 @snapshot.command()

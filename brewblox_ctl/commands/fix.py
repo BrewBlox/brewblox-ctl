@@ -3,7 +3,7 @@ Host configuration fixes.
 """
 
 import click
-from brewblox_ctl import click_helpers, fixes, utils
+from brewblox_ctl import actions, click_helpers, utils
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -17,7 +17,8 @@ def fix():
 
 
 @fix.command()
-@click.option('--config-file', help='Path to Docker daemon config. Defaults to /etc/docker/daemon.json.')
+@click.option('--config-file',
+              help='Path to Docker daemon config. Defaults to /etc/docker/daemon.json.')
 def ipv6(config_file):
     """Fix IPv6 support on the host machine.
 
@@ -27,10 +28,10 @@ def ipv6(config_file):
 
     Some hosts (Synology) may be using a custom location for the daemon config file.
     If the --config-file argument is not set, the --config-file argument for the active docker daemon is used.
-    If it is not set, the default /etc/docker/daemon.json is used.
+    If that is not set, the default /etc/docker/daemon.json is used.
     """
     utils.confirm_mode()
-    fixes.fix_ipv6(config_file)
+    actions.fix_ipv6(config_file)
 
 
 @fix.command()
@@ -42,4 +43,4 @@ def avahi_reflection():
     to its own Brewblox service.
     """
     utils.confirm_mode()
-    fixes.unset_avahi_reflection()
+    actions.unset_avahi_reflection()

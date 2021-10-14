@@ -18,8 +18,7 @@ SUPPORTED_PYTHON_MINOR = 6
 
 
 def escalate(ex):
-    # TODO(Bob) test this
-    if utils.getenv(const.DEBUG_KEY):  # pragma: no cover
+    if utils.getenv(const.DEBUG_KEY):
         raise ex
     else:
         raise SystemExit(1)

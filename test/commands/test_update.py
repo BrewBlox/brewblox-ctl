@@ -5,9 +5,9 @@ Tests brewblox_ctl.commands.update
 from distutils.version import StrictVersion
 
 import pytest
-from brewblox_ctl.testing import check_sudo, invoke
 from brewblox_ctl import const
 from brewblox_ctl.commands import update
+from brewblox_ctl.testing import check_sudo, invoke
 
 TESTED = update.__name__
 
@@ -16,6 +16,12 @@ STORE_URL = 'https://localhost/history/datastore'
 
 class DummyError(Exception):
     pass
+
+
+@pytest.fixture
+def m_actions(mocker):
+    m = mocker.patch(TESTED + '.actions')
+    return m
 
 
 @pytest.fixture
@@ -49,13 +55,13 @@ def m_sh(mocker):
     return m
 
 
-def test_libs(m_utils, m_sh):
-    invoke(update.libs)
+def test_update_ctl(m_actions, m_utils, m_sh):
+    invoke(update.update_ctl)
     m_utils.download_ctl.assert_called_once_with()
     m_sh.assert_not_called()
 
 
-def test_update(m_utils, m_sh, mocker):
+def test_update(m_actions, m_utils, m_sh, mocker):
     mocker.patch(TESTED + '.migration')
 
     invoke(update.update, '--from-version 0.0.1', input='\n')
@@ -83,26 +89,6 @@ def test_check_version(m_utils, mocker):
 
     with pytest.raises(DummyError):
         update.check_version(StrictVersion('1.3.0'))
-
-
-def test_check_path(m_utils, m_sh, mocker):
-    mocker.patch(TESTED + '.SystemExit', DummyError)
-
-    m_utils.user_home_exists.return_value = False
-    m_utils.getenv.return_value = '/usr/bin'
-    update.check_path()
-    assert m_sh.call_count == 0
-
-    m_utils.user_home_exists.return_value = True
-    m_utils.getenv.return_value = '/usr/bin:/home/$USER/.local/bin'
-    update.check_path()
-    assert m_sh.call_count == 0
-
-    m_utils.user_home_exists.return_value = True
-    m_utils.getenv.return_value = '/usr/bin'
-    with pytest.raises(DummyError):
-        update.check_path()
-    assert m_sh.call_count > 0
 
 
 def test_check_automation_ui(m_utils):
