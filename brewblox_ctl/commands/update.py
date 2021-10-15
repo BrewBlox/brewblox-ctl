@@ -139,7 +139,7 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     By default, all options are enabled.
 
     --update-ctl/--no-update-ctl: Whether to download and install new versions of
-    of brewblox-ctl and brewblox-ctl lib. If this flag is set, update will download the new version
+    of brewblox-ctl. If this flag is set, update will download the new version
     and then restart itself. This way, the migrate is done with the latest version of brewblox-ctl.
 
     If you're using dry run mode, you'll notice the hidden option --update-ctl-done.
@@ -160,7 +160,7 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     \b
     Steps:
         - Check whether any system fixes must be applied.
-        - Update brewblox-ctl and brewblox-ctl libs.
+        - Update brewblox-ctl.
         - Stop services.
         - Update Avahi config.
         - Update system packages.
@@ -180,8 +180,10 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
 
     if update_ctl and not update_ctl_done:
         utils.info('Updating brewblox-ctl...')
-        utils.download_ctl()
-        # Restart ctl - we just replaced the source code
+        actions.install_ctl_package()
+        actions.uninstall_old_ctl_package()
+        actions.deploy_ctl_wrapper()
+        # Restart update - we just replaced the source code
         sh(' '.join([const.PY, *const.ARGS, '--update-ctl-done']))
         return
 
@@ -217,4 +219,4 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
 def update_ctl():
     """Download and update brewblox-ctl itself."""
     utils.confirm_mode()
-    utils.download_ctl()
+    utils.install_ctl_package()

@@ -50,6 +50,12 @@ def m_sh(mocker):
     return m
 
 
+@pytest.fixture
+def m_snapshot_actions(mocker):
+    m = mocker.patch(SNAPSHOT + '.actions')
+    return m
+
+
 @pytest.fixture(autouse=True)
 def m_snapshot_utils(mocker):
     m = mocker.patch(SNAPSHOT + '.utils')
@@ -224,7 +230,7 @@ def test_install_minimal(m_utils, m_actions, m_input, m_sh, m_opts):
     assert m_sh.call_count == 3  # Only the bare minimum
 
 
-def test_install_snapshot(m_utils, m_actions, m_input, m_sh, m_opts, m_snapshot_sh):
+def test_install_snapshot(m_utils, m_actions, m_input, m_sh, m_opts, m_snapshot_sh, m_snapshot_actions):
     invoke(install.install, '--snapshot brewblox.tar.gz')
     assert m_opts.check_init_opts.call_count == 0
     assert m_snapshot_sh.call_count > 0

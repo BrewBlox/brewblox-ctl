@@ -19,6 +19,12 @@ def m_input(mocker):
 
 
 @pytest.fixture
+def m_actions(mocker):
+    m = mocker.patch(TESTED + '.actions')
+    return m
+
+
+@pytest.fixture
 def m_utils(mocker):
     m = mocker.patch(TESTED + '.utils')
     m.optsudo.return_value = 'SUDO '
@@ -68,19 +74,19 @@ def test_save_overwrite(m_utils, m_sh):
     invoke(snapshot.save, '--force')
 
 
-def test_load(m_utils, m_sh):
+def test_load(m_actions, m_utils, m_sh):
     m_utils.path_exists.return_value = False
     invoke(snapshot.load)
 
 
-def test_load_defaults(m_utils, m_sh):
+def test_load_defaults(m_actions, m_utils, m_sh):
     m_utils.path_exists.return_value = False
     invoke(snapshot.load)
     cwd = Path('.').resolve().name + '/'
     m_sh.assert_called_with(matching(r'.*' + cwd))
 
 
-def test_load_empty(m_utils, m_sh):
+def test_load_empty(m_actions, m_utils, m_sh):
     m_utils.path_exists.return_value = False
     m_utils.ctx_opts.return_value.dry_run = False
 

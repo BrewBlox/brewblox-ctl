@@ -1,8 +1,8 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 if [[ $EUID -eq 0 ]]; then
-   echo "This script must not be run as root, or using sudo."
+   echo "ERROR: This script must not be run as root, or using sudo."
    exit 1
 fi
 
@@ -21,21 +21,11 @@ is_brewblox_dir() {
 
 check_ssh_config() {
     # Check if we have to fix accepted LC/Lang settings.
-    # If we don't do this, apt will complain about unset LANG if the client is Windows.
+    # If we don't do this, the system will complain if it's being sent a non-supported locale
     if [ -f /etc/ssh/sshd_config ] && grep -q '^AcceptEnv LANG LC' /etc/ssh/sshd_config
     then
         sudo sed -i 's/^AcceptEnv LANG LC/# AcceptEnv LANG LC/g' /etc/ssh/sshd_config
         sudo systemctl restart ssh
-        if [ -n "${SSH_CLIENT}" ] || [ -n "${SSH_TTY}" ]
-        then
-            echo ""
-            echo "===========IMPORTANT=============="
-            echo "SSH reconnect required."
-            echo "To do this, type 'exit', and press ENTER."
-            echo "Then reconnect, and restart the script."
-            echo ""
-            exit 0
-        fi
     fi
 }
 
@@ -58,9 +48,9 @@ install() {
     # - Default
     if [ -z "${BREWBLOX_RELEASE:-}" ]
     then
-        if is_brewblox_dir "${PWD}"
+        if is_brewblox_dir "${BREWBLOX_DIR}"
         then
-            BREWBLOX_RELEASE=$(read_var BREWBLOX_RELEASE .env)
+            BREWBLOX_RELEASE=$(read_var BREWBLOX_RELEASE "${BREWBLOX_DIR}/.env")
         else
             BREWBLOX_RELEASE="edge"
         fi
@@ -69,6 +59,7 @@ install() {
     # Install system packages
     if command_exists "apt"
     then
+        echo "INFO: Installing Apt packages..."
         sudo apt update
         sudo apt upgrade -y
         sudo apt install -y python3-pip python3-venv
@@ -81,13 +72,16 @@ install() {
         exit 1
     fi
 
+    echo "INFO: Brewblox dir is \"${BREWBLOX_DIR}\""
+    echo "INFO: Brewblox release is \"${BREWBLOX_RELEASE}\""
+
     # Check if dir exists, but is not a brewblox dir, and is not empty
     if [[ -d "${BREWBLOX_DIR}" ]] \
         && ! is_brewblox_dir "${BREWBLOX_DIR}" \
         && [ -n "$(ls -A "${BREWBLOX_DIR:?}")" ]
     then
-        echo "WARN: ${BREWBLOX_DIR} already exists, and is not a Brewblox directory."
-        read -rp "Remove directory and continue? (y/N)" response
+        echo "WARN: ${BREWBLOX_DIR} already exists, but is not a Brewblox directory."
+        read -rp "Remove all files in this directory and continue? (y/N)" response
         if [[ "$response" =~ ^y(es)? ]]
         then
             rm -rf "${BREWBLOX_DIR:?}/*"
@@ -104,10 +98,11 @@ install() {
     fi
 
     # Create virtual env
+    echo "INFO: Creating Python virtual env..."
     python3 -m venv .venv
 
     # Download the sdist tarball
-    echo "Downloading brewblox-ctl (${BREWBLOX_RELEASE})"
+    echo "INFO: Downloading brewblox-ctl..."
     wget -q \
         -O ./brewblox-ctl.tar.gz \
         "https://brewblox.blob.core.windows.net/ctl/${BREWBLOX_RELEASE}/brewblox-ctl.tar.gz"
@@ -117,7 +112,7 @@ install() {
     source .venv/bin/activate
 
     # Install packages into the virtual env
-    echo "Installing Python packages..."
+    echo "INFO: Installing Python packages..."
     python3 -m pip install setuptools wheel
     python3 -m pip install ./brewblox-ctl.tar.gz
 

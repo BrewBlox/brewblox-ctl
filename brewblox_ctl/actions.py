@@ -42,17 +42,25 @@ def add_particle_udev_rules():
         sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
 
 
-def download_ctl():
+def install_ctl_package(download: str = 'always'):  # always | missing | never
+    exists = utils.path_exists('./brewblox-ctl.tar.gz')
     release = utils.getenv(const.CTL_RELEASE_KEY) or utils.getenv(const.RELEASE_KEY)
-    sh(f'wget -q -O ./brewblox-ctl.tar.gz https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz')
-    sh(f'{const.PY} -m pip install --quiet --upgrade --upgrade-strategy eager --target ./lib ./brewblox-ctl.tar.gz')
+    if download == 'always' or download == 'missing' and not exists:
+        sh(f'wget -q -O ./brewblox-ctl.tar.gz https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz')
+    sh(f'{const.PY} -m pip install --quiet ./brewblox-ctl.tar.gz')
+
+
+def uninstall_old_ctl_package():
+    sh('rm -rf ./brewblox_ctl_lib/', check=False)
+    sh('rm -rf $(python3 -m site --user-site)/brewblox_ctl*', check=False)
+
+
+def deploy_ctl_wrapper():
+    sh(f'chmod +x {const.SCRIPT_DIR}/brewblox-ctl')
     if utils.user_home_exists():
-        sh('mkdir -p $HOME/.local/bin')
-        sh(f'cp {const.SCRIPT_DIR}/brewblox-ctl $HOME/.local/bin/')
-        sh('chmod +x $HOME/.local/bin/brewblox-ctl')
+        sh(f'mkdir -p $HOME/.local/bin && cp {const.SCRIPT_DIR}/brewblox-ctl $HOME/.local/bin/')
     else:
         sh(f'sudo cp {const.SCRIPT_DIR}/brewblox-ctl /usr/local/bin/')
-        sh('sudo chmod 777 /usr/local/bin/brewblox-ctl')
 
 
 def check_ports():

@@ -1,8 +1,8 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 if [[ $EUID -eq 0 ]]; then
-   echo "This script must not be run as root, or using sudo."
+   echo "ERROR: This script must not be run as root, or using sudo."
    exit 1
 fi
 

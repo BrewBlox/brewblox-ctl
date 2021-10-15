@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import click
-from brewblox_ctl import click_helpers, utils
+from brewblox_ctl import actions, click_helpers, utils
 from brewblox_ctl.utils import sh
 
 
@@ -47,8 +47,7 @@ def save(file, force):
         else:
             return
 
-    basedir = dir.name
-    sh(f'sudo tar -C {dir.parent} -czf {file} {basedir}')
+    sh(f'sudo tar -C {dir.parent} --exclude .venv -czf {file} {dir.name}')
     click.echo(Path(file).resolve())
 
 
@@ -75,7 +74,9 @@ def load(file):
         if len(content) != 1:
             raise ValueError(f'Multiple files found in snapshot: {content}')
         sh(f'mkdir -p {dir}')
-        sh(f'sudo rm -rf {dir}/*')
+        sh(f'sudo rm -rf {dir}/!(.venv)')
         # We need to explicitly include dotfiles in the mv glob
         src = f'{tmpdir}/{content[0]}'
         sh(f'mv {src}/.[!.]* {src}/* {dir}/')
+
+    actions.install_ctl_package(download='missing')

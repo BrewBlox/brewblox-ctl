@@ -202,6 +202,8 @@ def install(ctx: click.Context, snapshot_file):
     actions.fix_ipv6(None, False)
     actions.unset_avahi_reflection()
     actions.add_particle_udev_rules()
+    actions.uninstall_old_ctl_package()
+    actions.deploy_ctl_wrapper()
 
     # Set variables in .env file
     # Set version number to 0.0.0 until snapshot load / init is done
@@ -220,7 +222,7 @@ def install(ctx: click.Context, snapshot_file):
         release = utils.getenv('BREWBLOX_RELEASE')
 
         utils.info('Checking for port conflicts...')
-        utils.check_ports()
+        actions.check_ports()
 
         utils.info('Copying docker-compose.shared.yml...')
         sh(f'cp -f {const.CONFIG_DIR}/docker-compose.shared.yml ./')

@@ -168,7 +168,7 @@ def has_docker_rights():  # pragma: no cover
     # Can current user run docker commands without sudo?
     # The shell must be reloaded after adding a user to the 'docker' group,
     # so a strict group membership check is not sufficient
-    return 'permission denied' not in sh('docker version', capture=True, check=False)
+    return 'permission denied' not in sh('docker version 2>&1', capture=True, check=False)
 
 
 def is_brewblox_dir(dir: str) -> bool:  # pragma: no cover

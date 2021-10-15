@@ -4,7 +4,7 @@ Tests brewblox_ctl.actions
 
 import pytest
 from brewblox_ctl import actions
-from brewblox_ctl.testing import check_sudo
+from brewblox_ctl.testing import check_sudo, matching
 from configobj import ConfigObj
 
 TESTED = actions.__name__
@@ -75,17 +75,36 @@ def test_port_check(m_utils, m_sh):
     actions.check_ports()
 
 
-def test_download_ctl(m_utils, m_sh, mocker):
+def test_install_ctl_package(m_utils, m_sh, mocker):
     m_utils.getenv.return_value = 'release'
     m_utils.user_home_exists.return_value = True
+    m_utils.path_exists.return_value = True
 
-    actions.download_ctl()
-    assert m_sh.call_count == 5
+    actions.install_ctl_package()
+    assert m_sh.call_count == 2
 
     m_sh.reset_mock()
+    actions.install_ctl_package('missing')
+    assert m_sh.call_count == 1
+
+    m_sh.reset_mock()
+    m_utils.path_exists.return_value = False
+    actions.install_ctl_package('never')
+    assert m_sh.call_count == 1
+
+
+def test_uninstall_old_ctl_package(m_utils, m_sh):
+    actions.uninstall_old_ctl_package()
+    assert m_sh.call_count > 0
+
+
+def test_deploy_ctl_wrapper(m_utils, m_sh):
+    m_utils.user_home_exists.return_value = True
+    actions.deploy_ctl_wrapper()
+    m_sh.assert_called_with(matching('mkdir -p'))
     m_utils.user_home_exists.return_value = False
-    actions.download_ctl()
-    assert m_sh.call_count == 4
+    actions.deploy_ctl_wrapper()
+    m_sh.assert_called_with(matching('sudo cp'))
 
 
 def test_fix_ipv6(mocker, m_utils, m_sh):
