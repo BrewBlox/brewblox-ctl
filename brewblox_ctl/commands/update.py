@@ -70,7 +70,6 @@ def downed_migrate(prev_version):
     # Always apply shared config files
     apply_config_files()
     actions.add_particle_udev_rules()
-    actions.fix_pip_install()
     actions.unset_avahi_reflection()
 
     if prev_version < StrictVersion('0.3.0'):

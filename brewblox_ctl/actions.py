@@ -29,7 +29,7 @@ def makecert(dir, release: str = None):
 def update_system_packages():
     if utils.command_exists('apt'):
         utils.info('Updating apt packages...')
-        sh('sudo apt -qq update && sudo apt -qq upgrade -y')
+        sh('sudo apt update && sudo apt upgrade -y')
 
 
 def add_particle_udev_rules():
@@ -166,15 +166,3 @@ def unset_avahi_reflection():
         sh('sudo service avahi-daemon restart')
     else:
         utils.warn('"service" command not found. Please restart your machine to enable Wifi discovery.')
-
-
-# def fix_pip_install():
-#     """
-#     Brewblox-ctl is no longer installed using pip.
-#     Fix this by uninstalling it there.
-#     """
-#     pip = f'{const.PY} -m pip'
-#     if not utils.user_home_exists():
-#         pip = f'sudo {pip}'
-#     if 'brewblox-ctl' in sh(f'{pip} list', capture=True):
-#         sh(f'{pip} uninstall brewblox-ctl')
