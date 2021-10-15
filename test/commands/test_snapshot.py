@@ -3,7 +3,7 @@ Tests brewblox_ctl.commands.snapshot
 """
 
 
-from os import path
+from pathlib import Path
 
 import pytest.__main__
 from brewblox_ctl.commands import snapshot
@@ -15,6 +15,12 @@ TESTED = snapshot.__name__
 @pytest.fixture(autouse=True)
 def m_input(mocker):
     m = mocker.patch(TESTED + '.input')
+    return m
+
+
+@pytest.fixture
+def m_actions(mocker):
+    m = mocker.patch(TESTED + '.actions')
     return m
 
 
@@ -33,18 +39,6 @@ def m_sh(mocker):
     return m
 
 
-def test_non_brewblox_dir_save(m_utils, m_sh):
-    m_utils.is_brewblox_dir.return_value = False
-    invoke(snapshot.save, _err=FileExistsError)
-
-
-def test_non_brewblox_dir_load(m_utils, m_sh):
-    m_utils.path_exists.return_value = True
-    m_utils.is_empty_dir.return_value = False
-    m_utils.is_brewblox_dir.return_value = False
-    invoke(snapshot.load, _err=FileExistsError)
-
-
 def test_save(m_utils, m_sh):
     m_utils.path_exists.return_value = False
     invoke(snapshot.save)
@@ -54,13 +48,8 @@ def test_save(m_utils, m_sh):
 def test_save_defaults(m_utils, m_sh):
     m_utils.path_exists.return_value = False
 
-    m_utils.is_brewblox_cwd.return_value = False
     invoke(snapshot.save)
-    m_sh.assert_called_with(matching(r'sudo tar -C .* -czf ./brewblox.tar.gz brewblox'))
-
-    m_utils.is_brewblox_cwd.return_value = True
-    invoke(snapshot.save)
-    cwd = path.basename(path.abspath('.'))
+    cwd = Path('.').resolve().name
     m_sh.assert_called_with(matching(r'sudo tar -C .* -czf ../brewblox.tar.gz ' + cwd))
 
 
@@ -85,42 +74,22 @@ def test_save_overwrite(m_utils, m_sh):
     invoke(snapshot.save, '--force')
 
 
-def test_load(m_utils, m_sh):
+def test_load(m_actions, m_utils, m_sh):
     m_utils.path_exists.return_value = False
     invoke(snapshot.load)
 
 
-def test_load_defaults(m_utils, m_sh):
+def test_load_defaults(m_actions, m_utils, m_sh):
     m_utils.path_exists.return_value = False
-
-    m_utils.is_brewblox_cwd.return_value = False
     invoke(snapshot.load)
-    m_sh.assert_called_with(matching(r'.* .*brewblox/'))
-
-    m_utils.is_brewblox_cwd.return_value = True
-    invoke(snapshot.load)
-    cwd = path.basename(path.abspath('.')) + '/'
+    cwd = Path('.').resolve().name + '/'
     m_sh.assert_called_with(matching(r'.*' + cwd))
 
 
-def test_load_empty(m_utils, m_sh):
+def test_load_empty(m_actions, m_utils, m_sh):
     m_utils.path_exists.return_value = False
     m_utils.ctx_opts.return_value.dry_run = False
 
     # temp dir exists, but was never populated
     # listdir will return empty
     invoke(snapshot.load, _err=True)
-
-
-def test_load_overwrite(m_utils, m_sh):
-    m_utils.path_exists.return_value = True
-    m_utils.is_empty_dir.return_value = False
-    m_utils.is_brewblox_dir.return_value = True
-
-    m_utils.confirm.return_value = False
-
-    invoke(snapshot.load)
-    assert m_sh.call_count == 0
-
-    invoke(snapshot.load, '--force')
-    assert m_sh.call_count > 0

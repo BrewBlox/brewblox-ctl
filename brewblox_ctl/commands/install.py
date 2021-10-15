@@ -2,19 +2,12 @@
 Brewblox-ctl installation commands
 """
 
-import re
-from glob import glob
-from os import path
 from time import sleep
-from typing import List
 
 import click
-import usb.core
-from brewblox_ctl import click_helpers, const, utils
+from brewblox_ctl import actions, click_helpers, const, utils
 from brewblox_ctl.commands import snapshot
 from brewblox_ctl.utils import sh
-
-LISTEN_MODE_WAIT_S = 1
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -22,47 +15,118 @@ def cli():
     """Command collector"""
 
 
+class InstallOptions:
+    def __init__(self) -> None:
+        self.use_defaults = False
+        self.skip_confirm = True
+
+        self.apt_install = True
+
+        self.docker_install = True
+        self.docker_group_add = True
+        self.docker_pull = True
+
+        self.reboot_needed = False
+        self.prompt_reboot = True
+
+        self.init_compose = True
+        self.init_datastore = True
+        self.init_history = True
+        self.init_gateway = True
+        self.init_eventbus = True
+
+    def check_confirm_opts(self):
+        self.use_defaults = False
+        self.skip_confirm = True
+
+        self.use_defaults = utils.confirm('Do you want to install with default settings?')
+
+        if not self.use_defaults:
+            self.skip_confirm = utils.confirm(
+                'Do you want to disable the confirmation prompt for brewblox-ctl commands?')
+
+    def check_system_opts(self):
+        self.apt_install = True
+
+        apt_deps = ' '.join(const.APT_DEPENDENCIES)
+        if not utils.command_exists('apt'):
+            utils.info('Apt is not available. You may need to find another way to install dependencies.')
+            utils.info(f'Apt packages: "{apt_deps}"')
+            self.apt_install = False
+        elif not self.use_defaults:
+            self.apt_install = utils.confirm(f'Do you want to install apt packages "{apt_deps}"?')
+
+    def check_docker_opts(self):
+        self.docker_install = True
+        self.docker_group_add = True
+        self.docker_pull = True
+
+        if utils.command_exists('docker'):
+            utils.info('Docker is already installed.')
+            self.docker_install = False
+        elif not self.use_defaults:
+            self.docker_install = utils.confirm('Do you want to install docker?')
+
+        if utils.is_docker_user():
+            user = utils.getenv('USER')
+            utils.info(f'{user} already belongs to the docker group.')
+            self.docker_group_add = False
+        elif not self.use_defaults:
+            self.docker_group_add = utils.confirm('Do you want to run docker commands without sudo?')
+
+        if not self.use_defaults:
+            self.docker_pull = utils.confirm('Do you want to pull the docker images for your services?')
+
+    def check_reboot_opts(self):
+        self.reboot_needed = False
+        self.prompt_reboot = True
+
+        if self.docker_install \
+            or self.docker_group_add \
+                or utils.is_docker_user() and not utils.has_docker_rights():
+            self.reboot_needed = True
+            self.prompt_reboot = utils.confirm('A reboot is required after installation. ' +
+                                               'Do you want to be prompted before that happens?')
+
+    def check_init_opts(self):
+        self.init_compose = True
+        self.init_datastore = True
+        self.init_history = True
+        self.init_gateway = True
+        self.init_eventbus = True
+
+        if utils.path_exists('./docker-compose.yml'):
+            self.init_compose = not utils.confirm('This directory already contains a docker-compose.yml file. ' +
+                                                  'Do you want to keep it?')
+
+        if utils.path_exists('./redis/'):
+            self.init_datastore = not utils.confirm('This directory already contains Redis datastore files. ' +
+                                                    'Do you want to keep them?')
+
+        if utils.path_exists('./victoria/'):
+            self.init_history = not utils.confirm('This directory already contains Victoria history files. ' +
+                                                  'Do you want to keep them?')
+
+        if utils.path_exists('./traefik/'):
+            self.init_gateway = not utils.confirm('This directory already contains Traefik gateway files. ' +
+                                                  'Do you want to keep them?')
+
+        if utils.path_exists('./mosquitto/'):
+            self.init_eventbus = not utils.confirm('This directory already contains Mosquitto config files. ' +
+                                                   'Do you want to keep them?')
+
+
 @cli.command()
 @click.pass_context
-@click.option('--use-defaults/--no-use-defaults',
-              default=None,
-              help='Use default settings for installation.')
-@click.option('--apt-install/--no-apt-install',
-              default=None,
-              help='Update and install apt dependencies. Overrides --use-defaults if set.')
-@click.option('--docker-install/--no-docker-install',
-              default=None,
-              help='Install docker. Overrides --use-defaults if set.')
-@click.option('--docker-user/--no-docker-user',
-              default=None,
-              help='Add user to docker group. Overrides --use-defaults if set.')
-@click.option('--dir',
-              help='Brewblox directory.')
-@click.option('--no-reboot',
-              is_flag=True,
-              help='Do not reboot after install is done.')
-@click.option('--release',
-              default='edge',
-              help='Brewblox release track.')
 @click.option('--snapshot', 'snapshot_file',
               help='Load system snapshot generated by `brewblox-ctl snapshot save`.')
-def install(ctx: click.Context,
-            use_defaults,
-            apt_install,
-            docker_install,
-            docker_user,
-            no_reboot,
-            dir,
-            release,
-            snapshot_file):
-    """Create Brewblox directory; install system dependencies; reboot.
+def install(ctx: click.Context, snapshot_file):
+    """Install Brewblox and its dependencies.
 
     Brewblox can be installed multiple times on the same computer.
-    Settings and databases are stored in a Brewblox directory (default: ./brewblox).
+    Settings and databases are stored in a Brewblox directory.
 
-    This command also installs system-wide dependencies (docker).
-    After `brewblox-ctl install`, run `brewblox-ctl setup` in the created Brewblox directory.
-
+    This command also installs system-wide dependencies.
     A reboot is required after installing docker, or adding the user to the 'docker' group.
 
     By default, `brewblox-ctl install` attempts to download packages using the apt package manager.
@@ -75,76 +139,43 @@ def install(ctx: click.Context,
 
     \b
     Steps:
+        - Ask confirmation for installation steps.
         - Install apt packages.
         - Install docker.
         - Add user to 'docker' group.
-        - Create Brewblox directory (default ./brewblox).
+        - Fix host IPv6 settings.
+        - Disable host-wide mDNS reflection.
         - Set variables in .env file.
-        - Reboot.
+        - If snapshot provided:
+            - Load configuration from snapshot.
+        - Else:
+            - Check for port conflicts.
+            - Create docker-compose configuration files.
+            - Create datastore (Redis) directory.
+            - Create history (Victoria) directory.
+            - Create gateway (Traefik) directory.
+            - Create SSL certificates.
+            - Create eventbus (Mosquitto) directory.
+            - Set version number in .env file.
+        - Pull docker images.
+        - Reboot if needed.
     """
     utils.confirm_mode()
-
-    apt_deps = 'curl net-tools libssl-dev libffi-dev avahi-daemon tio'
     user = utils.getenv('USER')
-    default_dir = path.abspath('./brewblox')
-    prompt_reboot = True
+    opts = InstallOptions()
 
-    if use_defaults is None:
-        use_defaults = utils.confirm('Do you want to install with default settings?')
+    opts.check_confirm_opts()
+    opts.check_system_opts()
+    opts.check_docker_opts()
+    opts.check_reboot_opts()
 
-    # Check if packages should be installed
-    if not utils.command_exists('apt'):
-        utils.info('Apt is not available. You may need to find another way to install dependencies.')
-        utils.info(f'Apt packages: "{apt_deps}"')
-        apt_install = False
-
-    if apt_install is None:
-        if use_defaults:
-            apt_install = True
-        else:
-            apt_install = utils.confirm(f'Do you want to install apt packages "{apt_deps}"?')
-
-    # Check if docker should be installed
-    if utils.command_exists('docker'):
-        utils.info('Docker is already installed.')
-        docker_install = False
-
-    if docker_install is None:
-        if use_defaults:
-            docker_install = True
-        else:
-            docker_install = utils.confirm('Do you want to install docker?')
-
-    # Check if user should be added to docker group
-    if utils.is_docker_user():
-        utils.info(f'{user} already belongs to the docker group.')
-        docker_user = False
-
-    if docker_user is None:
-        if use_defaults:
-            docker_user = True
-        else:
-            docker_user = utils.confirm('Do you want to run docker commands without sudo?')
-
-    # Check used directory
-    if dir is None:
-        if use_defaults or utils.confirm(f"The default directory is '{default_dir}'. Do you want to continue?"):
-            dir = default_dir
-        else:
-            return
-
-    if utils.path_exists(dir):
-        if not utils.confirm(f'The `{dir}` directory already exists.' +
-                             ' Do you want to continue and erase the current contents?'):
-            return
-
-    if not no_reboot:
-        prompt_reboot = utils.confirm('A reboot is required after installation. ' +
-                                      'Do you want to be prompted before that happens?')
+    if not snapshot_file:
+        opts.check_init_opts()
 
     # Install Apt packages
-    if apt_install:
+    if opts.apt_install:
         utils.info('Installing apt packages...')
+        apt_deps = ' '.join(const.APT_DEPENDENCIES)
         sh([
             'sudo apt update',
             'sudo apt upgrade -y',
@@ -154,312 +185,112 @@ def install(ctx: click.Context,
         utils.info('Skipped: apt install.')
 
     # Install docker
-    if docker_install:
+    if opts.docker_install:
         utils.info('Installing docker...')
         sh('curl -sL get.docker.com | sh', check=False)
     else:
         utils.info('Skipped: docker install.')
 
-    # Always fix IPv6 for Docker.
-    utils.fix_ipv6(None, False)
-
     # Add user to 'docker' group
-    if docker_user:
+    if opts.docker_group_add:
         utils.info(f"Adding {user} to 'docker' group...")
         sh('sudo usermod -aG docker $USER')
     else:
         utils.info(f"Skipped: adding {user} to 'docker' group.")
 
-    if snapshot_file:
-        ctx.invoke(snapshot.load,
-                   dir=dir,
-                   file=snapshot_file,
-                   force=True)
-    else:
-        ctx.invoke(init,
-                   dir=dir,
-                   release=release,
-                   force=True,
-                   skip_confirm=use_defaults)
+    # Always apply actions
+    actions.fix_ipv6(None, False)
+    actions.unset_avahi_reflection()
+    actions.add_particle_udev_rules()
+    actions.uninstall_old_ctl_package()
+    actions.deploy_ctl_wrapper()
 
-    utils.info('Done!')
+    # Set variables in .env file
+    # Set version number to 0.0.0 until snapshot load / init is done
+    utils.info('Setting .env values...')
+    utils.setenv(const.CFG_VERSION_KEY, '0.0.0')
+    utils.setenv(const.SKIP_CONFIRM_KEY, str(opts.skip_confirm))
+    for key, default_val in const.ENV_DEFAULTS.items():
+        utils.setenv(key, utils.getenv(key, default_val))
+
+    # Install process splits here
+    # Either load all config files from snapshot or run init
+    sudo = utils.optsudo()
+    if snapshot_file:
+        ctx.invoke(snapshot.load, file=snapshot_file)
+    else:
+        release = utils.getenv('BREWBLOX_RELEASE')
+
+        utils.info('Checking for port conflicts...')
+        actions.check_ports()
+
+        utils.info('Copying docker-compose.shared.yml...')
+        sh(f'cp -f {const.CONFIG_DIR}/docker-compose.shared.yml ./')
+
+        if opts.init_compose:
+            utils.info('Copying docker-compose.yml...')
+            sh(f'cp -f {const.CONFIG_DIR}/docker-compose.yml ./')
+
+        # Stop after we're sure we have a compose file
+        utils.info('Stopping services...')
+        sh(f'{sudo}docker-compose down')
+
+        if opts.init_datastore:
+            utils.info('Creating datastore directory...')
+            sh('sudo rm -rf ./redis/; mkdir ./redis/')
+
+        if opts.init_history:
+            utils.info('Creating history directory...')
+            sh('sudo rm -rf ./victoria/; mkdir ./victoria/')
+
+        if opts.init_gateway:
+            utils.info('Creating gateway directory...')
+            sh('sudo rm -rf ./traefik/; mkdir ./traefik/')
+
+            utils.info('Creating SSL certificate...')
+            actions.makecert('./traefik', release)
+
+        if opts.init_eventbus:
+            utils.info('Creating mosquitto config directory...')
+            sh('sudo rm -rf ./mosquitto/; mkdir ./mosquitto/')
+
+        # Always copy cert config to traefik dir
+        sh(f'cp -f {const.CONFIG_DIR}/traefik-cert.yaml ./traefik/')
+
+        # Init done - now set CFG version
+        utils.setenv(const.CFG_VERSION_KEY, const.CURRENT_VERSION)
+
+    if opts.docker_pull:
+        utils.info('Pulling docker images...')
+        sh(f'{sudo}docker-compose pull')
+
+    utils.info('All done!')
 
     # Reboot
-    if not no_reboot:
-        if prompt_reboot:
+    if opts.reboot_needed:
+        if opts.prompt_reboot:
             utils.info('Press ENTER to reboot.')
             input()
         else:
             utils.info('Rebooting in 10 seconds...')
             sleep(10)
         sh('sudo reboot')
-    else:
-        utils.info('Skipped: reboot.')
 
 
 @cli.command()
 @click.option('--dir',
-              default='./brewblox',
-              help='Brewblox directory.')
+              default='./traefik',
+              help='Target directory for generated certs.')
 @click.option('--release',
-              default='edge',
+              default=None,
               help='Brewblox release track.')
-@click.option('--force',
-              is_flag=True,
-              help='Do not prompt if directory already exists.')
-@click.option('--skip-confirm/--no-skip-confirm',
-              help='Set the skip-confirm flag in env.')
-def init(dir, release, force, skip_confirm):
-    """Create and init Brewblox directory.
-
-    This is also called by `brewblox-ctl install`.
-    """
-    utils.confirm_mode()
-
-    if utils.path_exists(dir) and not utils.is_empty_dir(dir):
-        if not utils.is_brewblox_dir(dir):
-            raise FileExistsError(f'`{dir}` is not a Brewblox directory.')
-        if force or utils.confirm(f'`{dir}` already exists. ' +
-                                  'Do you want to continue and erase its contents?'):
-            sh(f'sudo rm -rf {dir}/*')
-        else:
-            return
-
-    utils.info(f'Creating Brewblox directory `{dir}`...')
-    sh(f'mkdir -p {dir}')
-
-    # Set variables in .env file
-    utils.info('Setting variables in .env file...')
-    dotenv_path = path.abspath(f'{dir}/.env')
-    sh(f'touch {dotenv_path}')
-    utils.setenv(const.RELEASE_KEY, release, dotenv_path)
-    utils.setenv(const.CFG_VERSION_KEY, '0.0.0', dotenv_path)
-    utils.setenv(const.SKIP_CONFIRM_KEY, str(skip_confirm), dotenv_path)
-
-
-def run_particle_flasher(release: str, pull: bool, cmd: str):
-    tag = utils.docker_tag(release)
-    sudo = utils.optsudo()
-
-    opts = ' '.join([
-        '-it',
-        '--rm',
-        '--privileged',
-        '-v /dev:/dev',
-        '--pull ' + ('always' if pull else 'missing'),
-    ])
-
-    sh(f'{sudo}docker-compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} brewblox/firmware-flasher:{tag} {cmd}')
-
-
-def run_esp_flasher(release: str, pull: bool):
-    tag = utils.docker_tag(release)
-    sudo = utils.optsudo()
-
-    opts = ' '.join([
-        '-it',
-        '--rm',
-        '--privileged',
-        '-v /dev:/dev',
-        '-w /app/firmware',
-        '--entrypoint bash',
-        '--pull ' + ('always' if pull else 'missing'),
-    ])
-
-    sh(f'{sudo}docker-compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} brewblox/brewblox-devcon-spark:{tag} flash')
-
-
-def discover_usb_sparks() -> List[str]:
-    devices = sh('lsusb', capture=True)
-    output = []
-    for match in re.finditer(r'ID (?P<id>\w{4}:\w{4})',
-                             devices,
-                             re.MULTILINE):
-        id = match.group('id').lower()
-        if id in ['2b04:c006', '2b04:d006']:  # photon, photon DFU
-            output.append('Spark v2')
-        if id in ['2b04:c008', '2b04:d008']:  # p1, p1 DFU
-            output.append('Spark v3')
-        if id in ['10c4:ea60']:  # ESP32
-            output.append('Spark v4')
-
-    return output
-
-
-def prompt_usb_spark() -> str:
-    while True:
-        devices = discover_usb_sparks()
-        num_devices = len(devices)
-        if num_devices == 0:
-            utils.warn('No USB-connected Spark detected')
-            utils.confirm_usb()
-        elif num_devices == 1:
-            return devices[0]
-        else:
-            utils.warn(f'Multiple USB-connected Sparks detected: {", ".join(devices)}')
-            utils.confirm_usb()
-
-
-@cli.command()
-@click.option('--release', default=None, help='Brewblox release track')
-@click.option('--pull/--no-pull', default=True)
-def flash(release, pull):
-    """Flash firmware on Spark.
-
-    This requires the Spark to be connected over USB.
-
-    After the first install, firmware updates can also be installed using the UI.
+def makecert(dir, release):
+    """Generate a self-signed SSL certificate.
 
     \b
     Steps:
-        - Stop running services.
-        - Pull flasher image.
-        - Run flash command.
+        - Create directory if it does not exist.
+        - Create brewblox.crt and brewblox.key files.
     """
     utils.confirm_mode()
-    spark = prompt_usb_spark()
-
-    utils.info(f'Flashing {spark}...')
-
-    if spark in ['Spark v2', 'Spark v3']:
-        run_particle_flasher(release, pull, 'flash')
-    elif spark in ['Spark v4']:
-        run_esp_flasher(release, pull)
-    else:
-        raise ValueError(f'Unknown device "{spark}"')
-
-
-def particle_wifi(dev: usb.core.Device):
-
-    if utils.ctx_opts().dry_run:
-        utils.info('Dry run: skipping activation of Spark listening mode')
-    else:
-        dev.reset()
-
-        # Magic numbers for the USB control call
-        HOST_TO_DEVICE = 0x40  # bmRequestType
-        REQUEST_INIT = 1  # bRequest
-        REQUEST_SEND = 3  # bRequest
-        PARTICLE_LISTEN_INDEX = 70  # wIndex
-        PARTICLE_LISTEN_VALUE = 0  # wValue
-        PARTICLE_BUF_SIZE = 64  # wLength
-
-        dev.ctrl_transfer(
-            HOST_TO_DEVICE,
-            REQUEST_INIT,
-            PARTICLE_LISTEN_VALUE,
-            PARTICLE_LISTEN_INDEX,
-            PARTICLE_BUF_SIZE
-        )
-
-        dev.ctrl_transfer(
-            HOST_TO_DEVICE,
-            REQUEST_SEND,
-            PARTICLE_LISTEN_VALUE,
-            PARTICLE_LISTEN_INDEX,
-            PARTICLE_BUF_SIZE
-        )
-
-    sleep(LISTEN_MODE_WAIT_S)
-
-    try:
-        path = glob('/dev/serial/by-id/usb-Particle_*').pop()
-    except IndexError:
-        path = '/dev/ttyACM0'
-
-    utils.info('Press w to start Wifi configuration.')
-    utils.info('Press Ctrl + ] to cancel.')
-    utils.info('The Spark must be restarted after canceling.')
-    sh(f'miniterm.py -q {path} 2>/dev/null')
-
-
-def esp_wifi():
-    utils.info('Spark 4 Wifi credentials are set over Bluetooth, using the ESP BLE Provisioning app.')
-    utils.info('')
-    utils.info('To set Wifi credentials:')
-    utils.info('- Press the (R)ESET button on your Spark.')
-    utils.info('- While the Spark restarts, press and hold the OK button for five seconds.')
-    utils.info('- The Spark is ready for provisioning if its buttons are blinking blue.')
-    utils.info('- Download the ESP BLE Provisioning app.')
-    utils.info('- Enable Bluetooth in your phone settings.')
-    utils.info('- Open the app.')
-    utils.info('- Click Provision New Device.')
-    utils.info("- Click I don't have a QR code.")
-    utils.info('- Select the PROV_BREWBLOX_ device.')
-    utils.info('- Select your Wifi network, and enter your credentials.')
-    utils.info('')
-    utils.info('The app will set the Wifi credentials for your Spark.')
-    utils.info('An additional IP address will be shown in the top left corner of the Spark display.')
-
-
-@cli.command()
-def wifi():
-    """Configure Spark Wifi settings.
-
-    This requires the Spark to be connected over USB.
-
-    \b
-    Steps:
-        - Stop running services.
-        - Look for valid USB device.
-        - Spark 2 / Spark 3:
-            - Trigger listening mode.
-            - Connect to device serial to set up Wifi.
-        - Spark 4:
-            - Print provisioning instructions.
-    """
-    utils.confirm_mode()
-
-    while True:
-        particle_dev = usb.core.find(idVendor=0x2b04)
-        esp_dev = usb.core.find(idVendor=0x10c4, idProduct=0xea60)
-
-        if particle_dev:
-            particle_wifi(particle_dev)
-            return
-        elif esp_dev:
-            esp_wifi()
-            return
-        else:
-            utils.confirm_usb()
-
-
-@cli.command()
-@click.option('--release', default=None, help='Brewblox release track')
-@click.option('--pull/--no-pull', default=True)
-@click.option('-c', '--command', default='')
-def particle(release, pull, command):
-    """Start a Docker container with access to the Particle CLI.
-
-    This requires the Spark to be connected over USB.
-
-    \b
-    Steps:
-        - Stop running services.
-        - Pull flasher image.
-        - Start flasher image.
-    """
-    utils.confirm_mode()
-    utils.confirm_usb()
-
-    utils.info('Starting Particle image...')
-    utils.info("Type 'exit' and press enter to exit the shell")
-    run_particle_flasher(release, pull, command)
-
-
-@cli.command()
-@click.option('--config-file', help='Path to Docker daemon config. Defaults to /etc/docker/daemon.json.')
-def fix_ipv6(config_file):
-    """Fix IPv6 support on the host machine.
-
-    Reason: https://github.com/docker/for-linux/issues/914
-    Unlike globally disabling IPv6 support on the host,
-    this has no impact outside the Docker environment.
-
-    Some hosts (Synology) may be using a custom location for the daemon config file.
-    If the --config-file argument is not set, the --config-file argument for the active docker daemon is used.
-    If it is not set, the default /etc/docker/daemon.json is used.
-    """
-    utils.fix_ipv6(config_file)
+    actions.makecert(dir, release)

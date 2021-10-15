@@ -90,7 +90,7 @@ def follow(services):
 @cli.command()
 @click.option('--zombies', is_flag=True, help='Find and kill all zombie processes.')
 def kill(zombies):
-    """Stop and remove all containers on this computer.
+    """Stop and remove all containers on this host.
 
     This includes those not from Brewblox.
 
