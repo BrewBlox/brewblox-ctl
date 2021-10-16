@@ -57,7 +57,9 @@ def m_sh(mocker):
 
 def test_update_ctl(m_actions, m_utils, m_sh):
     invoke(update.update_ctl)
-    m_utils.install_ctl_package.assert_called_once_with()
+    m_actions.install_ctl_package.assert_called_once_with()
+    m_actions.uninstall_old_ctl_package.assert_called_once_with()
+    m_actions.deploy_ctl_wrapper.assert_called_once_with()
     m_sh.assert_not_called()
 
 

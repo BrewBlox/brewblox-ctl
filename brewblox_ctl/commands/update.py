@@ -220,4 +220,6 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
 def update_ctl():
     """Download and update brewblox-ctl itself."""
     utils.confirm_mode()
-    utils.install_ctl_package()
+    actions.install_ctl_package()
+    actions.uninstall_old_ctl_package()
+    actions.deploy_ctl_wrapper()
