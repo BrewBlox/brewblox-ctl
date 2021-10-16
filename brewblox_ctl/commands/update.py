@@ -180,11 +180,13 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     if update_ctl and not update_ctl_done:
         utils.info('Updating brewblox-ctl...')
         actions.install_ctl_package()
-        actions.uninstall_old_ctl_package()
-        actions.deploy_ctl_wrapper()
         # Restart update - we just replaced the source code
         sh(' '.join([const.PY, *const.ARGS, '--update-ctl-done']))
         return
+
+    if update_ctl:
+        actions.uninstall_old_ctl_package()
+        actions.deploy_ctl_wrapper()
 
     utils.info('Stopping services...')
     sh(f'{sudo}docker-compose down')
