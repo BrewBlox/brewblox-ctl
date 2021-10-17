@@ -7,8 +7,7 @@ import shlex
 from os import path
 
 import click
-from brewblox_ctl import click_helpers, sh
-from brewblox_ctl import const, utils
+from brewblox_ctl import click_helpers, const, sh, utils
 
 ENV_KEYS = [
     const.RELEASE_KEY,

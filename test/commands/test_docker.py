@@ -11,14 +11,14 @@ TESTED = docker.__name__
 
 @pytest.fixture
 def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils')
+    m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     return m
 
 
 @pytest.fixture
 def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh')
+    m = mocker.patch(TESTED + '.sh', autospec=True)
     m.side_effect = check_sudo
     return m
 

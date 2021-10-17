@@ -4,7 +4,6 @@ Tests brewblox_ctl.commands.env
 
 
 import pytest
-
 from brewblox_ctl import const
 from brewblox_ctl.commands import env
 from brewblox_ctl.testing import invoke
@@ -14,7 +13,7 @@ TESTED = env.__name__
 
 @pytest.fixture
 def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils')
+    m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     return m
 

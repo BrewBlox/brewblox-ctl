@@ -57,8 +57,8 @@ install_ctl() {
 
     # Install packages into the virtual env
     echo "Installing Python packages..."
-    python3 -m pip install -q setuptools wheel
-    python3 -m pip install -q ./brewblox-ctl.tar.gz
+    python3 -m pip install pip setuptools wheel
+    python3 -m pip install ./brewblox-ctl.tar.gz
 }
 
 # Args: none
@@ -143,7 +143,7 @@ done
 # brewblox-ctl is called from a non-Brewblox dir,
 # but a Brewblox dir is found in a common or adjacent place.
 # -> Prompt the user how and where to retry the command.
-for dir in "/home/${USER}/brewblox" "./brewblox" "../brewblox"
+for dir in "${HOME}/brewblox" "./brewblox" "../brewblox"
 do
     if is_brewblox_dir "${dir}"
     then

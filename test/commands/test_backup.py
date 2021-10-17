@@ -35,7 +35,7 @@ def m_getuid(mocker):
 
 @pytest.fixture(autouse=True)
 def m_glob(mocker):
-    m = mocker.patch(TESTED + '.glob')
+    m = mocker.patch(TESTED + '.glob', autospec=True)
     m.return_value = [
         'node-red/settings.js',
         'node-red/flows.json',
@@ -46,14 +46,14 @@ def m_glob(mocker):
 
 @pytest.fixture(autouse=True)
 def m_load_dotenv(mocker):
-    m = mocker.patch(TESTED + '.load_dotenv')
+    m = mocker.patch(TESTED + '.load_dotenv', autospec=True)
     return m
 
 
 @pytest.fixture
 def m_utils(mocker):
     mocker.patch(TESTED + '.http.utils.info')  # Used by http.wait
-    m = mocker.patch(TESTED + '.utils')
+    m = mocker.patch(TESTED + '.utils', spec=backup.utils)
     m.optsudo.return_value = 'SUDO '
     m.host_url.return_value = HOST_URL
     m.datastore_url.return_value = STORE_URL
@@ -63,7 +63,7 @@ def m_utils(mocker):
 
 @pytest.fixture
 def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh')
+    m = mocker.patch(TESTED + '.sh', spec=backup.sh)
     m.side_effect = check_sudo
     return m
 

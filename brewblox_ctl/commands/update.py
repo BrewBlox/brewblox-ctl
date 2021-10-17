@@ -70,7 +70,7 @@ def downed_migrate(prev_version):
     # Always apply shared config files
     apply_config_files()
     actions.add_particle_udev_rules()
-    actions.unset_avahi_reflection()
+    actions.edit_avahi_config()
 
     if prev_version < StrictVersion('0.3.0'):
         migration.migrate_compose_split()

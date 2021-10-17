@@ -12,14 +12,14 @@ TESTED = actions.__name__
 
 @pytest.fixture
 def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils')
+    m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     return m
 
 
 @pytest.fixture
 def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh')
+    m = mocker.patch(TESTED + '.sh', autospec=True)
     m.side_effect = check_sudo
     return m
 
@@ -153,44 +153,53 @@ def test_fix_ipv6(mocker, m_utils, m_sh):
     assert m_sh.call_count == 5 + 3 + 3 + 2
 
 
-def test_unset_avahi_reflection(mocker, m_utils, m_sh):
+def test_edit_avahi_config(mocker, m_utils, m_sh):
     config = ConfigObj()
     m_config = mocker.patch(TESTED + '.ConfigObj')
     m_config.return_value = config
 
     # File not found
     m_config.side_effect = OSError
-    actions.unset_avahi_reflection()
+    actions.edit_avahi_config()
+    assert m_utils.info.call_count == 0
     assert m_utils.warn.call_count == 1
     assert m_sh.call_count == 0
 
     # By default, the value is not set
-    # This should be a noop
-    m_sh.reset_mock()
-    m_utils.warn.reset_mock()
+    # Do not change an explicit 'no' value
     m_config.side_effect = None
-    config.clear()
-    actions.unset_avahi_reflection()
-    assert m_sh.call_count == 0
-    assert m_utils.warn.call_count == 0
-    assert not config
-
-    # enable-reflector is set
     m_sh.reset_mock()
     m_utils.warn.reset_mock()
-    config['reflector'] = {'enable-reflector': 'yes', 'other': 'yes'}
-    actions.unset_avahi_reflection()
+    config['reflector'] = {'enable-reflector': 'no'}
+    actions.edit_avahi_config()
+    assert m_sh.call_count == 0
+    assert m_utils.warn.call_count == 2
+    assert config['reflector']['enable-reflector'] == 'no'
+
+    # Empty config
+    m_sh.reset_mock()
+    m_utils.warn.reset_mock()
+    config.clear()
+    actions.edit_avahi_config()
     assert m_sh.call_count == 3
     assert m_utils.warn.call_count == 0
-    assert config['reflector'] == {'other': 'yes'}
+    assert config['reflector']['enable-reflector'] == 'yes'
+
+    # enable-reflector already 'yes'
+    m_sh.reset_mock()
+    m_utils.warn.reset_mock()
+    config['reflector'] = {'enable-reflector': 'yes'}
+    actions.edit_avahi_config()
+    assert m_sh.call_count == 0
+    assert m_utils.warn.call_count == 0
+    assert config['reflector']['enable-reflector'] == 'yes'
 
     # Service command does not exist
     m_sh.reset_mock()
     m_utils.warn.reset_mock()
     m_utils.command_exists.return_value = False
     config.clear()
-    config['reflector'] = {'enable-reflector': 'yes', 'other': 'yes'}
-    actions.unset_avahi_reflection()
+    actions.edit_avahi_config()
     assert m_sh.call_count == 2
     assert m_utils.warn.call_count == 1
-    assert config['reflector'] == {'other': 'yes'}
+    assert config['reflector']['enable-reflector'] == 'yes'

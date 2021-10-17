@@ -5,15 +5,15 @@ Tests brewblox_ctl.commands.service
 from unittest.mock import Mock
 
 import pytest
-from brewblox_ctl.testing import check_sudo, invoke
 from brewblox_ctl.commands import service
+from brewblox_ctl.testing import check_sudo, invoke
 
 TESTED = service.__name__
 
 
 @pytest.fixture
 def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils')
+    m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     m.read_compose.side_effect = lambda: {
         'services': {
@@ -25,7 +25,7 @@ def m_utils(mocker):
 
 @pytest.fixture
 def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh')
+    m = mocker.patch(TESTED + '.sh', autospec=True)
     m.side_effect = check_sudo
     return m
 

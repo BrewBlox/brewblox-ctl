@@ -11,7 +11,7 @@ TESTED = fix.__name__
 
 @pytest.fixture
 def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils')
+    m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     m.docker_tag.side_effect = lambda v: v
     return m
@@ -19,7 +19,7 @@ def m_utils(mocker):
 
 @pytest.fixture
 def m_actions(mocker):
-    m = mocker.patch(TESTED + '.actions')
+    m = mocker.patch(TESTED + '.actions', autospec=True)
     return m
 
 
@@ -30,4 +30,4 @@ def test_ipv6(m_utils, m_actions):
 
 def test_avahi_reflection(m_utils, m_actions):
     invoke(fix.avahi_reflection)
-    m_actions.unset_avahi_reflection.assert_called_once_with()
+    m_actions.edit_avahi_config.assert_called_once_with()

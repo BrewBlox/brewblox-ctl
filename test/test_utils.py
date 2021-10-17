@@ -15,12 +15,12 @@ TESTED = utils.__name__
 
 @pytest.fixture
 def m_getenv(mocker):
-    return mocker.patch(TESTED + '.getenv')
+    return mocker.patch(TESTED + '.getenv', autospec=True)
 
 
 @pytest.fixture
 def m_sh(mocker):
-    return mocker.patch(TESTED + '.sh')
+    return mocker.patch(TESTED + '.sh', autospec=True)
 
 
 @pytest.fixture
@@ -324,16 +324,16 @@ def test_show_data(mocker):
     m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
     m_secho = mocker.patch(TESTED + '.click.secho')
 
-    utils.show_data('text')
-    utils.show_data({'obj': True})
-    assert m_secho.call_count == 2
-    m_secho.assert_called_with(json.dumps({'obj': True}), fg='blue', color=m_opts.color)
+    utils.show_data('desc', 'text')
+    utils.show_data('desc', {'obj': True})
+    assert m_secho.call_count == 4
+    m_secho.assert_called_with(json.dumps({'obj': True}, indent=2), fg='blue', color=m_opts.color)
 
     m_secho.reset_mock()
     m_opts.dry_run = False
     m_opts.verbose = False
 
-    utils.show_data('text')
+    utils.show_data('desc', 'text')
     assert m_secho.call_count == 0
 
 

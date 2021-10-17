@@ -3,21 +3,21 @@ Tests brewblox_ctl.commands.database
 """
 
 import pytest
-from brewblox_ctl.testing import invoke
 from brewblox_ctl.commands import database
+from brewblox_ctl.testing import invoke
 
 TESTED = database.__name__
 
 
 @pytest.fixture
 def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils')
+    m = mocker.patch(TESTED + '.utils', autospec=True)
     return m
 
 
 @pytest.fixture
 def m_migration(mocker):
-    m = mocker.patch(TESTED + '.migration')
+    m = mocker.patch(TESTED + '.migration', autospec=True)
     return m
 
 
