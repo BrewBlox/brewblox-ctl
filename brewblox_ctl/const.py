@@ -4,9 +4,8 @@ Const values
 import pathlib
 import sys
 
-PY = sys.executable
 ARGS = sys.argv
-CLI = f'{PY} -m brewblox_ctl'
+CLI = 'python3 -m brewblox_ctl'
 HOST = 'https://localhost'
 
 DOCKER = 'docker'

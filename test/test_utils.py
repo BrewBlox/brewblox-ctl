@@ -315,9 +315,8 @@ def test_logs(mocker):
 
 
 def test_pip_install(mocker, m_sh):
-    mocker.patch(TESTED + '.const.PY', '/PY')
     utils.pip_install('lib', 'lib2')
-    m_sh.assert_called_with('/PY -m pip install --upgrade --no-cache-dir lib lib2')
+    m_sh.assert_called_with('python3 -m pip install --upgrade --no-cache-dir lib lib2')
 
 
 def test_show_data(mocker):

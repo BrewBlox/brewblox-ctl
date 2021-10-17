@@ -179,9 +179,10 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
 
     if update_ctl and not update_ctl_done:
         utils.info('Updating brewblox-ctl...')
+        utils.pip_install('pip')
         actions.install_ctl_package()
         # Restart update - we just replaced the source code
-        sh(' '.join([const.PY, *const.ARGS, '--update-ctl-done']))
+        sh(' '.join(['python3 -m brewblox_ctl', *const.ARGS[1:], '--update-ctl-done']))
         return
 
     if update_ctl:

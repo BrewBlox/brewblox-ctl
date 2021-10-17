@@ -98,7 +98,7 @@ def log(add_compose, add_system, upload):
     utils.info('Writing software version info...')
     header('Versions')
     append('uname -a')
-    append(f'{const.PY} --version')
+    append('python3 --version')
     append(f'{sudo}docker --version')
     append(f'{sudo}docker-compose --version')
 
