@@ -113,7 +113,7 @@ install() {
 
     # Install packages into the virtual env
     echo "INFO: Installing Python packages..."
-    python3 -m pip install setuptools wheel
+    python3 -m pip install pip setuptools wheel
     python3 -m pip install ./brewblox-ctl.tar.gz
 
     # Init the .env file

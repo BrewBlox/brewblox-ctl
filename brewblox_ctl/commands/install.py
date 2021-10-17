@@ -200,7 +200,7 @@ def install(ctx: click.Context, snapshot_file):
 
     # Always apply actions
     actions.fix_ipv6(None, False)
-    actions.unset_avahi_reflection()
+    actions.edit_avahi_config()
     actions.add_particle_udev_rules()
     actions.uninstall_old_ctl_package()
     actions.deploy_ctl_wrapper()

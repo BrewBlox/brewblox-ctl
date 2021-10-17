@@ -279,11 +279,12 @@ def error(msg):
     click.secho(f'{const.LOG_ERR} {msg}', fg='red', color=opts.color)
 
 
-def show_data(data):
+def show_data(desc: str, data):
     opts = ctx_opts()
     if opts.dry_run or opts.verbose:
         if not isinstance(data, str):
-            data = json.dumps(data)
+            data = json.dumps(data, indent=2)
+        click.secho(f'{const.LOG_CONFIG} {desc}', fg='magenta', color=opts.color)
         click.secho(data, fg='blue', color=opts.color)
 
 
@@ -321,8 +322,8 @@ def read_compose(fname='docker-compose.yml'):
 def write_compose(config, fname='docker-compose.yml'):  # pragma: no cover
     opts = ctx_opts()
     if opts.dry_run or opts.verbose:
-        click.secho(f'{const.LOG_COMPOSE} {fname}', fg='magenta', color=opts.color)
-        show_data(yaml.safe_dump(config))
+        click.secho(f'{const.LOG_CONFIG} {fname}', fg='magenta', color=opts.color)
+        show_data(fname, yaml.safe_dump(config))
     if not opts.dry_run:
         with open(fname, 'w') as f:
             yaml.safe_dump(config, f)

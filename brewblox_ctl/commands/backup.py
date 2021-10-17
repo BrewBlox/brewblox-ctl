@@ -129,7 +129,7 @@ def save(save_compose, ignore_spark_error):
 
 def mset(data):
     with NamedTemporaryFile('w') as tmp:
-        utils.show_data(data)
+        utils.show_data('datastore', data)
         json.dump(data, tmp)
         tmp.flush()
         sh(f'{const.CLI} http post --quiet {utils.datastore_url()}/mset -f {tmp.name}')
@@ -209,7 +209,7 @@ def load(archive,
         with NamedTemporaryFile('w') as tmp:
             data = zipf.read('.env').decode()
             utils.info('Writing .env')
-            utils.show_data(data)
+            utils.show_data('.env', data)
             tmp.write(data)
             tmp.flush()
             sh(f'cp -f {tmp.name} .env')
@@ -290,7 +290,7 @@ def load(archive,
             utils.info(f'Writing blocks to Spark service `{spark}`')
             with NamedTemporaryFile('w') as tmp:
                 data = json.loads(zipf.read(f).decode())
-                utils.show_data(data)
+                utils.show_data(spark, data)
                 json.dump(data, tmp)
                 tmp.flush()
                 sh(f'{const.CLI} http post {host_url}/{spark}/blocks/backup/load -f {tmp.name}')

@@ -7,8 +7,8 @@ from functools import partial
 
 import httpretty
 import pytest
-from brewblox_ctl.testing import check_sudo
 from brewblox_ctl import migration
+from brewblox_ctl.testing import check_sudo
 
 TESTED = migration.__name__
 
@@ -36,8 +36,14 @@ def csv_data_stream(opts, cmd):
 
 
 @pytest.fixture
+def m_actions(mocker):
+    m = mocker.patch(TESTED + '.actions', autospec=True)
+    return m
+
+
+@pytest.fixture
 def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils')
+    m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     m.getenv.return_value = '/usr/local/bin'
     m.datastore_url.return_value = STORE_URL
@@ -60,7 +66,7 @@ def m_utils(mocker):
 
 @pytest.fixture
 def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh')
+    m = mocker.patch(TESTED + '.sh', autospec=True)
     m.side_effect = check_sudo
     return m
 
@@ -102,11 +108,11 @@ def test_migrate_compose_datastore(m_utils, m_sh):
     m_sh.assert_called_once_with('mkdir -p redis/')
 
 
-def test_migrate_ipv6_fix(m_utils, m_sh):
+def test_migrate_ipv6_fix(m_actions, m_utils, m_sh):
     migration.migrate_ipv6_fix()
 
     assert m_sh.call_count == 1
-    assert m_utils.enable_ipv6.call_count == 1
+    assert m_actions.fix_ipv6.call_count == 1
 
 
 def test_migrate_couchdb_dry(m_utils, m_sh):

@@ -56,11 +56,11 @@ def uninstall_old_ctl_package():
 
 
 def deploy_ctl_wrapper():
-    sh(f'chmod +x {const.SCRIPT_DIR}/brewblox-ctl')
+    sh(f'chmod +x "{const.SCRIPT_DIR}/brewblox-ctl"')
     if utils.user_home_exists():
-        sh(f'mkdir -p $HOME/.local/bin && cp {const.SCRIPT_DIR}/brewblox-ctl $HOME/.local/bin/')
+        sh(f'mkdir -p "$HOME/.local/bin" && cp "{const.SCRIPT_DIR}/brewblox-ctl" "$HOME/.local/bin/"')
     else:
-        sh(f'sudo cp {const.SCRIPT_DIR}/brewblox-ctl /usr/local/bin/')
+        sh(f'sudo cp "{const.SCRIPT_DIR}/brewblox-ctl" /usr/local/bin/')
 
 
 def check_ports():
@@ -137,7 +137,7 @@ def fix_ipv6(config_file=None, restart=True):
             utils.warn('"service" command not found. Please restart your machine to apply config changes.')
 
 
-def unset_avahi_reflection():
+def edit_avahi_config():
     conf = const.AVAHI_CONF
 
     try:
@@ -146,11 +146,20 @@ def unset_avahi_reflection():
         utils.warn(f'Avahi config file not found: {conf}')
         return
 
-    try:
-        del config['reflector']['enable-reflector']
-        utils.show_data(config.dict())
-    except KeyError:
-        return  # nothing to change
+    config.setdefault('reflector', {})
+    current_value = config['reflector'].get('enable-reflector')
+
+    if current_value == 'yes':
+        return
+
+    if current_value == 'no':
+        utils.warn('Explicit "no" value found for ' +
+                   'reflector/enable-reflector setting in Avahi config.')
+        utils.warn('Aborting config change.')
+        return
+
+    config['reflector']['enable-reflector'] = 'yes'
+    utils.show_data(conf, config.dict())
 
     with NamedTemporaryFile('w') as tmp:
         config.filename = None

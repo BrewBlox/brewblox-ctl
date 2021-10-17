@@ -43,4 +43,4 @@ def avahi_reflection():
     to its own Brewblox service.
     """
     utils.confirm_mode()
-    actions.unset_avahi_reflection()
+    actions.edit_avahi_config()

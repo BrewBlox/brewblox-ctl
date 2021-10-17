@@ -10,9 +10,8 @@ from typing import List, Optional, Tuple
 
 import requests
 import urllib3
-from brewblox_ctl import sh
 
-from brewblox_ctl import const, utils
+from brewblox_ctl import actions, const, sh, utils
 
 
 def migrate_compose_split():
@@ -54,9 +53,7 @@ def migrate_compose_datastore():
 def migrate_ipv6_fix():
     # Undo disable-ipv6
     sh('sudo sed -i "/net.ipv6.*.disable_ipv6 = 1/d" /etc/sysctl.conf', check=False)
-
-    # Enable ipv6 in docker daemon config
-    utils.enable_ipv6()
+    actions.fix_ipv6()
 
 
 def migrate_couchdb():

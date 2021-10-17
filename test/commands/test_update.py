@@ -20,13 +20,13 @@ class DummyError(Exception):
 
 @pytest.fixture
 def m_actions(mocker):
-    m = mocker.patch(TESTED + '.actions')
+    m = mocker.patch(TESTED + '.actions', autospec=True)
     return m
 
 
 @pytest.fixture
 def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils')
+    m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     m.getenv.return_value = '/usr/local/bin:/home/pi/.local/bin'
     m.datastore_url.return_value = STORE_URL
@@ -50,7 +50,7 @@ def m_utils(mocker):
 
 @pytest.fixture
 def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh')
+    m = mocker.patch(TESTED + '.sh', autospec=True)
     m.side_effect = check_sudo
     return m
 
