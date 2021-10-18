@@ -44,7 +44,11 @@ def save(save_compose, ignore_spark_error):
     A zip archive containing JSON/YAML files is created in the ./backup/ directory.
     The archive name will include current date and time to ensure uniqueness.
 
-    The backup is not exported to any kind of remote/cloud storage.
+    Restrictions:
+    - The backup is not exported to any kind of remote/cloud storage.
+    - The backup does not include history data.
+    - The backup does not include Docker images.
+    - The backup does not include custom configuration for third-party services.
 
     To use this command in scripts, run it as `brewblox-ctl --quiet backup save`.
     Its only output to stdout will be the absolute path to the created backup.

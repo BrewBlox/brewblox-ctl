@@ -13,7 +13,7 @@ def cli():
 
 @cli.group()
 def fix():
-    """Host configuration fixes"""
+    """Fix configuration on the host system."""
 
 
 @fix.command()

@@ -88,7 +88,7 @@ def prompt_usb_spark() -> str:
 @click.option('--release', default=None, help='Brewblox release track')
 @click.option('--pull/--no-pull', default=True)
 def flash(release, pull):
-    """Flash firmware on Spark.
+    """Flash Spark firmware over USB.
 
     This requires the Spark to be connected over USB.
 
