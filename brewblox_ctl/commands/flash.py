@@ -2,14 +2,12 @@
 Flash device settings
 """
 
-import re
-from glob import glob
+from pathlib import Path
 from time import sleep
-from typing import List
 
 import click
-import usb.core
-from brewblox_ctl import click_helpers, sh, utils
+import usb
+from brewblox_ctl import click_helpers, const, sh, utils
 
 LISTEN_MODE_WAIT_S = 1
 
@@ -53,26 +51,19 @@ def run_esp_flasher(release: str, pull: bool):
     sh(f'{sudo}docker run {opts} brewblox/brewblox-devcon-spark:{tag} flash')
 
 
-def discover_usb_sparks() -> List[str]:
-    devices = sh('lsusb', capture=True)
-    output = []
-    for match in re.finditer(r'ID (?P<id>\w{4}:\w{4})',
-                             devices,
-                             re.MULTILINE):
-        id = match.group('id').lower()
-        if id in ['2b04:c006', '2b04:d006']:  # photon, photon DFU
-            output.append('Spark v2')
-        if id in ['2b04:c008', '2b04:d008']:  # p1, p1 DFU
-            output.append('Spark v3')
-        if id in ['10c4:ea60']:  # ESP32
-            output.append('Spark v4')
-
-    return output
-
-
-def prompt_usb_spark() -> str:
+def find_usb_spark() -> usb.core.Device:
     while True:
-        devices = discover_usb_sparks()
+        devices = [
+            *usb.core.find(find_all=True,
+                           idVendor=const.VID_PARTICLE,
+                           idProduct=const.PID_PHOTON),
+            *usb.core.find(find_all=True,
+                           idVendor=const.VID_PARTICLE,
+                           idProduct=const.PID_P1),
+            *usb.core.find(find_all=True,
+                           idVendor=const.VID_ESPRESSIF,
+                           idProduct=const.PID_ESP32),
+        ]
         num_devices = len(devices)
         if num_devices == 0:
             utils.warn('No USB-connected Spark detected')
@@ -80,7 +71,7 @@ def prompt_usb_spark() -> str:
         elif num_devices == 1:
             return devices[0]
         else:
-            utils.warn(f'Multiple USB-connected Sparks detected: {", ".join(devices)}')
+            utils.warn(f'{len(devices)} USB-connected Sparks detected.')
             utils.confirm_usb()
 
 
@@ -101,20 +92,22 @@ def flash(release, pull):
         - Run flash command.
     """
     utils.confirm_mode()
-    spark = prompt_usb_spark()
+    dev = find_usb_spark()
 
-    utils.info(f'Flashing {spark}...')
-
-    if spark in ['Spark v2', 'Spark v3']:
+    if dev.idProduct == const.PID_PHOTON:
+        utils.info('Flashing Spark 2...')
         run_particle_flasher(release, pull, 'flash')
-    elif spark in ['Spark v4']:
+    elif dev.idProduct == const.PID_P1:
+        utils.info('Flashing Spark 3...')
+        run_particle_flasher(release, pull, 'flash')
+    elif dev.idProduct == const.PID_ESP32:
+        utils.info('Flashing Spark 4...')
         run_esp_flasher(release, pull)
     else:
-        raise ValueError(f'Unknown device "{spark}"')
+        raise ValueError('Unknown USB device')
 
 
 def particle_wifi(dev: usb.core.Device):
-
     if utils.ctx_opts().dry_run:
         utils.info('Dry run: skipping activation of Spark listening mode')
     else:
@@ -146,10 +139,9 @@ def particle_wifi(dev: usb.core.Device):
 
     sleep(LISTEN_MODE_WAIT_S)
 
-    try:
-        path = glob('/dev/serial/by-id/usb-Particle_*').pop()
-    except IndexError:
-        path = '/dev/ttyACM0'
+    serial = usb.util.get_string(dev, dev.iSerialNumber)
+    path = next(Path('/dev/serial/by-id').glob(f'*{serial}*'),
+                '/dev/ttyACM0')
 
     utils.info('Press w to start Wifi configuration.')
     utils.info('Press Ctrl + ] to cancel.')
@@ -195,17 +187,17 @@ def wifi():
     utils.confirm_mode()
 
     while True:
-        particle_dev = usb.core.find(idVendor=0x2b04)
-        esp_dev = usb.core.find(idVendor=0x10c4, idProduct=0xea60)
-
+        particle_dev = usb.core.find(idVendor=const.VID_PARTICLE)
         if particle_dev:
             particle_wifi(particle_dev)
-            return
-        elif esp_dev:
+            break
+
+        esp_dev = usb.core.find(idVendor=const.VID_ESPRESSIF, idProduct=const.PID_ESP32)
+        if esp_dev:
             esp_wifi()
-            return
-        else:
-            utils.confirm_usb()
+            break
+
+        utils.confirm_usb()
 
 
 @cli.command()
@@ -224,7 +216,6 @@ def particle(release, pull, command):
         - Start flasher image.
     """
     utils.confirm_mode()
-    utils.confirm_usb()
 
     utils.info('Starting Particle image...')
     utils.info("Type 'exit' and press enter to exit the shell")
