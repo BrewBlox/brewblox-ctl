@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $EUID -eq 0 ]]; then
-   echo "ERROR: This script must not be run as root, or using sudo."
-   exit 1
-fi
+log_info() {
+    echo "$(tput setaf 6)INFO       $1 $(tput sgr0)"
+}
+
+log_warn() {
+    echo "$(tput setaf 3)WARN       $1 $(tput sgr0)"
+}
+
+log_error() {
+    echo "$(tput setaf 1)ERROR      $1 $(tput sgr0)"
+}
 
 # Args:
 # - checked command
@@ -19,17 +26,13 @@ is_brewblox_dir() {
     return
 }
 
-check_ssh_config() {
-    # Check if we have to fix accepted LC/Lang settings.
-    # If we don't do this, the system will complain if it's being sent a non-supported locale
-    if [ -f /etc/ssh/sshd_config ] && grep -q '^AcceptEnv LANG LC' /etc/ssh/sshd_config
-    then
-        sudo sed -i 's/^AcceptEnv LANG LC/# AcceptEnv LANG LC/g' /etc/ssh/sshd_config
-        sudo systemctl restart ssh
-    fi
-}
-
 install() {
+    # We should not be creating config files with root permissions
+    if [[ $EUID -eq 0 ]]; then
+        log_error "This script must not be run as root, or using sudo."
+        exit 1
+    fi
+
     # Use BREWBLOX_DIR from env if set, otherwise find out
     if [ -z "${BREWBLOX_DIR:-}" ]
     then
@@ -50,7 +53,7 @@ install() {
     then
         if is_brewblox_dir "${BREWBLOX_DIR}"
         then
-            BREWBLOX_RELEASE=$(read_var BREWBLOX_RELEASE "${BREWBLOX_DIR}/.env")
+            BREWBLOX_RELEASE=$(grep BREWBLOX_RELEASE "${BREWBLOX_DIR}/.env" | cut -d '=' -f2)
         else
             BREWBLOX_RELEASE="edge"
         fi
@@ -59,7 +62,7 @@ install() {
     # Install system packages
     if command_exists "apt"
     then
-        echo "INFO: Installing Apt packages..."
+        log_info "Installing Apt packages..."
         sudo apt update
         sudo apt upgrade -y
         sudo apt install -y python3-pip python3-venv
@@ -67,20 +70,20 @@ install() {
 
     if ! command_exists python3
     then
-        echo "ERROR: Python3 not found."
-        echo "ERROR: You will need to install Python >=3.6 manually."
+        log_error "Python3 not found."
+        log_error "Install Python >=3.6 manually, or add the existing installation to PATH."
         exit 1
     fi
 
-    echo "INFO: Brewblox dir is \"${BREWBLOX_DIR}\""
-    echo "INFO: Brewblox release is \"${BREWBLOX_RELEASE}\""
+    log_info "Brewblox dir is \"${BREWBLOX_DIR}\""
+    log_info "Brewblox release is \"${BREWBLOX_RELEASE}\""
 
     # Check if dir exists, but is not a brewblox dir, and is not empty
     if [[ -d "${BREWBLOX_DIR}" ]] \
         && ! is_brewblox_dir "${BREWBLOX_DIR}" \
         && [ -n "$(ls -A "${BREWBLOX_DIR:?}")" ]
     then
-        echo "WARN: ${BREWBLOX_DIR} already exists, but is not a Brewblox directory."
+        log_warn "${BREWBLOX_DIR} already exists, but is not a Brewblox directory."
         read -rp "Remove all files in this directory and continue? (y/N)" response
         if [[ "$response" =~ ^y(es)? ]]
         then
@@ -98,11 +101,11 @@ install() {
     fi
 
     # Create virtual env
-    echo "INFO: Creating Python virtual env..."
+    log_info "Creating Python virtual env..."
     python3 -m venv .venv
 
     # Download the sdist tarball
-    echo "INFO: Downloading brewblox-ctl..."
+    log_info "Downloading brewblox-ctl..."
     wget -q \
         -O ./brewblox-ctl.tar.gz \
         "https://brewblox.blob.core.windows.net/ctl/${BREWBLOX_RELEASE}/brewblox-ctl.tar.gz"
@@ -112,7 +115,7 @@ install() {
     source .venv/bin/activate
 
     # Install packages into the virtual env
-    echo "INFO: Installing Python packages..."
+    log_info "Installing Python packages..."
     python3 -m pip install pip setuptools wheel
     python3 -m pip install ./brewblox-ctl.tar.gz
 
