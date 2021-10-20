@@ -155,19 +155,21 @@ def test_fix_ipv6(mocker, m_utils, m_sh):
 
 def test_edit_avahi_config(mocker, m_utils, m_sh):
     config = ConfigObj()
+    m_path = mocker.patch(TESTED + '.Path').return_value
     m_config = mocker.patch(TESTED + '.ConfigObj')
     m_config.return_value = config
 
     # File not found
-    m_config.side_effect = OSError
+    m_path.exists.return_value = False
     actions.edit_avahi_config()
+    assert m_config.call_count == 0
     assert m_utils.info.call_count == 0
-    assert m_utils.warn.call_count == 1
+    assert m_utils.warn.call_count == 0
     assert m_sh.call_count == 0
 
     # By default, the value is not set
     # Do not change an explicit 'no' value
-    m_config.side_effect = None
+    m_path.exists.return_value = True
     m_sh.reset_mock()
     m_utils.warn.reset_mock()
     config['reflector'] = {'enable-reflector': 'no'}
@@ -203,3 +205,38 @@ def test_edit_avahi_config(mocker, m_utils, m_sh):
     assert m_sh.call_count == 2
     assert m_utils.warn.call_count == 1
     assert config['reflector']['enable-reflector'] == 'yes'
+
+
+def test_disable_ssh_accept_env(m_utils, m_sh, mocker):
+    m_file = mocker.patch(TESTED + '.Path').return_value
+    lines = '\n'.join([
+        '# Allow client to pass locale environment variables',
+        'AcceptEnv LANG LC_*'
+    ])
+    comment_lines = '\n'.join([
+        '# Allow client to pass locale environment variables',
+        '#AcceptEnv LANG LC_*'
+    ])
+
+    # File not exists
+    m_file.exists.return_value = False
+    actions.disable_ssh_accept_env()
+    assert m_sh.call_count == 0
+
+    # No change
+    m_file.exists.return_value = True
+    m_file.read_text.return_value = comment_lines
+    actions.disable_ssh_accept_env()
+    assert m_sh.call_count == 0
+
+    # Changed, but no sevice restart
+    m_file.read_text.return_value = lines
+    m_utils.command_exists.return_value = False
+    actions.disable_ssh_accept_env()
+    m_sh.assert_called_with(matching('sudo cp'))
+
+    # Changed, full change
+    m_file.read_text.return_value = lines
+    m_utils.command_exists.return_value = True
+    actions.disable_ssh_accept_env()
+    m_sh.assert_called_with(matching('sudo systemctl restart'))

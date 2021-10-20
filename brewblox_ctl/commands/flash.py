@@ -141,12 +141,12 @@ def particle_wifi(dev: usb.core.Device):
 
     serial = usb.util.get_string(dev, dev.iSerialNumber)
     path = next(Path('/dev/serial/by-id').glob(f'*{serial}*'),
-                '/dev/ttyACM0')
+                Path('/dev/ttyACM0'))
 
     utils.info('Press w to start Wifi configuration.')
     utils.info('Press Ctrl + ] to cancel.')
     utils.info('The Spark must be restarted after canceling.')
-    sh(f'miniterm.py -q {path} 2>/dev/null')
+    sh(f'miniterm.py -q {path.resolve()} 2>/dev/null')
 
 
 def esp_wifi():

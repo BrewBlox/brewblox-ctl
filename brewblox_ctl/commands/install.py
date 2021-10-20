@@ -199,6 +199,7 @@ def install(ctx: click.Context, snapshot_file):
         utils.info(f"Skipped: adding {user} to 'docker' group.")
 
     # Always apply actions
+    actions.disable_ssh_accept_env()
     actions.fix_ipv6(None, False)
     actions.edit_avahi_config()
     actions.add_particle_udev_rules()
