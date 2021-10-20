@@ -38,33 +38,38 @@ def m_sh(mocker):
 
 
 @pytest.fixture
-def m_find(mocker):
-    m = mocker.patch(TESTED + '.find_device')
+def m_choose(mocker):
+    m = mocker.patch(TESTED + '.choose_device')
     m.side_effect = lambda _1, _2: {
         'id': '280038000847343337373738',
         'host': '192.168.0.55',
-        'port': 8332
+    }
+    return m
+
+
+@pytest.fixture
+def m_find_by_host(mocker):
+    m = mocker.patch(TESTED + '.find_device_by_host')
+    m.side_effect = lambda _1: {
+        'id': '280038000847343337373738',
+        'host': '192.168.0.55',
     }
     return m
 
 
 def test_discover_spark(m_utils, mocker):
-    def m_discover_func(discovery_type):
-        yield from [{'desc': 'one'}, {'desc': 'two'}]
+    m_discover = mocker.patch(TESTED + '.list_devices', autospec=True)
 
-    m_discover = mocker.patch(TESTED + '.discover_device',
-                              side_effect=m_discover_func)
-
+    m_utils.read_compose.return_value = {'services': {}}
     invoke(add_service.discover_spark)
-    assert m_discover.called_with('all')
-    assert m_utils.info.call_count == 3
+    m_discover.assert_called_with('all', {'services': {}})
 
-    invoke(add_service.discover_spark, '--discovery=wifi')
-    assert m_discover.called_with('wifi')
-    assert m_utils.info.call_count == 6
+    m_utils.read_compose.side_effect = FileNotFoundError
+    invoke(add_service.discover_spark)
+    m_discover.assert_called_with('all', {})
 
 
-def test_add_spark(m_utils, m_sh, mocker, m_find):
+def test_add_spark(m_utils, m_sh, mocker, m_choose, m_find_by_host):
     m_utils.read_compose.side_effect = lambda: {'services': {}}
 
     invoke(add_service.add_spark, '--name testey --discover-now --discovery wifi --command "--do-stuff"')
@@ -73,13 +78,14 @@ def test_add_spark(m_utils, m_sh, mocker, m_find):
     m_utils.confirm.return_value = False
     invoke(add_service.add_spark, '-n testey')
 
-    m_find.side_effect = lambda _1, _2: None
+    m_choose.side_effect = lambda _1, _2=None: None
     invoke(add_service.add_spark, '--name testey --discovery wifi', _err=True)
     invoke(add_service.add_spark, '--name testey --device-host 1234')
     invoke(add_service.add_spark, '--name testey --device-id 12345 --simulation')
+    invoke(add_service.add_spark, '--name testey --simulation')
 
 
-def test_add_spark_force(m_utils, m_sh, mocker, m_find):
+def test_add_spark_force(m_utils, m_sh, mocker, m_choose):
     m_utils.confirm.return_value = False
     m_utils.read_compose.side_effect = lambda: {'services': {'testey': {}}}
 
@@ -87,7 +93,7 @@ def test_add_spark_force(m_utils, m_sh, mocker, m_find):
     invoke(add_service.add_spark, '--name testey --force')
 
 
-def test_spark_overwrite(m_utils, m_sh, m_find, mocker):
+def test_spark_overwrite(m_utils, m_sh, m_choose, mocker):
     m_utils.read_compose.side_effect = lambda: {
         'services': {
             'testey': {
@@ -117,7 +123,7 @@ def test_add_tilt(m_utils, m_sh, mocker):
     assert m_sh.call_count == 0
 
 
-def test_add_tilt_force(m_utils, m_sh, mocker, m_find):
+def test_add_tilt_force(m_utils, m_sh, mocker, m_choose):
     m_utils.confirm.return_value = False
     m_utils.read_compose.side_effect = lambda: {'services': {'tilt': {}}}
 
@@ -138,7 +144,7 @@ def test_add_plaato(m_utils, m_sh, mocker):
     assert m_sh.call_count == 0
 
 
-def test_add_plaato_force(m_utils, m_sh, mocker, m_find):
+def test_add_plaato_force(m_utils, m_sh, mocker, m_choose):
     m_utils.confirm.return_value = False
     m_utils.read_compose.side_effect = lambda: {'services': {'testey': {}}}
 
@@ -164,7 +170,7 @@ def test_add_node_red_other_uid(m_utils, m_sh, mocker, m_getuid):
     assert m_sh.call_count == 3
 
 
-def test_add_node_red_force(m_utils, m_sh, mocker, m_find):
+def test_add_node_red_force(m_utils, m_sh, mocker, m_choose):
     m_utils.confirm.return_value = False
     m_utils.read_compose.side_effect = lambda: {'services': {'node-red': {}}}
     invoke(add_service.add_node_red, _err=True)
