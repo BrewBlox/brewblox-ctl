@@ -9,6 +9,11 @@ from brewblox_ctl import utils
 TESTED = main.__name__
 
 
+@pytest.fixture(autouse=True)
+def m_ensure_tty(mocker):
+    return mocker.patch(TESTED + '.ensure_tty', autospec=True)
+
+
 @pytest.fixture
 def m_utils(mocker):
     return mocker.patch(TESTED + '.utils', autospec=True)

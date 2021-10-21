@@ -24,17 +24,23 @@ def escalate(ex):
         raise SystemExit(1)
 
 
+def ensure_tty():  # pragma: no cover
+    # There is no valid use case where we want to use a stdin pipe
+    # We do expect to do multiple input() calls
+    if not sys.stdin.isatty():  # pragma: no cover
+        try:
+            sys.stdin = open('/dev/tty')
+        except (IOError, OSError):
+            click.secho('Failed to open TTY input. Confirm prompts will fail.')
+
+
 def main(args=sys.argv[1:]):
     try:
-        # There is no valid use case where we want to use a stdin pipe
-        # We do expect to do multiple input() calls
-        if not sys.stdin.isatty() and Path('/dev/tty').exists():  # pragma: no cover
-            sys.stdin = open('/dev/tty')
-
+        ensure_tty()
         load_dotenv(Path('.env').resolve())
 
         if utils.is_root():
-            click.echo('brewblox-ctl should not be run as root.')
+            click.secho('brewblox-ctl should not be run as root.', fg='red')
             raise SystemExit(1)
 
         if utils.is_armv6() \
