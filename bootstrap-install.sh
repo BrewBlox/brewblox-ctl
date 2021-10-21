@@ -13,6 +13,10 @@ log_error() {
     echo "$(tput setaf 1)ERROR      $1 $(tput sgr0)"
 }
 
+flush_stdin() {
+    while read -ret 0.1; do : ; done
+}
+
 # Args:
 # - checked command
 command_exists() {
@@ -84,6 +88,7 @@ install() {
         && [ -n "$(ls -A "${BREWBLOX_DIR:?}")" ]
     then
         log_warn "${BREWBLOX_DIR} already exists, but is not a Brewblox directory."
+        flush_stdin
         read -rp "Remove all files in this directory and continue? (y/N)" response
         if [[ "$response" =~ ^y(es)? ]]
         then
