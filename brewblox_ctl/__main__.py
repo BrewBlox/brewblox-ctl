@@ -26,6 +26,11 @@ def escalate(ex):
 
 def main(args=sys.argv[1:]):
     try:
+        # There is no valid use case where we want to use a stdin pipe
+        # We do expect to do multiple input() calls
+        if not sys.stdin.isatty():  # pragma: no cover
+            sys.stdin = open('/dev/tty')
+
         load_dotenv(Path('.env').resolve())
 
         if utils.is_root():
