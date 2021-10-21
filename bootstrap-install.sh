@@ -127,7 +127,7 @@ install() {
     # Init the .env file
     echo "BREWBLOX_RELEASE=${BREWBLOX_RELEASE}" > .env
 
-    python3 -m brewblox_ctl install
+    exec python3 -m brewblox_ctl install
 }
 
 # Protect against incomplete file downloads
