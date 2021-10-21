@@ -9,12 +9,16 @@ fi
 ARGS=("$@")
 BREWBLOX_DIR=""
 
-# Args:
-# - var name
-# - env file path
-read_var() {
-    VAR=$(grep "$1" "$2" | cut -d '=' -f2)
-    echo "${VAR}"
+log_info() {
+    echo "$(tput setaf 6)INFO       $1 $(tput sgr0)"
+}
+
+log_warn() {
+    echo "$(tput setaf 3)WARN       $1 $(tput sgr0)"
+}
+
+log_error() {
+    echo "$(tput setaf 1)ERROR      $1 $(tput sgr0)"
 }
 
 # Args:
@@ -36,7 +40,7 @@ install_ctl() {
     then
         if is_brewblox_dir "${PWD}"
         then
-            BREWBLOX_RELEASE=$(read_var BREWBLOX_RELEASE .env)
+            BREWBLOX_RELEASE=$(grep BREWBLOX_RELEASE .env | cut -d '=' -f2)
         else
             BREWBLOX_RELEASE="edge"
         fi
@@ -46,7 +50,7 @@ install_ctl() {
     python3 -m venv .venv
 
     # Download the sdist tarball
-    echo "Downloading brewblox-ctl for ${BREWBLOX_RELEASE}"
+    log_info "Downloading brewblox-ctl for ${BREWBLOX_RELEASE}..."
     wget -q \
         -O "./brewblox-ctl.tar.gz" \
         "https://brewblox.blob.core.windows.net/ctl/${BREWBLOX_RELEASE}/brewblox-ctl.tar.gz"
@@ -56,7 +60,7 @@ install_ctl() {
     source .venv/bin/activate
 
     # Install packages into the virtual env
-    echo "Installing Python packages..."
+    log_info "Installing Python packages..."
     python3 -m pip install pip setuptools wheel
     python3 -m pip install ./brewblox-ctl.tar.gz
 }
@@ -78,7 +82,7 @@ install_brewblox() {
         && ! is_brewblox_dir "$BREWBLOX_DIR" \
         && [ -n "$(ls -A "${BREWBLOX_DIR:?}")" ]
     then
-        echo "WARN: ${BREWBLOX_DIR} already exists, and is not a Brewblox directory."
+        log_warn "${BREWBLOX_DIR} already exists, and is not a Brewblox directory."
         read -rp "Remove directory and continue? (y/N)" response
         if [[ "${response}" =~ ^y(es)? ]]
         then
@@ -112,8 +116,7 @@ run_ctl() {
 
     # shellcheck source=/dev/null
     source .venv/bin/activate
-    python3 -m brewblox_ctl "${ARGS[@]}"
-    return
+    exec python3 -m brewblox_ctl "${ARGS[@]}"
 }
 
 # Default use case:
@@ -147,9 +150,9 @@ for dir in "${HOME}/brewblox" "./brewblox" "../brewblox"
 do
     if is_brewblox_dir "${dir}"
     then
-        echo "ERROR: Current directory is not a Brewblox install directory."
-        echo "ERROR: A Brewblox installation was found in ${dir}."
-        echo "ERROR: Navigate there, and re-run the command."
+        log_error "Current directory is not a Brewblox install directory."
+        log_error "A Brewblox installation was found in ${dir}."
+        log_error "Navigate there, and re-run the command."
         echo ""
         echo "       cd ${dir}"
         echo "       $0 ${ARGS[*]}"
@@ -160,6 +163,6 @@ done
 
 # We haven't found any Brewblox directory, and we're not about to install it
 # -> Give up.
-echo "ERROR: Current directory is not a Brewblox install directory."
-echo "ERROR: No other Brewblox install directory was detected."
+log_error "Current directory is not a Brewblox install directory."
+log_error "No other Brewblox install directory was detected."
 exit 1

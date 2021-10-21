@@ -138,14 +138,12 @@ def fix_ipv6(config_file=None, restart=True):
 
 
 def edit_avahi_config():
-    conf = const.AVAHI_CONF
+    conf = Path(const.AVAHI_CONF)
 
-    try:
-        config = ConfigObj(conf, file_error=True)
-    except OSError:
-        utils.warn(f'Avahi config file not found: {conf}')
+    if not conf.exists():
         return
 
+    config = ConfigObj(str(conf), file_error=True)
     config.setdefault('reflector', {})
     current_value = config['reflector'].get('enable-reflector')
 
@@ -170,8 +168,43 @@ def edit_avahi_config():
         sh(f'sudo chmod --reference={conf} {tmp.name}')
         sh(f'sudo cp -fp {tmp.name} {conf}')
 
-    if utils.command_exists('service'):
+    if utils.command_exists('systemctl'):
         utils.info('Restarting avahi-daemon service...')
-        sh('sudo service avahi-daemon restart')
+        sh('sudo systemctl restart avahi-daemon')
     else:
-        utils.warn('"service" command not found. Please restart your machine to enable Wifi discovery.')
+        utils.warn('"systemctl" command not found. Please restart your machine to enable Wifi discovery.')
+
+
+def disable_ssh_accept_env():
+    """Disable the 'AcceptEnv LANG LC_*' setting in sshd_config
+
+    This setting is default on the Raspberry Pi,
+    but leads to locale errors when an unsupported LANG is sent.
+
+    Given that the Pi by default only includes the en_GB locale,
+    the chances of being sent a unsupported locale are very real.
+    """
+    file = Path('/etc/ssh/sshd_config')
+    if not file.exists():
+        return
+
+    content = file.read_text()
+    updated = re.sub(r'^AcceptEnv LANG LC',
+                     '#AcceptEnv LANG LC',
+                     content,
+                     flags=re.MULTILINE)
+
+    if content == updated:
+        return
+
+    with NamedTemporaryFile('w') as tmp:
+        tmp.write(updated)
+        tmp.flush()
+        utils.info('Updating SSHD config to disable AcceptEnv...')
+        utils.show_data('/etc/ssh/sshd_config', updated)
+        sh(f'sudo chmod --reference={file} {tmp.name}')
+        sh(f'sudo cp -fp {tmp.name} {file}')
+
+    if utils.command_exists('systemctl'):
+        utils.info('Restarting SSH service...')
+        sh('sudo systemctl restart ssh')

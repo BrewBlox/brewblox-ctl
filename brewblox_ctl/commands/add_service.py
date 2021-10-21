@@ -6,7 +6,8 @@ from os import getgid, getuid
 
 import click
 from brewblox_ctl import click_helpers, const, sh, utils
-from brewblox_ctl.discovery import discover_device, find_device
+from brewblox_ctl.discovery import (choose_device, find_device_by_host,
+                                    list_devices)
 
 
 def check_duplicate(config: dict, name: str):
@@ -35,9 +36,11 @@ def discover_spark(discovery_type):
     Multicast DNS (mDNS) is used for Wifi discovery.
     Whether this works is dependent on the configuration of your router and avahi-daemon.
     """
-    for dev in discover_device(discovery_type):
-        utils.info(dev['desc'])
-    utils.info('Done!')
+    try:
+        config = utils.read_compose()
+    except FileNotFoundError:
+        config = {}
+    list_devices(discovery_type, config)
 
 
 @cli.command()
@@ -86,7 +89,7 @@ def add_spark(name,
 
     For a detailed explanation: https://brewblox.netlify.com/user/connect_settings.html
     """
-    utils.check_config()
+    # utils.check_config()
     utils.confirm_mode()
 
     image_name = 'brewblox/brewblox-devcon-spark'
@@ -115,12 +118,15 @@ def add_spark(name,
             utils.warn('')
             utils.select('Press ENTER to continue or Ctrl-C to exit')
 
-    if device_id is None and discover_now and not simulation:
-        dev = find_device(discovery_type, device_host)
+    if discover_now and not simulation and not device_id:
+        if device_host:
+            dev = find_device_by_host(device_host)
+        else:
+            dev = choose_device(discovery_type, config)
 
         if dev:
             device_id = dev['id']
-        elif device_host is None:
+        else:
             # We have no device ID, and no device host. Avoid a wildcard service
             click.echo('No valid combination of device ID and device host.')
             raise SystemExit(1)

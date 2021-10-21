@@ -54,3 +54,9 @@ APT_DEPENDENCIES = [
     'avahi-daemon',
     'tio',
 ]
+
+VID_PARTICLE = 0x2b04
+PID_PHOTON = 0xc006
+PID_P1 = 0xc008
+VID_ESPRESSIF = 0x10c4
+PID_ESP32 = 0xea60
