@@ -73,10 +73,9 @@ def load(file):
             content = ['brewblox']
         if len(content) != 1:
             raise ValueError(f'Multiple files found in snapshot: {content}')
-        sh(f'mkdir -p {dir}')
-        sh(f'sudo rm -rf {dir}/!(.venv)')
+        sh('sudo rm -rf ./*')
         # We need to explicitly include dotfiles in the mv glob
-        src = f'{tmpdir}/{content[0]}'
+        src = content[0]
         sh(f'mv {src}/.[!.]* {src}/* {dir}/')
 
     actions.install_ctl_package(download='missing')
