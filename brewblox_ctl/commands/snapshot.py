@@ -74,7 +74,7 @@ def load(file):
         if len(content) != 1:
             raise ValueError(f'Multiple files found in snapshot: {content}')
         sh(f'mkdir -p {dir}')
-        sh(f'sudo rm -rf {dir}/!(.venv)')
+        sh(f"bash -c 'sudo rm -rf {dir}/!(.venv)'")
         # We need to explicitly include dotfiles in the mv glob
         src = f'{tmpdir}/{content[0]}'
         sh(f'mv {src}/.[!.]* {src}/* {dir}/')
