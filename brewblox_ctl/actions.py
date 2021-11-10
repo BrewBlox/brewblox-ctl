@@ -4,6 +4,7 @@ Shared functionality
 
 import json
 import re
+from copy import deepcopy
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -144,19 +145,14 @@ def edit_avahi_config():
         return
 
     config = ConfigObj(str(conf), file_error=True)
-    config.setdefault('reflector', {})
-    current_value = config['reflector'].get('enable-reflector')
+    copy = deepcopy(config)
+    config.setdefault('server', {}).setdefault('use-ipv6', 'no')
+    config.setdefault('publish', {}).setdefault('publish-aaaa-on-ipv4', 'no')
+    config.setdefault('reflector', {}).setdefault('enable-reflector', 'yes')
 
-    if current_value == 'yes':
+    if config == copy:
         return
 
-    if current_value == 'no':
-        utils.warn('Explicit "no" value found for ' +
-                   'reflector/enable-reflector setting in Avahi config.')
-        utils.warn('Aborting config change.')
-        return
-
-    config['reflector']['enable-reflector'] = 'yes'
     utils.show_data(conf, config.dict())
 
     with NamedTemporaryFile('w') as tmp:
