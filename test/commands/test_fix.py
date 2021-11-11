@@ -28,6 +28,6 @@ def test_ipv6(m_utils, m_actions):
     m_actions.fix_ipv6.assert_called_once_with('/dummy')
 
 
-def test_avahi_reflection(m_utils, m_actions):
-    invoke(fix.avahi_reflection)
+def test_avahi(m_utils, m_actions):
+    invoke(fix.avahi)
     m_actions.edit_avahi_config.assert_called_once_with()

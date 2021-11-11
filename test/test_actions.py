@@ -174,8 +174,8 @@ def test_edit_avahi_config(mocker, m_utils, m_sh):
     m_utils.warn.reset_mock()
     config['reflector'] = {'enable-reflector': 'no'}
     actions.edit_avahi_config()
-    assert m_sh.call_count == 0
-    assert m_utils.warn.call_count == 2
+    assert m_sh.call_count == 3
+    assert m_utils.warn.call_count == 0
     assert config['reflector']['enable-reflector'] == 'no'
 
     # Empty config
@@ -187,9 +187,11 @@ def test_edit_avahi_config(mocker, m_utils, m_sh):
     assert m_utils.warn.call_count == 0
     assert config['reflector']['enable-reflector'] == 'yes'
 
-    # enable-reflector already 'yes'
+    # Abort if no changes were made
     m_sh.reset_mock()
     m_utils.warn.reset_mock()
+    config['server'] = {'use-ipv6': 'no'}
+    config['publish'] = {'publish-aaaa-on-ipv4': 'no'}
     config['reflector'] = {'enable-reflector': 'yes'}
     actions.edit_avahi_config()
     assert m_sh.call_count == 0

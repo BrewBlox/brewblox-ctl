@@ -35,12 +35,10 @@ def ipv6(config_file):
 
 
 @fix.command()
-def avahi_reflection():
-    """Unset configuration changes for host Avahi daemon.
+def avahi():
+    """Edit avahi-daemon configuration on the host machine.
 
-    Reason: to offer more granular control, and to avoid
-    host configuration changes, mDNS reflection was moved
-    to its own Brewblox service.
+    This includes disabling IPv6 mDNS support, and enabling mDNS reflection.
     """
     utils.confirm_mode()
     actions.edit_avahi_config()
