@@ -156,11 +156,13 @@ def add_spark(name,
     }
 
     if simulation:
-        volume_dir = f'simulator__{name}'
-        config['services'][name]['volumes'] = [
-            f'./{volume_dir}:/app/simulator'
-        ]
-        sh(f'mkdir -m 777 -p {volume_dir}')
+        mount_dir = f'simulator__{name}'
+        config['services'][name]['volumes'] = [{
+            'type': 'bind',
+            'source': f'./{mount_dir}',
+            'target': '/app/simulator'
+        }]
+        sh(f'mkdir -m 777 -p {mount_dir}')
 
     utils.write_compose(config)
     click.echo(f'Added Spark service `{name}`.')
@@ -197,9 +199,11 @@ def add_tilt(force):
         'restart': 'unless-stopped',
         'privileged': True,
         'network_mode': 'host',
-        'volumes': [
-            f'./{name}:/share',
-        ],
+        'volumes': [{
+            'type': 'bind',
+            'source': f'./{name}',
+            'target': '/share',
+        }],
         'labels': [
             'traefik.enable=false',
         ],
@@ -284,9 +288,11 @@ def add_node_red(force):
     config['services'][name] = {
         'image': 'brewblox/node-red:${BREWBLOX_RELEASE}',
         'restart': 'unless-stopped',
-        'volumes': [
-            f'./{name}:/data',
-        ]
+        'volumes': [{
+            'type': 'bind',
+            'source': f'./{name}',
+            'target': '/data',
+        }]
     }
 
     sh(f'mkdir -p ./{name}')

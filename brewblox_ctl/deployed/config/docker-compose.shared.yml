@@ -15,7 +15,10 @@ services:
     labels:
       - traefik.http.services.eventbus.loadbalancer.server.port=15675
     volumes:
-      - ./mosquitto:/mosquitto/include:ro
+      - type: bind
+        source: ./mosquitto
+        target: /mosquitto/include
+        read_only: true
     ports:
       - "${BREWBLOX_PORT_MQTT:-1883}:1883"
   victoria:
@@ -24,7 +27,9 @@ services:
     labels:
       - traefik.http.services.victoria.loadbalancer.server.port=8428
     volumes:
-      - ./victoria:/victoria-metrics-data
+      - type: bind
+        source: ./victoria
+        target: /victoria-metrics-data
     command: >-
       --retentionPeriod=100y
       --influxMeasurementFieldSeparator=/
@@ -35,7 +40,9 @@ services:
     labels:
       - traefik.enable=false
     volumes:
-      - ./redis:/data
+      - type: bind
+        source: ./redis
+        target: /data
     command: --appendonly yes
   history:
     image: brewblox/brewblox-history:${BREWBLOX_RELEASE}
@@ -48,8 +55,13 @@ services:
       - traefik.http.routers.api.service=api@internal
       - traefik.http.middlewares.prefix-strip.stripprefixregex.regex=/[^/]+
     volumes:
-      - ./traefik:/config
-      - /var/run/docker.sock:/var/run/docker.sock
+      - type: bind
+        source: ./traefik
+        target: /config
+        read_only: true
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
     ports:
       - "${BREWBLOX_PORT_HTTP:-80}:${BREWBLOX_PORT_HTTP:-80}"
       - "${BREWBLOX_PORT_HTTPS:-443}:${BREWBLOX_PORT_HTTPS:-443}"
