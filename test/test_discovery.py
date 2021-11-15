@@ -146,6 +146,9 @@ def test_match_id_services():
                 'image': 'brewblox/brewblox-tilt:${BREWBLOX_RELEASE}',
                 'command': '--device-id=C4DD5766BB18',
             },
+            'service-override': {
+                'ports': ['80:80'],
+            },
         },
     }
     assert discovery.match_id_services(config) == {
