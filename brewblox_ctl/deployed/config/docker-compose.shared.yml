@@ -22,7 +22,7 @@ services:
     ports:
       - "${BREWBLOX_PORT_MQTT:-1883}:1883"
   victoria:
-    image: victoriametrics/victoria-metrics:v1.63.0
+    image: victoriametrics/victoria-metrics:v1.69.0
     restart: unless-stopped
     labels:
       - traefik.http.services.victoria.loadbalancer.server.port=8428
@@ -35,7 +35,7 @@ services:
       --influxMeasurementFieldSeparator=/
       --http.pathPrefix=/victoria
   redis:
-    image: redis:6.0
+    image: redis:6.2
     restart: unless-stopped
     labels:
       - traefik.enable=false
