@@ -6,7 +6,6 @@ import json
 from unittest.mock import call, mock_open
 
 import pytest
-
 from brewblox_ctl.commands import http
 from brewblox_ctl.testing import invoke
 
@@ -59,6 +58,7 @@ def test_http_methods(mock_requests):
     ]
     assert mock_requests.post.call_count == 0
 
+    mock_requests.post.return_value.json.return_value = {'happy': True}
     invoke(http.http, ['post', 'url', '--pretty'])
     assert mock_requests.post.call_args_list == [
         call('url', headers={}, params={}, verify=False)
