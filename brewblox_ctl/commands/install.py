@@ -49,8 +49,8 @@ class InstallOptions:
         self.apt_install = True
 
         apt_deps = ' '.join(const.APT_DEPENDENCIES)
-        if not utils.command_exists('apt'):
-            utils.info('Apt is not available. You may need to find another way to install dependencies.')
+        if not utils.command_exists('apt-get'):
+            utils.info('`apt-get` is not available. You may need to find another way to install dependencies.')
             utils.info(f'Apt packages: "{apt_deps}"')
             self.apt_install = False
         elif not self.use_defaults:
@@ -177,12 +177,12 @@ def install(ctx: click.Context, snapshot_file):
         utils.info('Installing apt packages...')
         apt_deps = ' '.join(const.APT_DEPENDENCIES)
         sh([
-            'sudo apt update',
-            'sudo apt upgrade -y',
-            f'sudo apt install -y {apt_deps}',
+            'sudo apt-get update',
+            'sudo apt-get upgrade -y',
+            f'sudo apt-get install -y {apt_deps}',
         ])
     else:
-        utils.info('Skipped: apt install.')
+        utils.info('Skipped: apt-get install.')
 
     # Install docker
     if opts.docker_install:

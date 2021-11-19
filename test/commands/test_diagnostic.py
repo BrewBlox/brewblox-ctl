@@ -2,6 +2,8 @@
 Tests brewblox_ctl.commands.diagnostic
 """
 
+from pathlib import Path
+
 import pytest
 from brewblox_ctl.commands import diagnostic
 from brewblox_ctl.testing import check_sudo, invoke
@@ -47,3 +49,8 @@ def test_log(m_utils, m_sh):
 def test_log_service_error(m_utils, m_sh):
     m_utils.read_compose.side_effect = FileNotFoundError
     invoke(diagnostic.log)
+
+
+def test_termbin(m_utils):
+    invoke(diagnostic.termbin, 'file')
+    m_utils.file_netcat.assert_called_once_with('termbin.com', 9999, Path('file'))

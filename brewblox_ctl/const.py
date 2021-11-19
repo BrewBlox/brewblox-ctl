@@ -46,13 +46,12 @@ ENV_DEFAULTS = {
     COMPOSE_FILES_KEY: 'docker-compose.shared.yml:docker-compose.yml',
     COMPOSE_PROJECT_KEY: 'brewblox',
 }
+# Also listed in bootstrap-install.sh
 APT_DEPENDENCIES = [
     'curl',
-    'net-tools',
     'libssl-dev',
     'libffi-dev',
     'avahi-daemon',
-    'tio',
 ]
 
 VID_PARTICLE = 0x2b04

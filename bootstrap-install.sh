@@ -64,12 +64,19 @@ install() {
     fi
 
     # Install system packages
-    if command_exists "apt"
+    if command_exists "apt-get"
     then
         log_info "Installing Apt packages..."
-        sudo apt update
-        sudo apt upgrade -y
-        sudo apt install -y python3-pip python3-venv
+        sudo apt-get update
+        sudo apt-get upgrade -y
+        sudo apt-get install -y python3-pip python3-venv
+    else
+        # We also list packages installed in brewblox-ctl install
+        # This is a duplication of the list in brewblox_ctl.const
+        log_warn "apt-get not found. You may need to manually install system packages:"
+        log_warn ""
+        log_warn "python3-pip python3-venv curl libssl-dev libffi-dev avahi-daemon"
+        log_warn ""
     fi
 
     if ! command_exists python3

@@ -9,10 +9,12 @@ import platform
 import re
 import shlex
 import shutil
+import socket
+from contextlib import closing
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
 from types import GeneratorType
-from typing import Generator
+from typing import Generator, Union
 
 import click
 import dotenv
@@ -349,3 +351,39 @@ def check_service_name(ctx, param, value):
     if not re.match(r'^[a-z0-9-_]+$', value):
         raise click.BadParameter('Names can only contain lowercase letters, numbers, - or _')
     return value
+
+
+def file_netcat(host: str,
+                port: int,
+                path: Union[str, Path]) -> bytes:  # pragma: no cover
+    """Uploads given file to host/url.
+
+    Not all supported systems (looking at you, Synology) come with `nc` pre-installed.
+    This provides a naive netcat alternative in pure python.
+    """
+    info(f'Uploading {path} to {host}:{port}...')
+
+    if ctx_opts().dry_run:
+        return ''
+
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        # Connect
+        s.connect((host, int(port)))
+
+        # Transmit
+        with open(path, 'rb') as f:
+            while True:
+                out_bytes = f.read(4096)
+                if not out_bytes:
+                    break
+                s.sendall(out_bytes)
+
+        # Shutdown
+        s.shutdown(socket.SHUT_WR)
+
+        # Get result
+        while True:
+            data = s.recv(4096)
+            if not data:
+                break
+            return data

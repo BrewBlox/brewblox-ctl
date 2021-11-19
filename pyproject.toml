@@ -19,6 +19,7 @@ pyserial = ">=3"
 docker = "^5.0.3"
 docker-compose = "^1.29.2"
 websocket-client = ">=0.32.0,<1"
+psutil = "^5.8.0"
 
 [tool.poetry.dev-dependencies]
 pytest-cov = "^2.12.1"
