@@ -15,10 +15,10 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 import click
 import requests
 import urllib3
-import yaml
 from brewblox_ctl import click_helpers, const, sh, utils
 from brewblox_ctl.commands import http
 from dotenv import load_dotenv
+from ruamel.yaml import YAML
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -206,6 +206,7 @@ def load(archive,
     host_url = utils.host_url()
     store_url = utils.datastore_url()
 
+    yaml = YAML()
     zipf = zipfile.ZipFile(archive, 'r', zipfile.ZIP_DEFLATED)
     available = zipf.namelist()
     redis_file = 'global.redis.json'
@@ -231,7 +232,7 @@ def load(archive,
     if load_compose:
         if 'docker-compose.yml' in available:
             utils.info('Loading docker-compose.yml')
-            config = yaml.safe_load(zipf.read('docker-compose.yml'))
+            config = yaml.load(zipf.read('docker-compose.yml').decode())
             # Older services may still depend on the `datastore` service
             # The `depends_on` config is useless anyway in a brewblox system
             for svc in config['services'].values():

@@ -18,8 +18,9 @@ from typing import Generator, Union
 
 import click
 import dotenv
-import yaml
 from dotenv.main import dotenv_values
+from ruamel.yaml import YAML
+from ruamel.yaml.compat import StringIO
 
 from brewblox_ctl import const
 
@@ -27,6 +28,8 @@ from brewblox_ctl import const
 # https://docs.python.org/3/distutils/apiref.html#distutils.util.strtobool
 TRUE_PATTERN = re.compile('^(y|yes|t|true|on|1)$', re.IGNORECASE)
 FALSE_PATTERN = re.compile('^(n|no|f|false|off|0)$', re.IGNORECASE)
+
+yaml = YAML()
 
 
 class ContextOpts:
@@ -317,18 +320,17 @@ def read_file(fname):  # pragma: no cover
 
 
 def read_compose(fname='docker-compose.yml'):
-    with open(fname) as f:
-        return yaml.safe_load(f)
+    return yaml.load(Path(fname))
 
 
 def write_compose(config, fname='docker-compose.yml'):  # pragma: no cover
     opts = ctx_opts()
     if opts.dry_run or opts.verbose:
-        click.secho(f'{const.LOG_CONFIG} {fname}', fg='magenta', color=opts.color)
-        show_data(fname, yaml.safe_dump(config))
+        stream = StringIO()
+        yaml.dump(config, stream)
+        show_data(fname, stream.getvalue())
     if not opts.dry_run:
-        with open(fname, 'w') as f:
-            yaml.safe_dump(config, f)
+        yaml.dump(config, Path(fname))
 
 
 def read_shared_compose(fname='docker-compose.shared.yml'):
