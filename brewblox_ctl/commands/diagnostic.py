@@ -4,7 +4,7 @@ Logs system status and debugging info to file
 
 import math
 import shlex
-from os import path
+from pathlib import Path
 
 import click
 from brewblox_ctl import click_helpers, const, sh, utils
@@ -84,7 +84,7 @@ def log(add_compose, add_system, upload):
     sudo = utils.optsudo()
 
     # Create log
-    utils.info(f"Log file: {path.abspath('./brewblox.log')}")
+    utils.info(f"Log file: {Path('./brewblox.log').resolve()}")
     create()
     append('date')
 
@@ -155,8 +155,13 @@ def log(add_compose, add_system, upload):
 
     # Upload
     if upload:
-        utils.info('Uploading brewblox.log to termbin.com...')
-        sh('cat brewblox.log | nc termbin.com 9999')
+        click.echo(utils.file_netcat('termbin.com', 9999, Path('./brewblox.log')).decode())
     else:
         utils.info('Skipping upload. If you want to manually upload the log, run: ' +
-                   click.style('cat brewblox.log | nc termbin.com 9999', fg='green'))
+                   click.style('brewblox-ctl termbin ./brewblox.log', fg='green'))
+
+
+@cli.command()
+@click.argument('file')
+def termbin(file):
+    click.echo(utils.file_netcat('termbin.com', 9999, Path(file)).decode())

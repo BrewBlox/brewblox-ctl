@@ -49,10 +49,12 @@ def test_kill(m_utils, m_sh):
     invoke(docker.kill)
     m_sh.assert_called_once_with('SUDO docker rm --force $(SUDO docker ps -aq)', check=False)
 
+    m_sh.reset_mock()
     m_sh.return_value = ''
     invoke(docker.kill, '--zombies')
-    assert m_sh.call_count == 1 + 2
+    assert m_sh.call_count == 2
 
+    m_sh.reset_mock()
     m_sh.return_value = '\n'.join([
         'Proto Recv-Q Send-Q Local Address  Foreign Address  State   PID/Program name',
         'tcp        0      0 0.0.0.0:80     0.0.0.0:*        LISTEN  5990/docker-proxy',
@@ -62,4 +64,9 @@ def test_kill(m_utils, m_sh):
     ])
 
     invoke(docker.kill, '--zombies')
-    assert m_sh.call_count == 1 + 2 + 5
+    assert m_sh.call_count == 5
+
+    m_sh.reset_mock()
+    m_utils.command_exists.return_value = False
+    invoke(docker.kill, '--zombies')
+    assert m_sh.call_count == 1
