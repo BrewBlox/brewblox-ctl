@@ -146,7 +146,7 @@ def particle_wifi(dev: usb.core.Device):
     utils.info('Press w to start Wifi configuration.')
     utils.info('Press Ctrl + ] to cancel.')
     utils.info('The Spark must be restarted after canceling.')
-    sh(f'miniterm.py -q {path.resolve()} 2>/dev/null')
+    sh(f'pyserial-miniterm -q {path.resolve()} 2>/dev/null')
 
 
 def esp_wifi():
