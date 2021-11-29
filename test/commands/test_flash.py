@@ -123,7 +123,7 @@ def test_wifi(m_usb, m_utils, m_sh, mocker):
     m_sh.reset_mock()
     m_find.side_effect = [Mock(), None]  # particle
     invoke(flash.wifi)
-    m_sh.assert_called_once_with('miniterm.py -q /dev/ttyACM0 2>/dev/null')
+    m_sh.assert_called_once_with('pyserial-miniterm -q /dev/ttyACM0 2>/dev/null')
 
     m_find.reset_mock()
     m_sh.reset_mock()
@@ -145,7 +145,7 @@ def test_wifi(m_usb, m_utils, m_sh, mocker):
     m_sh.reset_mock()
     m_find.side_effect = [Mock(), None]  # particle
     invoke(flash.wifi)
-    m_sh.assert_called_once_with('miniterm.py -q /dev/ttyACM0 2>/dev/null')
+    m_sh.assert_called_once_with('pyserial-miniterm -q /dev/ttyACM0 2>/dev/null')
     assert m_find.return_value.call_count == 0
 
 

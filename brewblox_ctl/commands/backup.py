@@ -15,10 +15,10 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 import click
 import requests
 import urllib3
-import yaml
 from brewblox_ctl import click_helpers, const, sh, utils
 from brewblox_ctl.commands import http
 from dotenv import load_dotenv
+from ruamel.yaml import YAML
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -66,6 +66,7 @@ def save(save_compose, ignore_spark_error):
     - Spark service blocks.
     - Node-RED data.
     - Mosquitto config files.
+    - Tilt config files.
 
     \b
     NOT stored:
@@ -123,6 +124,7 @@ def save(save_compose, ignore_spark_error):
         *glob('node-red/*.js*'),
         *glob('node-red/lib/**/*.js*'),
         *glob('mosquitto/*.conf'),
+        *glob('tilt/*'),
     ]:
         zipf.write(fname)
 
@@ -159,6 +161,9 @@ def mset(data):
 @click.option('--load-mosquitto/--no-load-mosquitto',
               default=True,
               help='Load and write Mosquitto config files.')
+@click.option('--load-tilt/--no-load-tilt',
+              default=True,
+              help='Load and write Tilt config files.')
 @click.option('--update/--no-update',
               default=True,
               help='Run brewblox-ctl update after loading the backup.')
@@ -169,6 +174,7 @@ def load(archive,
          load_spark,
          load_node_red,
          load_mosquitto,
+         load_tilt,
          update):
     """Load and apply Brewblox settings backup.
 
@@ -200,6 +206,7 @@ def load(archive,
     host_url = utils.host_url()
     store_url = utils.datastore_url()
 
+    yaml = YAML()
     zipf = zipfile.ZipFile(archive, 'r', zipfile.ZIP_DEFLATED)
     available = zipf.namelist()
     redis_file = 'global.redis.json'
@@ -207,6 +214,7 @@ def load(archive,
     spark_files = [v for v in available if v.endswith('.spark.json')]
     node_red_files = [v for v in available if v.startswith('node-red/')]
     mosquitto_files = [v for v in available if v.startswith('mosquitto/')]
+    tilt_files = [v for v in available if v.startswith('tilt/')]
 
     if load_env and '.env' in available:
         utils.info('Loading .env file')
@@ -224,7 +232,7 @@ def load(archive,
     if load_compose:
         if 'docker-compose.yml' in available:
             utils.info('Loading docker-compose.yml')
-            config = yaml.safe_load(zipf.read('docker-compose.yml'))
+            config = yaml.load(zipf.read('docker-compose.yml').decode())
             # Older services may still depend on the `datastore` service
             # The `depends_on` config is useless anyway in a brewblox system
             for svc in config['services'].values():
@@ -314,6 +322,9 @@ def load(archive,
 
     if load_mosquitto and mosquitto_files:
         zipf.extractall(members=mosquitto_files)
+
+    if load_tilt and tilt_files:
+        zipf.extractall(members=tilt_files)
 
     zipf.close()
 

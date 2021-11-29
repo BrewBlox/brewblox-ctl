@@ -103,6 +103,14 @@ def kill(zombies):
     sh(f'{sudo}docker rm --force $({sudo}docker ps -aq)', check=False)
 
     if zombies:
+        # We can't use psutil for this, as we need root rights to get pids
+        if not utils.command_exists('netstat'):
+            utils.warn('Command `netstat` not found. Please install it by running:')
+            utils.warn('')
+            utils.warn('    sudo apt-get update && sudo apt-get install net-tools')
+            utils.warn('')
+            return
+
         procs = re.findall(
             r'(\d+)/docker-proxy',
             sh('sudo netstat -pna', capture=True))
@@ -110,5 +118,5 @@ def kill(zombies):
         if procs:
             utils.info(f'Removing {len(procs)} zombies...')
             sh('sudo service docker stop')
-            sh('sudo kill -9 ' + ' '.join(procs))
+            sh([f'sudo kill -9 {proc}' for proc in procs])
             sh('sudo service docker start')

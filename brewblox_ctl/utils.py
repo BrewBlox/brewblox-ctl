@@ -9,15 +9,18 @@ import platform
 import re
 import shlex
 import shutil
+import socket
+from contextlib import closing
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
 from types import GeneratorType
-from typing import Generator
+from typing import Generator, Union
 
 import click
 import dotenv
-import yaml
 from dotenv.main import dotenv_values
+from ruamel.yaml import YAML
+from ruamel.yaml.compat import StringIO
 
 from brewblox_ctl import const
 
@@ -25,6 +28,8 @@ from brewblox_ctl import const
 # https://docs.python.org/3/distutils/apiref.html#distutils.util.strtobool
 TRUE_PATTERN = re.compile('^(y|yes|t|true|on|1)$', re.IGNORECASE)
 FALSE_PATTERN = re.compile('^(n|no|f|false|off|0)$', re.IGNORECASE)
+
+yaml = YAML()
 
 
 class ContextOpts:
@@ -315,18 +320,17 @@ def read_file(fname):  # pragma: no cover
 
 
 def read_compose(fname='docker-compose.yml'):
-    with open(fname) as f:
-        return yaml.safe_load(f)
+    return yaml.load(Path(fname))
 
 
 def write_compose(config, fname='docker-compose.yml'):  # pragma: no cover
     opts = ctx_opts()
     if opts.dry_run or opts.verbose:
-        click.secho(f'{const.LOG_CONFIG} {fname}', fg='magenta', color=opts.color)
-        show_data(fname, yaml.safe_dump(config))
+        stream = StringIO()
+        yaml.dump(config, stream)
+        show_data(fname, stream.getvalue())
     if not opts.dry_run:
-        with open(fname, 'w') as f:
-            yaml.safe_dump(config, f)
+        yaml.dump(config, Path(fname))
 
 
 def read_shared_compose(fname='docker-compose.shared.yml'):
@@ -349,3 +353,39 @@ def check_service_name(ctx, param, value):
     if not re.match(r'^[a-z0-9-_]+$', value):
         raise click.BadParameter('Names can only contain lowercase letters, numbers, - or _')
     return value
+
+
+def file_netcat(host: str,
+                port: int,
+                path: Union[str, Path]) -> bytes:  # pragma: no cover
+    """Uploads given file to host/url.
+
+    Not all supported systems (looking at you, Synology) come with `nc` pre-installed.
+    This provides a naive netcat alternative in pure python.
+    """
+    info(f'Uploading {path} to {host}:{port}...')
+
+    if ctx_opts().dry_run:
+        return ''
+
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        # Connect
+        s.connect((host, int(port)))
+
+        # Transmit
+        with open(path, 'rb') as f:
+            while True:
+                out_bytes = f.read(4096)
+                if not out_bytes:
+                    break
+                s.sendall(out_bytes)
+
+        # Shutdown
+        s.shutdown(socket.SHUT_WR)
+
+        # Get result
+        while True:
+            data = s.recv(4096)
+            if not data:
+                break
+            return data

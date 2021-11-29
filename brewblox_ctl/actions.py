@@ -4,9 +4,11 @@ Shared functionality
 
 import json
 import re
+from copy import deepcopy
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+import psutil
 from configobj import ConfigObj
 
 from brewblox_ctl import const, sh, utils
@@ -27,9 +29,9 @@ def makecert(dir, release: str = None):
 
 
 def update_system_packages():
-    if utils.command_exists('apt'):
+    if utils.command_exists('apt-get'):
         utils.info('Updating apt packages...')
-        sh('sudo apt update && sudo apt upgrade -y')
+        sh('sudo apt-get update && sudo apt-get upgrade -y')
 
 
 def add_particle_udev_rules():
@@ -47,7 +49,7 @@ def install_ctl_package(download: str = 'always'):  # always | missing | never
     release = utils.getenv(const.CTL_RELEASE_KEY) or utils.getenv(const.RELEASE_KEY)
     if download == 'always' or download == 'missing' and not exists:
         sh(f'wget -q -O ./brewblox-ctl.tar.gz https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz')
-    sh('python3 -m pip install --quiet ./brewblox-ctl.tar.gz')
+    sh('python3 -m pip install ./brewblox-ctl.tar.gz')
 
 
 def uninstall_old_ctl_package():
@@ -69,30 +71,27 @@ def check_ports():
         sh(f'{utils.optsudo()}docker-compose down')
 
     ports = [
-        utils.getenv(key, const.ENV_DEFAULTS[key]) for key in [
+        int(utils.getenv(key, const.ENV_DEFAULTS[key])) for key in [
             const.HTTP_PORT_KEY,
             const.HTTPS_PORT_KEY,
             const.MQTT_PORT_KEY,
         ]]
 
-    retv = sh('sudo netstat -tulpn', capture=True)
-    lines = retv.split('\n')
+    try:
+        port_connnections = [
+            conn
+            for conn in psutil.net_connections()
+            if conn.laddr.ip in ['::', '0.0.0.0']
+            and conn.laddr.port in ports
+        ]
+    except psutil.AccessDenied:
+        utils.warn('Unable to read network connections. You need to run `netstat` or `lsof` manually.')
+        port_connnections = []
 
-    used_ports = []
-    used_lines = []
-    for port in ports:
-        for line in lines:
-            if re.match(r'.*(:::|0.0.0.0:){}\s.*'.format(port), line):
-                used_ports.append(port)
-                used_lines.append(line)
-                break
-
-    if used_ports:
-        port_str = ', '.join(used_ports)
+    if port_connnections:
+        port_str = ', '.join(set(str(conn.laddr.port) for conn in port_connnections))
         utils.warn(f'Port(s) {port_str} already in use.')
         utils.warn('Run `brewblox-ctl service ports` to configure Brewblox ports.')
-        for line in used_lines:
-            utils.warn(line)
         if not utils.confirm('Do you want to continue?'):
             raise SystemExit(1)
 
@@ -144,19 +143,14 @@ def edit_avahi_config():
         return
 
     config = ConfigObj(str(conf), file_error=True)
-    config.setdefault('reflector', {})
-    current_value = config['reflector'].get('enable-reflector')
+    copy = deepcopy(config)
+    config.setdefault('server', {}).setdefault('use-ipv6', 'no')
+    config.setdefault('publish', {}).setdefault('publish-aaaa-on-ipv4', 'no')
+    config.setdefault('reflector', {}).setdefault('enable-reflector', 'yes')
 
-    if current_value == 'yes':
+    if config == copy:
         return
 
-    if current_value == 'no':
-        utils.warn('Explicit "no" value found for ' +
-                   'reflector/enable-reflector setting in Avahi config.')
-        utils.warn('Aborting config change.')
-        return
-
-    config['reflector']['enable-reflector'] = 'yes'
     utils.show_data(conf, config.dict())
 
     with NamedTemporaryFile('w') as tmp:

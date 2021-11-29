@@ -4,7 +4,6 @@ HTTP convenience commands
 
 import json
 from contextlib import suppress
-from pprint import pprint
 from time import sleep
 
 import click
@@ -74,12 +73,11 @@ def http(method, url, json_body, file, data, header, param, quiet, pretty, allow
             kwargs['json'] = json.loads(body)
         else:
             kwargs['data'] = body
-
-    resp = getattr(requests, method)(url, **kwargs)
+    resp: requests.Response = getattr(requests, method)(url, **kwargs)
     try:
         if not quiet:
             if pretty and json_body:
-                pprint(resp.json())
+                click.echo(json.dumps(resp.json(), indent=2))
             else:
                 click.echo(resp.text)
         resp.raise_for_status()
