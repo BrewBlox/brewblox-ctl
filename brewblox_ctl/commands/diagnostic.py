@@ -162,6 +162,33 @@ def log(add_compose, add_system, upload):
 
 
 @cli.command()
+@click.option('--upload/--no-upload',
+              default=True,
+              help='Whether to upload the core dump file to termbin.com.')
+def coredump(upload):
+    """Read and upload a core dump file for the Spark 4.
+
+    This requires the Spark to be connected over USB.
+    Not compatible with the Spark 2 or 3.
+
+    If the Spark 4 crashes, it stores what it was doing at the time of the crash.
+    This command exports and uploads this data.
+
+    The `esptool` python package is required, and will be installed if not found.
+    """
+    if not utils.command_exists('esptool.py'):
+        sh('python3 -m pip install esptool')
+    sh('sudo -E env "PATH=$PATH" esptool.py --chip esp32 --baud 115200 read_flash 0xA10000 81920 coredump.bin')
+    sh('base64 coredump.bin > coredump.b64')
+
+    if upload:
+        click.echo(utils.file_netcat('termbin.com', 9999, Path('./coredump.b64')).decode())
+    else:
+        utils.info('Skipping upload. If you want to manually upload the file, run: ' +
+                   click.style('brewblox-ctl termbin ./coredump.b64', fg='green'))
+
+
+@cli.command()
 @click.argument('file')
 def termbin(file):
     click.echo(utils.file_netcat('termbin.com', 9999, Path(file)).decode())
