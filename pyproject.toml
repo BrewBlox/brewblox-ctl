@@ -20,7 +20,6 @@ docker-compose = "^1.29.2"
 websocket-client = ">=0.32.0,<1"
 psutil = "^5.8.0"
 "ruamel.yaml" = "^0.17.17"
-cryptography = "36.0.0"
 
 [tool.poetry.dev-dependencies]
 pytest-cov = "^2.12.1"

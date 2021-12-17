@@ -129,6 +129,7 @@ install() {
     # Install packages into the virtual env
     log_info "Installing Python packages..."
     python3 -m pip install pip setuptools wheel
+    python3 -m pip install --prefer-binary cryptography
     python3 -m pip install ./brewblox-ctl.tar.gz
 
     # Init the .env file
