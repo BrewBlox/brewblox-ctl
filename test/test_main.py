@@ -52,15 +52,12 @@ def test_is_armv6(m_utils, mocker):
     mock_cli = mocker.patch(TESTED + '.click_helpers.OrderedCommandCollection')
     m_utils.is_root.return_value = False
     m_utils.is_armv6.return_value = True
-
-    m_utils.confirm.side_effect = [
-        False,
-        True,
-    ]
+    m_utils.getenv.return_value = None
 
     with pytest.raises(SystemExit):
         main.main()
 
+    m_utils.getenv.return_value = 'y'
     main.main()
     assert mock_cli.return_value.call_count == 1
 
