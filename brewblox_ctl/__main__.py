@@ -44,9 +44,9 @@ def main(args=sys.argv[1:]):
             raise SystemExit(1)
 
         if utils.is_armv6() \
-            and not utils.confirm(
-                'Raspberry Pi models 0 and 1 are not supported. Do you want to continue?', False):
-            raise SystemExit(0)
+                and not utils.getenv(const.ALLOW_ARMV6_KEY):
+            click.secho('ARMv6 detected. The Raspberry Pi Zero and 1 are not supported.', fg='red')
+            raise SystemExit(1)
 
         if sys.version_info[1] < SUPPORTED_PYTHON_MINOR:
             major = sys.version_info[0]
