@@ -52,5 +52,6 @@ steps:
     --sas-token '$(CTL_SAS_TOKEN)'
     --name "$(TAG)/brewblox-ctl.tar.gz"
     --file "./dist/brewblox-ctl-1.0.0.tar.gz"
+    --overwrite
   displayName: Upload to Azure Storage
   condition: and(succeeded(), variables.BRANCH)
