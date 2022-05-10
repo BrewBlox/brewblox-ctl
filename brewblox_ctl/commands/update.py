@@ -62,7 +62,7 @@ def check_env_vars():
 
 def check_dirs():
     utils.info('Checking data directories...')
-    sh('mkdir -p ./traefik/ ./redis/ ./victoria/')
+    sh('mkdir -p ./traefik/ ./redis/ ./victoria/ ./mosquitto/')
 
 
 def downed_migrate(prev_version):
