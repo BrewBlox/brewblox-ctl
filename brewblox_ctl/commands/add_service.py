@@ -89,7 +89,7 @@ def add_spark(name,
 
     For a detailed explanation: https://brewblox.netlify.com/user/connect_settings.html
     """
-    # utils.check_config()
+    utils.check_config()
     utils.confirm_mode()
 
     image_name = 'brewblox/brewblox-devcon-spark'

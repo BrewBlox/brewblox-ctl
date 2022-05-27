@@ -361,9 +361,9 @@ def test_host_ip(m_getenv):
 
 def test_list_services():
     services = utils.list_services(
-        'brewblox/brewblox-devcon-spark',
-        'brewblox_ctl/deployed/config/docker-compose.yml')
-    assert services == ['spark-one']
+        'brewblox/brewblox-history',
+        'brewblox_ctl/deployed/config/docker-compose.shared.yml')
+    assert services == ['history']
 
 
 def test_read_shared_compose():

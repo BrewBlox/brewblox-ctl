@@ -320,7 +320,9 @@ def read_file(fname):  # pragma: no cover
 
 
 def read_compose(fname='docker-compose.yml'):
-    return yaml.load(Path(fname))
+    config: dict = yaml.load(Path(fname))
+    config.setdefault('services', {})
+    return config
 
 
 def write_compose(config, fname='docker-compose.yml'):  # pragma: no cover
