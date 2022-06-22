@@ -22,7 +22,7 @@ services:
     ports:
       - "${BREWBLOX_PORT_MQTT:-1883}:1883"
   victoria:
-    image: victoriametrics/victoria-metrics:v1.69.0
+    image: victoriametrics/victoria-metrics:v1.78.0
     restart: unless-stopped
     labels:
       - traefik.http.services.victoria.loadbalancer.server.port=8428
@@ -36,7 +36,7 @@ services:
       --http.pathPrefix=/victoria
       --search.latencyOffset=10s
   redis:
-    image: redis:6.0
+    image: redis:7.0
     restart: unless-stopped
     labels:
       - traefik.enable=false
@@ -49,7 +49,7 @@ services:
     image: brewblox/brewblox-history:${BREWBLOX_RELEASE}
     restart: unless-stopped
   traefik:
-    image: traefik:2.2
+    image: traefik:2.8
     restart: unless-stopped
     labels:
       - traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/dashboard`)
