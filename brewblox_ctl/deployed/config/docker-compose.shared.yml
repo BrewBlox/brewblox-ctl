@@ -36,7 +36,7 @@ services:
       --http.pathPrefix=/victoria
       --search.latencyOffset=10s
   redis:
-    image: redis:7.0
+    image: redis:6.0
     restart: unless-stopped
     labels:
       - traefik.enable=false
