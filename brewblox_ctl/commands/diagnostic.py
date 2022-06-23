@@ -193,4 +193,9 @@ def coredump(upload):
 @cli.command()
 @click.argument('file')
 def termbin(file):
+    """Upload text file to termbin, and get a shareable URL.
+
+    Files are available for limited duration on termbin.com,
+    and anyone with the link can view them.
+    """
     click.echo(utils.file_netcat('termbin.com', 9999, Path(file)).decode())
