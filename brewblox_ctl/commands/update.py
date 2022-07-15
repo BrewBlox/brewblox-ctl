@@ -177,6 +177,9 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     prev_version = StrictVersion(from_version)
     check_version(prev_version)
 
+    if not update_ctl_done:
+        utils.info(f'Starting update for brewblox {utils.getenv(const.RELEASE_KEY)}...')
+
     if update_ctl and not update_ctl_done:
         utils.info('Updating brewblox-ctl...')
         utils.pip_install('pip')
