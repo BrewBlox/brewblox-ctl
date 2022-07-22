@@ -19,10 +19,6 @@ services:
         source: ./mosquitto
         target: /mosquitto/include
         read_only: true
-      - type: bind
-        source: /etc/localtime
-        target: /etc/localtime
-        read_only: true
     ports:
       - "${BREWBLOX_PORT_MQTT:-1883}:1883"
   victoria:
@@ -34,10 +30,6 @@ services:
       - type: bind
         source: ./victoria
         target: /victoria-metrics-data
-      - type: bind
-        source: /etc/localtime
-        target: /etc/localtime
-        read_only: true
     command: >-
       --retentionPeriod=100y
       --influxMeasurementFieldSeparator=/
@@ -52,10 +44,6 @@ services:
       - type: bind
         source: ./redis
         target: /data
-      - type: bind
-        source: /etc/localtime
-        target: /etc/localtime
-        read_only: true
     command: --appendonly yes
   history:
     image: brewblox/brewblox-history:${BREWBLOX_RELEASE}
