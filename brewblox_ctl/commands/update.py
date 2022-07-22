@@ -93,7 +93,7 @@ def bind_localtime():
 
         changed = True
         utils.info(f'Mounting localtime in `{name}` service...')
-        volumes.append(localtime_volume)
+        volumes.append(localtime_volume.copy())
         service['volumes'] = volumes
 
     if changed:
