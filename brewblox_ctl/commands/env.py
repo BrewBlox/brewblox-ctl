@@ -36,7 +36,7 @@ def skip_confirm(value):
     """
     utils.check_config()
     utils.confirm_mode()
-    utils.setenv(const.SKIP_CONFIRM_KEY, value.lower())
+    utils.setenv(const.ENV_KEY_SKIP_CONFIRM, value.lower())
 
 
 @env.command(name='list')

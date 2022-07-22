@@ -293,7 +293,7 @@ def add_node_red(force):
     name = 'node-red'
     sudo = utils.optsudo()
     host = utils.host_ip()
-    port = utils.getenv(const.HTTPS_PORT_KEY)
+    port = utils.getenv(const.ENV_KEY_PORT_HTTPS)
     config = utils.read_compose()
 
     if not force:

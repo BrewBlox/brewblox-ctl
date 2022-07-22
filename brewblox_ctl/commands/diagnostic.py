@@ -10,13 +10,8 @@ import click
 from brewblox_ctl import click_helpers, const, sh, utils
 
 ENV_KEYS = [
-    const.RELEASE_KEY,
-    const.CFG_VERSION_KEY,
-    const.HTTP_PORT_KEY,
-    const.HTTPS_PORT_KEY,
-    const.MQTT_PORT_KEY,
-    const.COMPOSE_FILES_KEY,
-    const.COMPOSE_PROJECT_KEY,
+    const.ENV_KEY_CFG_VERSION,
+    *const.ENV_FILE_DEFAULTS.keys(),
 ]
 
 

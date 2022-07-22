@@ -20,10 +20,10 @@ def m_utils(mocker):
 
 def test_skip_confirm(m_utils):
     invoke(env.skip_confirm)
-    m_utils.setenv.assert_called_with(const.SKIP_CONFIRM_KEY, 'true')
+    m_utils.setenv.assert_called_with(const.ENV_KEY_SKIP_CONFIRM, 'true')
 
     invoke(env.skip_confirm, ['FALSE'])
-    m_utils.setenv.assert_called_with(const.SKIP_CONFIRM_KEY, 'false')
+    m_utils.setenv.assert_called_with(const.ENV_KEY_SKIP_CONFIRM, 'false')
 
     invoke(env.skip_confirm, ['NOPE'], _err=True)
     assert m_utils.setenv.call_count == 2
