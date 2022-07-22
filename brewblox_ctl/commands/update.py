@@ -211,6 +211,7 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     sudo = utils.optsudo()
 
     prev_version = StrictVersion(from_version)
+    current_version = StrictVersion(const.CURRENT_VERSION)
     check_version(prev_version)
 
     if not update_ctl_done:
@@ -252,7 +253,7 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
 
     if migrate:
         upped_migrate(prev_version)
-        utils.info(f'Configuration version: {prev_version} -> {const.CURRENT_VERSION}')
+        utils.info(f'Configuration version: {prev_version} -> {current_version}')
         utils.setenv(const.CFG_VERSION_KEY, const.CURRENT_VERSION)
 
 
