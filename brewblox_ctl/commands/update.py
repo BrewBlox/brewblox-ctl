@@ -65,6 +65,41 @@ def check_dirs():
     sh('mkdir -p ./traefik/ ./redis/ ./victoria/ ./mosquitto/')
 
 
+def bind_localtime():
+    shared_cfg = utils.read_shared_compose()
+    usr_cfg = utils.read_compose()
+
+    changed = False
+    localtime_volume_str = '/etc/localtime:/etc/localtime:ro'
+    localtime_volume = {
+        'type': 'bind',
+        'source': '/etc/localtime',
+        'target': '/etc/localtime',
+        'read_only': True,
+    }
+
+    for (name, service) in usr_cfg['services'].items():
+        name: str
+        service: dict
+
+        if name in shared_cfg['services']:
+            continue
+
+        volumes = service.get('volumes', [])
+        if localtime_volume in volumes:
+            continue
+        if localtime_volume_str in volumes:
+            continue
+
+        changed = True
+        utils.info(f'Mounting localtime in `{name}` service...')
+        volumes.append(localtime_volume)
+        service['volumes'] = volumes
+
+    if changed:
+        utils.write_compose(usr_cfg)
+
+
 def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
     # Always apply shared config files
@@ -85,6 +120,7 @@ def downed_migrate(prev_version):
     check_automation_ui()
     check_env_vars()
     check_dirs()
+    bind_localtime()
 
 
 def upped_migrate(prev_version):
