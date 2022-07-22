@@ -10,6 +10,15 @@ from brewblox_ctl.discovery import (choose_device, find_device_by_host,
                                     list_devices)
 
 
+def localtime_volume() -> dict:
+    return {
+        'type': 'bind',
+        'source': '/etc/localtime',
+        'target': '/etc/localtime',
+        'read_only': True,
+    }
+
+
 def check_duplicate(config: dict, name: str):
     if name in config['services'] \
             and not utils.confirm(f'Service `{name}` already exists. Do you want to overwrite it?'):
@@ -152,16 +161,17 @@ def add_spark(name,
         'image': f'{image_name}:{utils.docker_tag(release)}',
         'privileged': True,
         'restart': 'unless-stopped',
-        'command': ' '.join(commands)
+        'command': ' '.join(commands),
+        'volumes': [localtime_volume()]
     }
 
     if simulation:
         mount_dir = f'simulator__{name}'
-        config['services'][name]['volumes'] = [{
+        config['services'][name]['volumes'].append({
             'type': 'bind',
             'source': f'./{mount_dir}',
             'target': '/app/simulator'
-        }]
+        })
         sh(f'mkdir -m 777 -p {mount_dir}')
 
     utils.write_compose(config)
@@ -199,11 +209,14 @@ def add_tilt(force):
         'restart': 'unless-stopped',
         'privileged': True,
         'network_mode': 'host',
-        'volumes': [{
-            'type': 'bind',
-            'source': f'./{name}',
-            'target': '/share',
-        }],
+        'volumes': [
+            localtime_volume(),
+            {
+                'type': 'bind',
+                'source': f'./{name}',
+                'target': '/share',
+            },
+        ],
         'labels': [
             'traefik.enable=false',
         ],
@@ -256,6 +269,7 @@ def add_plaato(name, token, force):
             'PLAATO_AUTH': token,
         },
         'command': f'--name={name}',
+        'volumes': [localtime_volume()]
     }
 
     utils.write_compose(config)
@@ -288,11 +302,14 @@ def add_node_red(force):
     config['services'][name] = {
         'image': 'brewblox/node-red:${BREWBLOX_RELEASE}',
         'restart': 'unless-stopped',
-        'volumes': [{
-            'type': 'bind',
-            'source': f'./{name}',
-            'target': '/data',
-        }]
+        'volumes': [
+            localtime_volume(),
+            {
+                'type': 'bind',
+                'source': f'./{name}',
+                'target': '/data',
+            },
+        ]
     }
 
     sh(f'mkdir -p ./{name}')

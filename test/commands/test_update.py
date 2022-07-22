@@ -105,3 +105,92 @@ def test_check_automation_ui(m_utils):
     # No automation service -> no changes
     update.check_automation_ui()
     assert m_utils.write_compose.call_count == 1
+
+
+def test_bind_localtime(m_utils):
+    m_utils.read_compose.side_effect = lambda: {
+        'version': '3.7',
+        'services': {
+            'spark-one': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+            },
+            'spark-two': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': ['/data:/data']
+            },
+            'plaato': {
+                'image': 'brewblox/brewblox-plaato:rpi-edge',
+                'volumes': ['/etc/localtime:/etc/localtime:ro']
+            },
+            'automation': {
+                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': '/etc/localtime',
+                    'target': '/etc/localtime',
+                    'read_only': True,
+                }]
+            }
+        }}
+
+    update.bind_localtime()
+    m_utils.write_compose.assert_called_once_with({
+        'version': '3.7',
+        'services': {
+            'spark-one': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': '/etc/localtime',
+                    'target': '/etc/localtime',
+                    'read_only': True,
+                }]
+            },
+            'spark-two': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': [
+                    '/data:/data',
+                    {
+                        'type': 'bind',
+                        'source': '/etc/localtime',
+                        'target': '/etc/localtime',
+                        'read_only': True,
+                    }
+                ]
+            },
+            'plaato': {
+                'image': 'brewblox/brewblox-plaato:rpi-edge',
+                'volumes': ['/etc/localtime:/etc/localtime:ro']
+            },
+            'automation': {
+                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': '/etc/localtime',
+                    'target': '/etc/localtime',
+                    'read_only': True,
+                }]
+            }
+        }})
+
+
+def test_bind_localtime_noop(m_utils):
+    m_utils.read_shared_compose.side_effect = lambda: {
+        'version': '3.7',
+        'services': {
+            'redis': {
+                'image': 'redis:6.0',
+            },
+        }
+    }
+    m_utils.read_compose.side_effect = lambda: {
+        'version': '3.7',
+        'services': {
+            'redis': {
+                'image': 'redis:6.0',
+            },
+        }
+    }
+
+    update.bind_localtime()
+    m_utils.write_compose.assert_not_called()
