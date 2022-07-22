@@ -38,6 +38,7 @@ ENV_FILE_DEFAULTS = {
     ENV_KEY_PORT_HTTPS: str(DEFAULT_PORT_HTTPS),
     ENV_KEY_PORT_MQTT: str(DEFAULT_PORT_MQTT),
     # Declared by docker-compose
+    # https://docs.docker.com/compose/reference/envvars/
     'COMPOSE_FILE': 'docker-compose.shared.yml:docker-compose.yml',
     'COMPOSE_PROJECT_NAME': 'brewblox',
 }
