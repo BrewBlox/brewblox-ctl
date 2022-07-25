@@ -209,9 +209,9 @@ def install(ctx: click.Context, snapshot_file):
     # Set variables in .env file
     # Set version number to 0.0.0 until snapshot load / init is done
     utils.info('Setting .env values...')
-    utils.setenv(const.CFG_VERSION_KEY, '0.0.0')
-    utils.setenv(const.SKIP_CONFIRM_KEY, str(opts.skip_confirm))
-    for key, default_val in const.ENV_DEFAULTS.items():
+    utils.setenv(const.ENV_KEY_CFG_VERSION, '0.0.0')
+    utils.setenv(const.ENV_KEY_SKIP_CONFIRM, str(opts.skip_confirm))
+    for key, default_val in const.ENV_FILE_DEFAULTS.items():
         utils.setenv(key, utils.getenv(key, default_val))
 
     # Install process splits here
@@ -226,11 +226,11 @@ def install(ctx: click.Context, snapshot_file):
         actions.check_ports()
 
         utils.info('Copying docker-compose.shared.yml...')
-        sh(f'cp -f {const.CONFIG_DIR}/docker-compose.shared.yml ./')
+        sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.shared.yml ./')
 
         if opts.init_compose:
             utils.info('Copying docker-compose.yml...')
-            sh(f'cp -f {const.CONFIG_DIR}/docker-compose.yml ./')
+            sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.yml ./')
 
         # Stop after we're sure we have a compose file
         utils.info('Stopping services...')
@@ -256,10 +256,10 @@ def install(ctx: click.Context, snapshot_file):
             sh('sudo rm -rf ./mosquitto/; mkdir ./mosquitto/')
 
         # Always copy cert config to traefik dir
-        sh(f'cp -f {const.CONFIG_DIR}/traefik-cert.yaml ./traefik/')
+        sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/traefik-cert.yaml ./traefik/')
 
         # Init done - now set CFG version
-        utils.setenv(const.CFG_VERSION_KEY, const.CURRENT_VERSION)
+        utils.setenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
 
     if opts.docker_pull:
         utils.info('Pulling docker images...')

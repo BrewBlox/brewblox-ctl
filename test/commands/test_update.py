@@ -67,7 +67,7 @@ def test_update(m_actions, m_utils, m_sh, mocker):
     mocker.patch(TESTED + '.migration')
 
     invoke(update.update, '--from-version 0.0.1', input='\n')
-    invoke(update.update, f'--from-version {const.CURRENT_VERSION} --no-update-ctl --prune')
+    invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune')
     invoke(update.update, '--from-version 0.0.1 --update-ctl-done --prune')
     invoke(update.update, _err=True)
     invoke(update.update, '--from-version 0.0.0 --prune', _err=True)
@@ -77,11 +77,11 @@ def test_update(m_actions, m_utils, m_sh, mocker):
            ' --no-migrate --no-prune --no-update-system')
 
     m_utils.getenv.return_value = None
-    invoke(update.update, f'--from-version {const.CURRENT_VERSION} --no-update-ctl --prune')
+    invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune')
 
 
 def test_check_version(m_utils, mocker):
-    mocker.patch(TESTED + '.const.CURRENT_VERSION', '1.2.3')
+    mocker.patch(TESTED + '.const.CFG_VERSION', '1.2.3')
     mocker.patch(TESTED + '.SystemExit', DummyError)
 
     update.check_version(StrictVersion('1.2.2'))

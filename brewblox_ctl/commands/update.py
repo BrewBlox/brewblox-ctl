@@ -19,7 +19,7 @@ def check_version(prev_version: StrictVersion):
         utils.error('This configuration was never set up. Please run brewblox-ctl setup first')
         raise SystemExit(1)
 
-    if prev_version > StrictVersion(const.CURRENT_VERSION):
+    if prev_version > StrictVersion(const.CFG_VERSION):
         utils.error('Your system is running a version newer than the selected release. ' +
                     'This may be due to switching release tracks.' +
                     'You can use the --from-version flag if you know what you are doing.')
@@ -29,8 +29,8 @@ def check_version(prev_version: StrictVersion):
 def apply_config_files():
     """Apply system-defined configuration from config dir"""
     utils.info('Updating configuration files...')
-    sh(f'cp -f {const.CONFIG_DIR}/traefik-cert.yaml ./traefik/')
-    sh(f'cp -f {const.CONFIG_DIR}/docker-compose.shared.yml ./')
+    sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/traefik-cert.yaml ./traefik/')
+    sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.shared.yml ./')
     shared_cfg = utils.read_shared_compose()
     usr_cfg = utils.read_compose()
 
@@ -54,7 +54,7 @@ def check_automation_ui():
 
 def check_env_vars():
     utils.info('Checking .env variables...')
-    for (key, default_value) in const.ENV_DEFAULTS.items():
+    for (key, default_value) in const.ENV_FILE_DEFAULTS.items():
         current_value = utils.getenv(key)
         if current_value is None:
             utils.setenv(key, default_value)
@@ -163,8 +163,8 @@ def upped_migrate(prev_version):
               help='Remove unused docker images.')
 @click.option('--from-version',
               default='0.0.0',
-              envvar=const.CFG_VERSION_KEY,
-              help='[ADVANCED] Override current version number.')
+              envvar=const.ENV_KEY_CFG_VERSION,
+              help='[ADVANCED] Override version number of active configuration.')
 def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, from_version):
     """Download and apply updates.
 
@@ -211,18 +211,18 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     sudo = utils.optsudo()
 
     prev_version = StrictVersion(from_version)
-    current_version = StrictVersion(const.CURRENT_VERSION)
+    shipped_version = StrictVersion(const.CFG_VERSION)
     check_version(prev_version)
 
     if not update_ctl_done:
-        utils.info(f'Starting update for brewblox {utils.getenv(const.RELEASE_KEY)}...')
+        utils.info(f'Starting update for brewblox {utils.getenv(const.ENV_KEY_RELEASE)}...')
 
     if update_ctl and not update_ctl_done:
         utils.info('Updating brewblox-ctl...')
         utils.pip_install('pip')
         actions.install_ctl_package()
         # Restart update - we just replaced the source code
-        sh(' '.join(['python3 -m brewblox_ctl', *const.ARGS[1:], '--update-ctl-done']))
+        sh(' '.join([const.CLI, *const.ARGS[1:], '--update-ctl-done']))
         return
 
     if update_ctl:
@@ -253,8 +253,8 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
 
     if migrate:
         upped_migrate(prev_version)
-        utils.info(f'Configuration version: {prev_version} -> {current_version}')
-        utils.setenv(const.CFG_VERSION_KEY, const.CURRENT_VERSION)
+        utils.info(f'Configuration version: {prev_version} -> {shipped_version}')
+        utils.setenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
 
 
 @cli.command()

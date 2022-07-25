@@ -345,8 +345,8 @@ def test_get_urls(m_getenv):
     assert utils.datastore_url() == f'{const.HOST}:4321/history/datastore'
 
     assert m_getenv.call_args_list == [
-        call(const.HTTPS_PORT_KEY, '443'),
-        call(const.HTTPS_PORT_KEY, '443'),
+        call(const.ENV_KEY_PORT_HTTPS, '443'),
+        call(const.ENV_KEY_PORT_HTTPS, '443'),
     ]
 
 

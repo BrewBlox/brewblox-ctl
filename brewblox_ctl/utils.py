@@ -177,7 +177,7 @@ def has_docker_rights():  # pragma: no cover
 
 
 def is_brewblox_dir(dir: str) -> bool:  # pragma: no cover
-    return const.CFG_VERSION_KEY in dotenv_values(f'{dir}/.env')
+    return const.ENV_KEY_CFG_VERSION in dotenv_values(f'{dir}/.env')
 
 
 def is_empty_dir(dir):  # pragma: no cover
@@ -195,7 +195,7 @@ def optsudo():  # pragma: no cover
 
 
 def docker_tag(release=None):
-    release = release or getenv(const.RELEASE_KEY)
+    release = release or getenv(const.ENV_KEY_RELEASE)
     if not release:
         raise KeyError('No Brewblox release specified. Please run this command in a Brewblox directory.')
     return release
@@ -294,7 +294,7 @@ def show_data(desc: str, data):
 
 
 def host_url():
-    port = getenv(const.HTTPS_PORT_KEY, '443')
+    port = getenv(const.ENV_KEY_PORT_HTTPS, '443')
     return f'{const.HOST}:{port}'
 
 
