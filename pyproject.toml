@@ -12,7 +12,7 @@ requests = "^2.26.0"
 click = "^8.0"
 python-dotenv = {version = "^0.20.0", extras = ["cli"]}
 configobj = "^5.0.6"
-zeroconf = "^0.38.0"
+zeroconf = "^0.38"
 pyusb = ">=1.2"
 pyserial = ">=3"
 docker = "^5.0.3"

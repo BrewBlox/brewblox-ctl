@@ -54,7 +54,8 @@ class InstallOptions:
             utils.info(f'Apt packages: "{apt_deps}"')
             self.apt_install = False
         elif not self.use_defaults:
-            self.apt_install = utils.confirm(f'Do you want to install apt packages "{apt_deps}"?')
+            self.apt_install = utils.confirm('Do you want brewblox-ctl to install and update system (apt) packages? ' +
+                                             f'Installed packages: `{apt_deps}`.')
 
     def check_docker_opts(self):
         self.docker_install = True
@@ -211,8 +212,8 @@ def install(ctx: click.Context, snapshot_file):
     utils.info('Setting .env values...')
     utils.setenv(const.ENV_KEY_CFG_VERSION, '0.0.0')
     utils.setenv(const.ENV_KEY_SKIP_CONFIRM, str(opts.skip_confirm))
-    for key, default_val in const.ENV_FILE_DEFAULTS.items():
-        utils.setenv(key, utils.getenv(key, default_val))
+    utils.setenv(const.ENV_KEY_UPDATE_SYSTEM_PACKAGES, str(opts.apt_install))
+    utils.defaultenv()
 
     # Install process splits here
     # Either load all config files from snapshot or run init

@@ -143,6 +143,13 @@ def clearenv(key, dotenv_path=None):  # pragma: no cover
         dotenv.unset_key(dotenv_path, key, quote_mode='never')
 
 
+def defaultenv():  # pragma: no cover
+    for key, default_val in const.ENV_FILE_DEFAULTS.items():
+        existing = getenv(key)
+        if existing is None:
+            setenv(key, default_val)
+
+
 def path_exists(path_name):  # pragma: no cover
     return Path(path_name).exists()
 

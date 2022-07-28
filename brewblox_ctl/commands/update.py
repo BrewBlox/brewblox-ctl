@@ -2,10 +2,9 @@
 Migration scripts
 """
 
-from distutils.version import StrictVersion
-
 import click
 from brewblox_ctl import actions, click_helpers, const, migration, sh, utils
+from packaging.version import Version
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -13,13 +12,13 @@ def cli():
     """Global command group"""
 
 
-def check_version(prev_version: StrictVersion):
+def check_version(prev_version: Version):
     """Verify that the previous version is sane and sensible"""
-    if prev_version.version == (0, 0, 0):
+    if prev_version == Version('0.0.0'):
         utils.error('This configuration was never set up. Please run brewblox-ctl setup first')
         raise SystemExit(1)
 
-    if prev_version > StrictVersion(const.CFG_VERSION):
+    if prev_version > Version(const.CFG_VERSION):
         utils.error('Your system is running a version newer than the selected release. ' +
                     'This may be due to switching release tracks.' +
                     'You can use the --from-version flag if you know what you are doing.')
@@ -54,10 +53,7 @@ def check_automation_ui():
 
 def check_env_vars():
     utils.info('Checking .env variables...')
-    for (key, default_value) in const.ENV_FILE_DEFAULTS.items():
-        current_value = utils.getenv(key)
-        if current_value is None:
-            utils.setenv(key, default_value)
+    utils.defaultenv()
 
 
 def check_dirs():
@@ -107,13 +103,13 @@ def downed_migrate(prev_version):
     actions.add_particle_udev_rules()
     actions.edit_avahi_config()
 
-    if prev_version < StrictVersion('0.3.0'):
+    if prev_version < Version('0.3.0'):
         migration.migrate_compose_split()
 
-    if prev_version < StrictVersion('0.6.0'):
+    if prev_version < Version('0.6.0'):
         migration.migrate_compose_datastore()
 
-    if prev_version < StrictVersion('0.6.1'):
+    if prev_version < Version('0.6.1'):
         migration.migrate_ipv6_fix()
 
     # Not related to a specific release
@@ -125,7 +121,7 @@ def downed_migrate(prev_version):
 
 def upped_migrate(prev_version):
     """Migration commands to be executed after the services have been started"""
-    if prev_version < StrictVersion('0.6.0'):
+    if prev_version < Version('0.6.0'):
         utils.warn('')
         utils.warn('Brewblox now uses a new configuration database.')
         utils.warn('To migrate your data, run:')
@@ -133,7 +129,7 @@ def upped_migrate(prev_version):
         utils.warn('    brewblox-ctl database from-couchdb')
         utils.warn('')
 
-    if prev_version < StrictVersion('0.7.0'):
+    if prev_version < Version('0.7.0'):
         utils.warn('')
         utils.warn('Brewblox now uses a new history database.')
         utils.warn('To migrate your data, run:')
@@ -152,9 +148,10 @@ def upped_migrate(prev_version):
 @click.option('--pull/--no-pull',
               default=True,
               help='Update docker service images.')
-@click.option('--update-system/--no-update-system',
+@click.option('--update-system-packages/--no-update-system-packages',
               default=True,
-              help='Update Apt system packages. Skipped for systems without Apt.')
+              envvar=const.ENV_KEY_UPDATE_SYSTEM_PACKAGES,
+              help='Update system packages.')
 @click.option('--migrate/--no-migrate',
               default=True,
               help='Migrate Brewblox configuration and service settings.')
@@ -165,7 +162,7 @@ def upped_migrate(prev_version):
               default='0.0.0',
               envvar=const.ENV_KEY_CFG_VERSION,
               help='[ADVANCED] Override version number of active configuration.')
-def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, from_version):
+def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, prune, from_version):
     """Download and apply updates.
 
     This is the one-stop-shop for updating your Brewblox install.
@@ -183,7 +180,8 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     --pull/--no-pull. Whether to pull docker images.
     This is useful if any of your services is using a local image (not from Docker Hub).
 
-    --update-system/--no-update-system determines whether
+    --update-system-packages/--no-update-system-packages determines whether generic system packages
+    are updated during the brewblox-ctl update.
 
     --migrate/--no-migrate. Updates regularly require changes to configuration.
     Required changes are applied here.
@@ -210,8 +208,8 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     utils.confirm_mode()
     sudo = utils.optsudo()
 
-    prev_version = StrictVersion(from_version)
-    shipped_version = StrictVersion(const.CFG_VERSION)
+    prev_version = Version(from_version)
+    shipped_version = Version(const.CFG_VERSION)
     check_version(prev_version)
 
     if not update_ctl_done:
@@ -232,7 +230,7 @@ def update(update_ctl, update_ctl_done, pull, update_system, migrate, prune, fro
     utils.info('Stopping services...')
     sh(f'{sudo}docker-compose down')
 
-    if update_system:
+    if update_system_packages:
         actions.update_system_packages()
 
     if migrate:
