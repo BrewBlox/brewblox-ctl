@@ -2,12 +2,11 @@
 Tests brewblox_ctl.commands.update
 """
 
-from distutils.version import StrictVersion
-
 import pytest
 from brewblox_ctl import const
 from brewblox_ctl.commands import update
 from brewblox_ctl.testing import check_sudo, invoke
+from packaging.version import Version
 
 TESTED = update.__name__
 
@@ -74,7 +73,7 @@ def test_update(m_actions, m_utils, m_sh, mocker):
     invoke(update.update, '--from-version 9001.0.0 --prune', _err=True)
     invoke(update.update,
            '--from-version 0.0.1 --no-pull --no-update-ctl' +
-           ' --no-migrate --no-prune --no-update-system')
+           ' --no-migrate --no-prune --no-update-system-packages')
 
     m_utils.getenv.return_value = None
     invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune')
@@ -84,13 +83,13 @@ def test_check_version(m_utils, mocker):
     mocker.patch(TESTED + '.const.CFG_VERSION', '1.2.3')
     mocker.patch(TESTED + '.SystemExit', DummyError)
 
-    update.check_version(StrictVersion('1.2.2'))
+    update.check_version(Version('1.2.2'))
 
     with pytest.raises(DummyError):
-        update.check_version(StrictVersion('0.0.0'))
+        update.check_version(Version('0.0.0'))
 
     with pytest.raises(DummyError):
-        update.check_version(StrictVersion('1.3.0'))
+        update.check_version(Version('1.3.0'))
 
 
 def test_check_automation_ui(m_utils):
