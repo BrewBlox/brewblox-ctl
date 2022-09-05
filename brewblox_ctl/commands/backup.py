@@ -76,6 +76,10 @@ def save(save_compose, ignore_spark_error):
     utils.check_config()
     urllib3.disable_warnings()
 
+    utils.warn('')
+    utils.warn('Backups are deprecated. Use `brewblox-ctl snapshot save` / `brewblox-ctl snapshot load`')
+    utils.warn('')
+
     file = f'backup/brewblox_backup_{datetime.now().strftime("%Y%m%d_%H%M")}.zip'
     with suppress(FileExistsError):
         mkdir(Path('backup/').resolve())
@@ -201,6 +205,10 @@ def load(archive,
     utils.check_config()
     utils.confirm_mode()
     urllib3.disable_warnings()
+
+    utils.warn('')
+    utils.warn('Backups are deprecated. Use `brewblox-ctl snapshot save` / `brewblox-ctl snapshot load`')
+    utils.warn('')
 
     sudo = utils.optsudo()
     host_url = utils.host_url()
