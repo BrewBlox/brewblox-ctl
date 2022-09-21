@@ -143,6 +143,13 @@ def clearenv(key, dotenv_path=None):  # pragma: no cover
         dotenv.unset_key(dotenv_path, key, quote_mode='never')
 
 
+def defaultenv():  # pragma: no cover
+    for key, default_val in const.ENV_FILE_DEFAULTS.items():
+        existing = getenv(key)
+        if existing is None:
+            setenv(key, default_val)
+
+
 def path_exists(path_name):  # pragma: no cover
     return Path(path_name).exists()
 
@@ -177,7 +184,7 @@ def has_docker_rights():  # pragma: no cover
 
 
 def is_brewblox_dir(dir: str) -> bool:  # pragma: no cover
-    return const.CFG_VERSION_KEY in dotenv_values(f'{dir}/.env')
+    return const.ENV_KEY_CFG_VERSION in dotenv_values(f'{dir}/.env')
 
 
 def is_empty_dir(dir):  # pragma: no cover
@@ -195,7 +202,7 @@ def optsudo():  # pragma: no cover
 
 
 def docker_tag(release=None):
-    release = release or getenv(const.RELEASE_KEY)
+    release = release or getenv(const.ENV_KEY_RELEASE)
     if not release:
         raise KeyError('No Brewblox release specified. Please run this command in a Brewblox directory.')
     return release
@@ -294,7 +301,7 @@ def show_data(desc: str, data):
 
 
 def host_url():
-    port = getenv(const.HTTPS_PORT_KEY, '443')
+    port = getenv(const.ENV_KEY_PORT_HTTPS, '443')
     return f'{const.HOST}:{port}'
 
 
@@ -320,7 +327,9 @@ def read_file(fname):  # pragma: no cover
 
 
 def read_compose(fname='docker-compose.yml'):
-    return yaml.load(Path(fname))
+    config: dict = yaml.load(Path(fname))
+    config.setdefault('services', {})
+    return config
 
 
 def write_compose(config, fname='docker-compose.yml'):  # pragma: no cover

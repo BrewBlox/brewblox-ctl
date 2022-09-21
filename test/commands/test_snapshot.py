@@ -50,7 +50,7 @@ def test_save_defaults(m_utils, m_sh):
 
     invoke(snapshot.save)
     cwd = Path('.').resolve().name
-    m_sh.assert_called_with(matching(r'sudo tar -C .* -czf ../brewblox.tar.gz ' + cwd))
+    m_sh.assert_called_with(matching(r'sudo tar -C .* -czf ../brewblox-snapshot.tar.gz ' + cwd))
 
 
 def test_save_file_exists(m_utils, m_sh):

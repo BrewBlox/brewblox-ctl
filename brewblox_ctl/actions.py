@@ -40,13 +40,13 @@ def add_particle_udev_rules():
     if not utils.path_exists(target) and utils.command_exists('udevadm'):
         utils.info('Adding udev rules for Particle devices...')
         sh(f'sudo mkdir -p {rules_dir}')
-        sh(f'sudo cp {const.CONFIG_DIR}/50-particle.rules {target}')
+        sh(f'sudo cp {const.DIR_DEPLOYED_CONFIG}/50-particle.rules {target}')
         sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
 
 
 def install_ctl_package(download: str = 'always'):  # always | missing | never
     exists = utils.path_exists('./brewblox-ctl.tar.gz')
-    release = utils.getenv(const.CTL_RELEASE_KEY) or utils.getenv(const.RELEASE_KEY)
+    release = utils.getenv(const.ENV_KEY_CTL_RELEASE) or utils.getenv(const.ENV_KEY_RELEASE)
     if download == 'always' or download == 'missing' and not exists:
         sh(f'wget -q -O ./brewblox-ctl.tar.gz https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz')
     sh('python3 -m pip install ./brewblox-ctl.tar.gz')
@@ -58,11 +58,11 @@ def uninstall_old_ctl_package():
 
 
 def deploy_ctl_wrapper():
-    sh(f'chmod +x "{const.SCRIPT_DIR}/brewblox-ctl"')
+    sh(f'chmod +x "{const.DIR_DEPLOYED_SCRIPTS}/brewblox-ctl"')
     if utils.user_home_exists():
-        sh(f'mkdir -p "$HOME/.local/bin" && cp "{const.SCRIPT_DIR}/brewblox-ctl" "$HOME/.local/bin/"')
+        sh(f'mkdir -p "$HOME/.local/bin" && cp "{const.DIR_DEPLOYED_SCRIPTS}/brewblox-ctl" "$HOME/.local/bin/"')
     else:
-        sh(f'sudo cp "{const.SCRIPT_DIR}/brewblox-ctl" /usr/local/bin/')
+        sh(f'sudo cp "{const.DIR_DEPLOYED_SCRIPTS}/brewblox-ctl" /usr/local/bin/')
 
 
 def check_ports():
@@ -71,11 +71,10 @@ def check_ports():
         sh(f'{utils.optsudo()}docker-compose down')
 
     ports = [
-        int(utils.getenv(key, const.ENV_DEFAULTS[key])) for key in [
-            const.HTTP_PORT_KEY,
-            const.HTTPS_PORT_KEY,
-            const.MQTT_PORT_KEY,
-        ]]
+        int(utils.getenv(const.ENV_KEY_PORT_HTTP, const.DEFAULT_PORT_HTTP)),
+        int(utils.getenv(const.ENV_KEY_PORT_HTTPS, const.DEFAULT_PORT_HTTPS)),
+        int(utils.getenv(const.ENV_KEY_PORT_MQTT, const.DEFAULT_PORT_MQTT)),
+    ]
 
     try:
         port_connnections = [
@@ -137,7 +136,7 @@ def fix_ipv6(config_file=None, restart=True):
 
 
 def edit_avahi_config():
-    conf = Path(const.AVAHI_CONF)
+    conf = Path('/etc/avahi/avahi-daemon.conf')
 
     if not conf.exists():
         return

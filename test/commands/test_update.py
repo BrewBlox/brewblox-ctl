@@ -2,12 +2,11 @@
 Tests brewblox_ctl.commands.update
 """
 
-from distutils.version import StrictVersion
-
 import pytest
 from brewblox_ctl import const
 from brewblox_ctl.commands import update
 from brewblox_ctl.testing import check_sudo, invoke
+from packaging.version import Version
 
 TESTED = update.__name__
 
@@ -67,30 +66,30 @@ def test_update(m_actions, m_utils, m_sh, mocker):
     mocker.patch(TESTED + '.migration')
 
     invoke(update.update, '--from-version 0.0.1', input='\n')
-    invoke(update.update, f'--from-version {const.CURRENT_VERSION} --no-update-ctl --prune')
+    invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune')
     invoke(update.update, '--from-version 0.0.1 --update-ctl-done --prune')
     invoke(update.update, _err=True)
     invoke(update.update, '--from-version 0.0.0 --prune', _err=True)
     invoke(update.update, '--from-version 9001.0.0 --prune', _err=True)
     invoke(update.update,
            '--from-version 0.0.1 --no-pull --no-update-ctl' +
-           ' --no-migrate --no-prune --no-update-system')
+           ' --no-migrate --no-prune --no-update-system-packages')
 
     m_utils.getenv.return_value = None
-    invoke(update.update, f'--from-version {const.CURRENT_VERSION} --no-update-ctl --prune')
+    invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune')
 
 
 def test_check_version(m_utils, mocker):
-    mocker.patch(TESTED + '.const.CURRENT_VERSION', '1.2.3')
+    mocker.patch(TESTED + '.const.CFG_VERSION', '1.2.3')
     mocker.patch(TESTED + '.SystemExit', DummyError)
 
-    update.check_version(StrictVersion('1.2.2'))
+    update.check_version(Version('1.2.2'))
 
     with pytest.raises(DummyError):
-        update.check_version(StrictVersion('0.0.0'))
+        update.check_version(Version('0.0.0'))
 
     with pytest.raises(DummyError):
-        update.check_version(StrictVersion('1.3.0'))
+        update.check_version(Version('1.3.0'))
 
 
 def test_check_automation_ui(m_utils):
@@ -105,3 +104,92 @@ def test_check_automation_ui(m_utils):
     # No automation service -> no changes
     update.check_automation_ui()
     assert m_utils.write_compose.call_count == 1
+
+
+def test_bind_localtime(m_utils):
+    m_utils.read_compose.side_effect = lambda: {
+        'version': '3.7',
+        'services': {
+            'spark-one': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+            },
+            'spark-two': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': ['/data:/data']
+            },
+            'plaato': {
+                'image': 'brewblox/brewblox-plaato:rpi-edge',
+                'volumes': ['/etc/localtime:/etc/localtime:ro']
+            },
+            'automation': {
+                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': '/etc/localtime',
+                    'target': '/etc/localtime',
+                    'read_only': True,
+                }]
+            }
+        }}
+
+    update.bind_localtime()
+    m_utils.write_compose.assert_called_once_with({
+        'version': '3.7',
+        'services': {
+            'spark-one': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': '/etc/localtime',
+                    'target': '/etc/localtime',
+                    'read_only': True,
+                }]
+            },
+            'spark-two': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': [
+                    '/data:/data',
+                    {
+                        'type': 'bind',
+                        'source': '/etc/localtime',
+                        'target': '/etc/localtime',
+                        'read_only': True,
+                    }
+                ]
+            },
+            'plaato': {
+                'image': 'brewblox/brewblox-plaato:rpi-edge',
+                'volumes': ['/etc/localtime:/etc/localtime:ro']
+            },
+            'automation': {
+                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': '/etc/localtime',
+                    'target': '/etc/localtime',
+                    'read_only': True,
+                }]
+            }
+        }})
+
+
+def test_bind_localtime_noop(m_utils):
+    m_utils.read_shared_compose.side_effect = lambda: {
+        'version': '3.7',
+        'services': {
+            'redis': {
+                'image': 'redis:6.0',
+            },
+        }
+    }
+    m_utils.read_compose.side_effect = lambda: {
+        'version': '3.7',
+        'services': {
+            'redis': {
+                'image': 'redis:6.0',
+            },
+        }
+    }
+
+    update.bind_localtime()
+    m_utils.write_compose.assert_not_called()

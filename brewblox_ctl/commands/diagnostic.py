@@ -10,13 +10,8 @@ import click
 from brewblox_ctl import click_helpers, const, sh, utils
 
 ENV_KEYS = [
-    const.RELEASE_KEY,
-    const.CFG_VERSION_KEY,
-    const.HTTP_PORT_KEY,
-    const.HTTPS_PORT_KEY,
-    const.MQTT_PORT_KEY,
-    const.COMPOSE_FILES_KEY,
-    const.COMPOSE_PROJECT_KEY,
+    const.ENV_KEY_CFG_VERSION,
+    *const.ENV_FILE_DEFAULTS.keys(),
 ]
 
 
@@ -193,4 +188,9 @@ def coredump(upload):
 @cli.command()
 @click.argument('file')
 def termbin(file):
+    """Upload text file to termbin, and get a shareable URL.
+
+    Files are available for limited duration on termbin.com,
+    and anyone with the link can view them.
+    """
     click.echo(utils.file_netcat('termbin.com', 9999, Path(file)).decode())

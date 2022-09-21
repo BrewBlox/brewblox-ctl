@@ -345,8 +345,8 @@ def test_get_urls(m_getenv):
     assert utils.datastore_url() == f'{const.HOST}:4321/history/datastore'
 
     assert m_getenv.call_args_list == [
-        call(const.HTTPS_PORT_KEY, '443'),
-        call(const.HTTPS_PORT_KEY, '443'),
+        call(const.ENV_KEY_PORT_HTTPS, '443'),
+        call(const.ENV_KEY_PORT_HTTPS, '443'),
     ]
 
 
@@ -361,9 +361,9 @@ def test_host_ip(m_getenv):
 
 def test_list_services():
     services = utils.list_services(
-        'brewblox/brewblox-devcon-spark',
-        'brewblox_ctl/deployed/config/docker-compose.yml')
-    assert services == ['spark-one']
+        'brewblox/brewblox-history',
+        'brewblox_ctl/deployed/config/docker-compose.shared.yml')
+    assert services == ['history']
 
 
 def test_read_shared_compose():

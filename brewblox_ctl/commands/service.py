@@ -62,13 +62,13 @@ def remove(ctx, services):
 
 @service.command()
 @click.option('--http',
-              envvar=const.HTTP_PORT_KEY,
+              envvar=const.ENV_KEY_PORT_HTTP,
               help='Port used for HTTP connections.')
 @click.option('--https',
-              envvar=const.HTTPS_PORT_KEY,
+              envvar=const.ENV_KEY_PORT_HTTPS,
               help='Port used for HTTPS connections.')
 @click.option('--mqtt',
-              envvar=const.MQTT_PORT_KEY,
+              envvar=const.ENV_KEY_PORT_MQTT,
               help='Port used for MQTT connections.')
 def ports(http, https, mqtt):
     """Update used ports"""
@@ -76,9 +76,9 @@ def ports(http, https, mqtt):
     utils.confirm_mode()
 
     cfg = {
-        const.HTTP_PORT_KEY: http,
-        const.HTTPS_PORT_KEY: https,
-        const.MQTT_PORT_KEY: mqtt,
+        const.ENV_KEY_PORT_HTTP: http,
+        const.ENV_KEY_PORT_HTTPS: https,
+        const.ENV_KEY_PORT_MQTT: mqtt,
     }
 
     utils.info('Writing port settings to .env...')

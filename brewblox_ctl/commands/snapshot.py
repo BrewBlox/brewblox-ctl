@@ -23,7 +23,7 @@ def snapshot():
 @snapshot.command()
 @click.option('--file',
               help='Snapshot file',
-              default='../brewblox.tar.gz')
+              default='../brewblox-snapshot.tar.gz')
 @click.option('--force',
               is_flag=True,
               help='Remove previous tarfile if it exists')
@@ -54,7 +54,7 @@ def save(file, force):
 @snapshot.command()
 @click.option('--file',
               help='Snapshot file',
-              default='../brewblox.tar.gz')
+              default='../brewblox-snapshot.tar.gz')
 def load(file):
     """Create Brewblox directory from snapshot.
 

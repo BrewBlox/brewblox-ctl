@@ -18,7 +18,7 @@ SUPPORTED_PYTHON_MINOR = 6
 
 
 def escalate(ex):
-    if utils.getenv(const.DEBUG_KEY):
+    if utils.getenv(const.ENV_KEY_DEBUG):
         raise ex
     else:
         raise SystemExit(1)
@@ -44,9 +44,9 @@ def main(args=sys.argv[1:]):
             raise SystemExit(1)
 
         if utils.is_armv6() \
-            and not utils.confirm(
-                'Raspberry Pi models 0 and 1 are not supported. Do you want to continue?', False):
-            raise SystemExit(0)
+                and not utils.getenv(const.ENV_KEY_ALLOW_ARMV6):
+            click.secho('ARMv6 detected. The Raspberry Pi Zero and 1 are not supported.', fg='red')
+            raise SystemExit(1)
 
         if sys.version_info[1] < SUPPORTED_PYTHON_MINOR:
             major = sys.version_info[0]
@@ -75,7 +75,7 @@ def main(args=sys.argv[1:]):
             ])
         @click.option('-y', '--yes',
                       is_flag=True,
-                      envvar=const.SKIP_CONFIRM_KEY,
+                      envvar=const.ENV_KEY_SKIP_CONFIRM,
                       help='Do not prompt to confirm commands.')
         @click.option('-d', '--dry', '--dry-run',
                       is_flag=True,
