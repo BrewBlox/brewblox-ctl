@@ -223,7 +223,7 @@ def particle(release, pull, command):
 
 
 @cli.command()
-@click.argument('cmd', nargs=-1)
+@click.argument('cmd', nargs=-1, type=click.UNPROCESSED)
 def esptool(cmd):
     """Run the esptool.py tool for Spark 4 management.
 
