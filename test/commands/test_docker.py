@@ -27,6 +27,10 @@ def test_up(m_utils, m_sh):
     invoke(docker.up, '--quiet svc')
     m_sh.assert_called_once_with('SUDO docker-compose up -d --quiet svc')
 
+    m_sh.reset_mock()
+    invoke(docker.up, '-d --quiet svc')
+    m_sh.assert_called_once_with('SUDO docker-compose up -d --quiet svc')
+
 
 def test_down(m_utils, m_sh):
     invoke(docker.down, '--quiet')
