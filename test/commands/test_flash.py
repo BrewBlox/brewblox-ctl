@@ -40,6 +40,14 @@ def test_run_particle_flasher(m_utils, m_sh):
         'brewblox/firmware-flasher:taggart do-stuff')
 
 
+def test_esptool(m_utils):
+    invoke(flash.esptool, 'write_flash coredump.bin')
+    m_utils.esptool.assert_called_with('write_flash', 'coredump.bin')
+
+    invoke(flash.esptool, '-- --help')
+    m_utils.esptool.assert_called_with('--help')
+
+
 def test_find_usb_spark(m_usb, m_utils, m_sh):
     m_usb.core.find.side_effect = [
         # too many
