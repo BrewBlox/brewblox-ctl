@@ -18,8 +18,9 @@ def cli():
 @cli.command(context_settings=dict(
     ignore_unknown_options=True,
 ))
+@click.option('-d', '--detach', is_flag=True, hidden=True)
 @click.argument('compose_args', nargs=-1, type=click.UNPROCESSED)
-def up(compose_args):
+def up(detach, compose_args):
     """Start all services.
 
     This wraps `docker-compose up -d`
