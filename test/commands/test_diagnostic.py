@@ -53,14 +53,14 @@ def test_log_service_error(m_utils, m_sh):
 
 def test_coredump(m_utils, m_sh):
     invoke(diagnostic.coredump)
-    assert m_sh.call_count == 2
     assert m_utils.file_netcat.call_count == 1
+    assert m_utils.esptool.call_count == 1
 
-    m_sh.reset_mock()
+    m_utils.esptool.reset_mock()
     m_utils.file_netcat.reset_mock()
     m_utils.command_exists.return_value = False
     invoke(diagnostic.coredump, '--no-upload')
-    assert m_sh.call_count == 3
+    assert m_utils.esptool.call_count == 1
     assert m_utils.file_netcat.call_count == 0
 
 
