@@ -19,9 +19,13 @@ def localtime_volume() -> dict:
     }
 
 
-def check_duplicate(config: dict, name: str):
-    if name in config['services'] \
-            and not utils.confirm(f'Service `{name}` already exists. Do you want to overwrite it?'):
+def check_create_overwrite(config: dict, name: str):
+    if name in config['services']:
+        prompt = f'Service `{name}` already exists. Do you want to overwrite it?'
+    else:
+        prompt = f'Service `{name}` does not yet exist. Do you want to create it?'
+
+    if not utils.confirm(prompt):
         raise SystemExit(1)
 
 
@@ -70,9 +74,9 @@ def discover_spark(discovery_type):
               help='Static controller URL')
 @click.option('-c', '--command',
               help='Additional arguments to pass to the service command')
-@click.option('-f', '--force',
+@click.option('-y', '--yes',
               is_flag=True,
-              help='Allow overwriting an existing service')
+              help='Do not prompt for confirmation')
 @click.option('--release',
               default='${BREWBLOX_RELEASE}',
               help='Brewblox release track used by the Spark service.')
@@ -85,7 +89,7 @@ def add_spark(name,
               discovery_type,
               device_host,
               command,
-              force,
+              yes,
               release,
               simulation):
     """
@@ -105,8 +109,8 @@ def add_spark(name,
     sudo = utils.optsudo()
     config = utils.read_compose()
 
-    if not force:
-        check_duplicate(config, name)
+    if not yes:
+        check_create_overwrite(config, name)
 
     for (nm, svc) in config['services'].items():
         img = svc.get('image', '')
@@ -182,10 +186,10 @@ def add_spark(name,
 
 
 @cli.command()
-@click.option('-f', '--force',
+@click.option('-y', '--yes',
               is_flag=True,
-              help='Allow overwriting an existing service')
-def add_tilt(force):
+              help='Do not prompt for confirmation')
+def add_tilt(yes):
     """
     Create a service for the Tilt hydrometer.
 
@@ -201,8 +205,8 @@ def add_tilt(force):
     sudo = utils.optsudo()
     config = utils.read_compose()
 
-    if not force:
-        check_duplicate(config, name)
+    if not yes:
+        check_create_overwrite(config, name)
 
     config['services'][name] = {
         'image': 'brewblox/brewblox-tilt:${BREWBLOX_RELEASE}',
@@ -241,10 +245,10 @@ def add_tilt(force):
               prompt='What is your Plaato auth token? '
               'For more info: https://plaato.io/apps/help-center#!hc-auth-token',
               help='Plaato authentication token.')
-@click.option('-f', '--force',
+@click.option('-y', '--yes',
               is_flag=True,
-              help='Allow overwriting an existing service')
-def add_plaato(name, token, force):
+              help='Do not prompt for confirmation')
+def add_plaato(name, token, yes):
     """
     Create a service for the Plaato airlock.
 
@@ -259,8 +263,8 @@ def add_plaato(name, token, force):
     sudo = utils.optsudo()
     config = utils.read_compose()
 
-    if not force:
-        check_duplicate(config, name)
+    if not yes:
+        check_create_overwrite(config, name)
 
     config['services'][name] = {
         'image': 'brewblox/brewblox-plaato:${BREWBLOX_RELEASE}',
@@ -280,10 +284,10 @@ def add_plaato(name, token, force):
 
 
 @cli.command()
-@click.option('-f', '--force',
+@click.option('-y', '--yes',
               is_flag=True,
-              help='Allow overwriting an existing service')
-def add_node_red(force):
+              help='Do not prompt for confirmation')
+def add_node_red(yes):
     """
     Create a service for Node-RED.
     """
@@ -296,8 +300,8 @@ def add_node_red(force):
     port = utils.getenv(const.ENV_KEY_PORT_HTTPS)
     config = utils.read_compose()
 
-    if not force:
-        check_duplicate(config, name)
+    if not yes:
+        check_create_overwrite(config, name)
 
     config['services'][name] = {
         'image': 'brewblox/node-red:${BREWBLOX_RELEASE}',

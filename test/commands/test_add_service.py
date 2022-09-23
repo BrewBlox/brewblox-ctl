@@ -71,11 +71,11 @@ def test_discover_spark(m_utils, mocker):
 
 def test_add_spark(m_utils, m_sh, mocker, m_choose, m_find_by_host):
     m_utils.read_compose.side_effect = lambda: {'services': {}}
+    m_utils.confirm.return_value = True
 
     invoke(add_service.add_spark, '--name testey --discover-now --discovery wifi --command "--do-stuff"')
     invoke(add_service.add_spark, input='testey\n')
 
-    m_utils.confirm.return_value = False
     invoke(add_service.add_spark, '-n testey')
 
     m_choose.side_effect = lambda _1, _2=None: None
@@ -85,12 +85,16 @@ def test_add_spark(m_utils, m_sh, mocker, m_choose, m_find_by_host):
     invoke(add_service.add_spark, '--name testey --simulation')
 
 
-def test_add_spark_force(m_utils, m_sh, mocker, m_choose):
+def test_add_spark_yes(m_utils, m_sh, mocker, m_choose):
     m_utils.confirm.return_value = False
-    m_utils.read_compose.side_effect = lambda: {'services': {'testey': {}}}
 
+    m_utils.read_compose.side_effect = lambda: {'services': {}}
     invoke(add_service.add_spark, '--name testey', _err=True)
-    invoke(add_service.add_spark, '--name testey --force')
+    invoke(add_service.add_spark, '--name testey --yes')
+
+    m_utils.read_compose.side_effect = lambda: {'services': {'testey': {}}}
+    invoke(add_service.add_spark, '--name testey', _err=True)
+    invoke(add_service.add_spark, '--name testey --yes')
 
 
 def test_spark_overwrite(m_utils, m_sh, m_choose, mocker):
@@ -100,7 +104,7 @@ def test_spark_overwrite(m_utils, m_sh, m_choose, mocker):
                 'image': 'brewblox/brewblox-devcon-spark:develop'
             }}}
 
-    invoke(add_service.add_spark, '--name testey --force')
+    invoke(add_service.add_spark, '--name testey --yes')
     assert m_utils.warn.call_count == 0
 
     invoke(add_service.add_spark, '--name new-testey')
@@ -109,13 +113,14 @@ def test_spark_overwrite(m_utils, m_sh, m_choose, mocker):
 
 def test_add_tilt(m_utils, m_sh, mocker):
     m_utils.read_compose.side_effect = lambda: {'services': {}}
+    m_utils.confirm.return_value = True
     invoke(add_service.add_tilt)
     assert m_sh.call_count == 2
 
     m_sh.reset_mock()
     m_utils.confirm.return_value = False
-    invoke(add_service.add_tilt)
-    assert m_sh.call_count == 1
+    invoke(add_service.add_tilt, _err=True)
+    assert m_sh.call_count == 0
 
     m_sh.reset_mock()
     m_utils.read_compose.side_effect = lambda: {'services': {'tilt': {}}}
@@ -123,12 +128,12 @@ def test_add_tilt(m_utils, m_sh, mocker):
     assert m_sh.call_count == 0
 
 
-def test_add_tilt_force(m_utils, m_sh, mocker, m_choose):
+def test_add_tilt_yes(m_utils, m_sh, mocker, m_choose):
     m_utils.confirm.return_value = False
     m_utils.read_compose.side_effect = lambda: {'services': {'tilt': {}}}
 
     invoke(add_service.add_tilt, _err=True)
-    invoke(add_service.add_tilt, '--force')
+    invoke(add_service.add_tilt, '--yes')
 
 
 def test_add_plaato(m_utils, m_sh, mocker):
@@ -140,38 +145,40 @@ def test_add_plaato(m_utils, m_sh, mocker):
 
     m_sh.reset_mock()
     m_utils.confirm.return_value = False
-    invoke(add_service.add_plaato, '-n testey --token x')
+    invoke(add_service.add_plaato, '-n testey --token x', _err=True)
     assert m_sh.call_count == 0
 
 
-def test_add_plaato_force(m_utils, m_sh, mocker, m_choose):
+def test_add_plaato_yes(m_utils, m_sh, mocker, m_choose):
     m_utils.confirm.return_value = False
     m_utils.read_compose.side_effect = lambda: {'services': {'testey': {}}}
 
     invoke(add_service.add_plaato, '--name testey --token x', _err=True)
-    invoke(add_service.add_plaato, '--name testey --token x --force')
+    invoke(add_service.add_plaato, '--name testey --token x --yes')
 
 
 def test_add_node_red(m_utils, m_sh, mocker):
     m_utils.read_compose.side_effect = lambda: {'services': {}}
+    m_utils.confirm.return_value = True
     invoke(add_service.add_node_red)
     assert m_sh.call_count == 2
 
     m_sh.reset_mock()
     m_utils.confirm.return_value = False
-    invoke(add_service.add_node_red)
-    assert m_sh.call_count == 1
+    invoke(add_service.add_node_red, _err=True)
+    assert m_sh.call_count == 0
 
 
 def test_add_node_red_other_uid(m_utils, m_sh, mocker, m_getuid):
     m_getuid.return_value = 1001
+    m_utils.confirm.return_value = True
     m_utils.read_compose.side_effect = lambda: {'services': {}}
     invoke(add_service.add_node_red)
     assert m_sh.call_count == 3
 
 
-def test_add_node_red_force(m_utils, m_sh, mocker, m_choose):
+def test_add_node_red_yes(m_utils, m_sh, mocker, m_choose):
     m_utils.confirm.return_value = False
     m_utils.read_compose.side_effect = lambda: {'services': {'node-red': {}}}
     invoke(add_service.add_node_red, _err=True)
-    invoke(add_service.add_node_red, '--force')
+    invoke(add_service.add_node_red, '--yes')
