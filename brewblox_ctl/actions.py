@@ -49,7 +49,7 @@ def install_ctl_package(download: str = 'always'):  # always | missing | never
     release = utils.getenv(const.ENV_KEY_CTL_RELEASE) or utils.getenv(const.ENV_KEY_RELEASE)
     if download == 'always' or download == 'missing' and not exists:
         sh(f'wget -q -O ./brewblox-ctl.tar.gz https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz')
-    sh('python3 -m pip install ./brewblox-ctl.tar.gz')
+    sh('python3 -m pip install --prefer-binary ./brewblox-ctl.tar.gz')
 
 
 def uninstall_old_ctl_package():
