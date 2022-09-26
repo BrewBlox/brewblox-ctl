@@ -272,7 +272,9 @@ def check_ok(cmd):
 
 
 def pip_install(*libs):
-    return sh('python3 -m pip install --upgrade --no-cache-dir ' + ' '.join(libs))
+    return sh('python3 -m pip install '
+              + '--upgrade --no-cache-dir --prefer-binary '
+              + ' '.join(libs))
 
 
 def info(msg):
