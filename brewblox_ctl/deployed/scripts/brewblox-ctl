@@ -2,8 +2,8 @@
 set -euo pipefail
 
 if [[ $EUID -eq 0 ]]; then
-   echo "ERROR: This script must not be run as root, or using sudo."
-   exit 1
+    echo "ERROR: This script must not be run as root, or using sudo."
+    exit 1
 fi
 
 ARGS=("$@")
@@ -22,7 +22,7 @@ log_error() {
 }
 
 flush_stdin() {
-    while read -ret 0.1; do : ; done
+    while read -ret 0.1; do :; done
 }
 
 # Args:
@@ -40,10 +40,8 @@ install_ctl() {
     # - Environment variable
     # - Value for previous install
     # - Default
-    if [ -z "${BREWBLOX_RELEASE:-}" ]
-    then
-        if is_brewblox_dir "${PWD}"
-        then
+    if [ -z "${BREWBLOX_RELEASE:-}" ]; then
+        if is_brewblox_dir "${PWD}"; then
             BREWBLOX_RELEASE=$(grep BREWBLOX_RELEASE .env | cut -d '=' -f2)
         else
             BREWBLOX_RELEASE="edge"
@@ -66,16 +64,13 @@ install_ctl() {
     # Install packages into the virtual env
     log_info "Installing Python packages..."
     python3 -m pip install pip setuptools wheel
-    python3 -m pip install --prefer-binary cryptography
-    python3 -m pip install ./brewblox-ctl.tar.gz
+    python3 -m pip install --prefer-binary ./brewblox-ctl.tar.gz
 }
 
 # Args: none
 install_brewblox() {
-    if [ -z "${BREWBLOX_DIR:-}" ]
-    then
-        if is_brewblox_dir "${PWD}"
-        then
+    if [ -z "${BREWBLOX_DIR:-}" ]; then
+        if is_brewblox_dir "${PWD}"; then
             BREWBLOX_DIR="${PWD}"
         else
             BREWBLOX_DIR="${PWD}/brewblox"
@@ -83,15 +78,13 @@ install_brewblox() {
     fi
 
     # Check if dir exists, but is not a brewblox dir, and is not empty
-    if [[ -d "${BREWBLOX_DIR}" ]] \
-        && ! is_brewblox_dir "$BREWBLOX_DIR" \
-        && [ -n "$(ls -A "${BREWBLOX_DIR:?}")" ]
-    then
+    if [[ -d "${BREWBLOX_DIR}" ]] &&
+        ! is_brewblox_dir "$BREWBLOX_DIR" &&
+        [ -n "$(ls -A "${BREWBLOX_DIR:?}")" ]; then
         log_warn "${BREWBLOX_DIR} already exists, and is not a Brewblox directory."
         flush_stdin
         read -rp "Remove directory and continue? (y/N)" response
-        if [[ "${response}" =~ ^y(es)? ]]
-        then
+        if [[ "${response}" =~ ^y(es)? ]]; then
             rm -rf "${BREWBLOX_DIR:?}/*"
         else
             exit 1
@@ -99,10 +92,9 @@ install_brewblox() {
     fi
 
     # Ensure that the Brewblox dir is cwd
-    if [[ ${BREWBLOX_DIR} != "${PWD}" ]]
-    then
+    if [[ ${BREWBLOX_DIR} != "${PWD}" ]]; then
         mkdir -p "${BREWBLOX_DIR}"
-        pushd "${BREWBLOX_DIR}" > /dev/null
+        pushd "${BREWBLOX_DIR}" >/dev/null
     fi
 
     install_ctl
@@ -110,13 +102,11 @@ install_brewblox() {
 
 # Args: none
 run_ctl() {
-    if [[ ${BREWBLOX_DIR} != "${PWD}" ]]
-    then
-        pushd "${BREWBLOX_DIR}" > /dev/null
+    if [[ ${BREWBLOX_DIR} != "${PWD}" ]]; then
+        pushd "${BREWBLOX_DIR}" >/dev/null
     fi
 
-    if [[ ! -d .venv ]]
-    then
+    if [[ ! -d .venv ]]; then
         install_ctl
     fi
 
@@ -128,8 +118,7 @@ run_ctl() {
 # Default use case:
 # brewblox-ctl is called while PWD is a Brewblox dir
 # -> Run brewblox-ctl in Python
-if is_brewblox_dir "${PWD}"
-then
+if is_brewblox_dir "${PWD}"; then
     BREWBLOX_DIR="${PWD}"
     run_ctl
     exit $?
@@ -138,10 +127,8 @@ fi
 # Special use case:
 # (re-)installing brewblox
 # -> Always first download brewblox-ctl, then run install command
-for arg in "${ARGS[@]}"
-do
-    if [[ "${arg}" == "install" ]]
-    then
+for arg in "${ARGS[@]}"; do
+    if [[ "${arg}" == "install" ]]; then
         install_brewblox
         run_ctl
         exit $?
@@ -152,10 +139,8 @@ done
 # brewblox-ctl is called from a non-Brewblox dir,
 # but a Brewblox dir is found in a common or adjacent place.
 # -> Prompt the user how and where to retry the command.
-for dir in "${HOME}/brewblox" "./brewblox" "../brewblox"
-do
-    if is_brewblox_dir "${dir}"
-    then
+for dir in "${HOME}/brewblox" "./brewblox" "../brewblox"; do
+    if is_brewblox_dir "${dir}"; then
         log_error "Current directory is not a Brewblox install directory."
         log_error "A Brewblox installation was found in ${dir}."
         log_error "Navigate there, and re-run the command."
