@@ -127,7 +127,7 @@ def add_spark(name,
             utils.warn('This may cause multiple services to connect to the same controller.')
             utils.warn(f'To reconfigure `{nm}`, please run:')
             utils.warn('')
-            utils.warn(f'    brewblox-ctl add-spark -f --name {nm}')
+            utils.warn(f'    brewblox-ctl add-spark --name {nm}')
             utils.warn('')
             utils.select('Press ENTER to continue or Ctrl-C to exit')
 
