@@ -8,6 +8,7 @@ from unittest.mock import call
 
 import click
 import pytest
+
 from brewblox_ctl import const, utils
 
 TESTED = utils.__name__
