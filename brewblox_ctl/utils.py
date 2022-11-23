@@ -277,6 +277,12 @@ def pip_install(*libs):
               + ' '.join(libs))
 
 
+def esptool(*args):
+    if not command_exists('esptool.py'):
+        pip_install('esptool')
+    return sh('sudo -E env "PATH=$PATH" esptool.py ' + ' '.join(args))
+
+
 def info(msg):
     opts = ctx_opts()
     if not opts.quiet:

@@ -8,6 +8,7 @@ from unittest.mock import call
 
 import click
 import pytest
+
 from brewblox_ctl import const, utils
 
 TESTED = utils.__name__
@@ -317,6 +318,21 @@ def test_logs(mocker):
 def test_pip_install(mocker, m_sh):
     utils.pip_install('lib', 'lib2')
     m_sh.assert_called_with('python3 -m pip install --upgrade --no-cache-dir --prefer-binary lib lib2')
+
+
+def test_esptool(mocked_ext, m_sh):
+    m_which = mocked_ext['shutil.which']
+    m_which.return_value = ''
+
+    utils.esptool('--chip esp32', 'read_flash', 'coredump.bin')
+    m_sh.assert_called_with('sudo -E env "PATH=$PATH" esptool.py --chip esp32 read_flash coredump.bin')
+    assert m_sh.call_count == 2
+
+    m_sh.reset_mock()
+    m_which.return_value = 'esptool.py'
+    utils.esptool()
+    m_sh.assert_called_with('sudo -E env "PATH=$PATH" esptool.py ')
+    assert m_sh.call_count == 1
 
 
 def test_show_data(mocker):
