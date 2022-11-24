@@ -48,12 +48,15 @@ services:
   history:
     image: brewblox/brewblox-history:${BREWBLOX_RELEASE}
     restart: unless-stopped
-    privileged: true
     volumes:
       - type: bind
         source: /etc/localtime
         target: /etc/localtime
         read_only: true
+    # Privileged to avoid a bug in libseccomp for Debian Buster hosts
+    # This flag should be removed when Debian Buster is no longer supported
+    # For an explanation: https://github.com/sdr-enthusiasts/Buster-Docker-Fixes
+    privileged: true
   traefik:
     image: traefik:2.8
     restart: unless-stopped
