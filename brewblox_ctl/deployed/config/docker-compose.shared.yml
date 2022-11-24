@@ -48,6 +48,7 @@ services:
   history:
     image: brewblox/brewblox-history:${BREWBLOX_RELEASE}
     restart: unless-stopped
+    privileged: true
     volumes:
       - type: bind
         source: /etc/localtime
