@@ -3,10 +3,11 @@ Tests brewblox_ctl.commands.update
 """
 
 import pytest
+from packaging.version import Version
+
 from brewblox_ctl import const
 from brewblox_ctl.commands import update
 from brewblox_ctl.testing import check_sudo, invoke
-from packaging.version import Version
 
 TESTED = update.__name__
 
@@ -173,7 +174,88 @@ def test_bind_localtime(m_utils):
         }})
 
 
-def test_bind_localtime_noop(m_utils):
+def test_bind_spark_backup(m_utils):
+    m_utils.read_compose.side_effect = lambda: {
+        'version': '3.7',
+        'services': {
+            'spark-one': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+            },
+            'spark-two': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': ['/data:/data']
+            },
+            'spark-three': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': './custom/backup/dir',
+                    'target': '/app/backup',
+                }]
+            },
+            'plaato': {
+                'image': 'brewblox/brewblox-plaato:rpi-edge',
+                'volumes': ['/etc/localtime:/etc/localtime:ro']
+            },
+            'automation': {
+                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': '/etc/localtime',
+                    'target': '/etc/localtime',
+                    'read_only': True,
+                }]
+            }
+        }}
+
+    update.bind_spark_backup()
+    m_utils.write_compose.assert_called_once_with({
+        'version': '3.7',
+        'services': {
+            'spark-one': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': './spark/backup',
+                    'target': '/app/backup',
+                }]
+            },
+            'spark-two': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': [
+                    '/data:/data',
+                    {
+                        'type': 'bind',
+                        'source': './spark/backup',
+                        'target': '/app/backup',
+                    }
+                ]
+            },
+            'spark-three': {
+                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': './custom/backup/dir',
+                    'target': '/app/backup',
+                }]
+            },
+            'plaato': {
+                'image': 'brewblox/brewblox-plaato:rpi-edge',
+                'volumes': ['/etc/localtime:/etc/localtime:ro']
+            },
+            'automation': {
+                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+                'volumes': [{
+                    'type': 'bind',
+                    'source': '/etc/localtime',
+                    'target': '/etc/localtime',
+                    'read_only': True,
+                }]
+            }
+        }})
+
+
+def test_bind_noop(m_utils):
     m_utils.read_shared_compose.side_effect = lambda: {
         'version': '3.7',
         'services': {
@@ -192,4 +274,5 @@ def test_bind_localtime_noop(m_utils):
     }
 
     update.bind_localtime()
+    update.bind_spark_backup()
     m_utils.write_compose.assert_not_called()
