@@ -4,6 +4,7 @@ Tests brewblox_ctl.commands.install
 
 
 import pytest.__main__
+
 from brewblox_ctl.commands import install
 from brewblox_ctl.testing import check_sudo, invoke
 
@@ -189,6 +190,7 @@ def test_check_init_opts(m_utils):
     assert opts.init_history is False
     assert opts.init_gateway is False
     assert opts.init_eventbus is False
+    assert opts.init_spark_backup is False
 
     m_utils.path_exists.return_value = False
     opts.check_init_opts()
@@ -197,19 +199,20 @@ def test_check_init_opts(m_utils):
     assert opts.init_history is True
     assert opts.init_gateway is True
     assert opts.init_eventbus is True
-    assert m_utils.confirm.call_count == 5
+    assert opts.init_spark_backup is True
+    assert m_utils.confirm.call_count == 6
 
 
 def test_install_basic(m_utils, m_actions, m_input, m_sh, m_opts):
     invoke(install.install)
-    assert m_sh.call_count == 13  # do everything
+    assert m_sh.call_count == 14  # do everything
     assert m_input.call_count == 1  # prompt reboot
 
     m_sh.reset_mock()
     m_input.reset_mock()
     m_opts.prompt_reboot = False
     invoke(install.install)
-    assert m_sh.call_count == 13  # do everything
+    assert m_sh.call_count == 14  # do everything
     assert m_input.call_count == 0  # no reboot prompt
 
 
@@ -224,6 +227,7 @@ def test_install_minimal(m_utils, m_actions, m_input, m_sh, m_opts):
     m_opts.init_history = False
     m_opts.init_gateway = False
     m_opts.init_eventbus = False
+    m_opts.init_spark_backup = False
 
     invoke(install.install)
     assert m_sh.call_count == 3  # Only the bare minimum

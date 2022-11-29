@@ -5,6 +5,7 @@ Brewblox-ctl installation commands
 from time import sleep
 
 import click
+
 from brewblox_ctl import actions, click_helpers, const, utils
 from brewblox_ctl.commands import snapshot
 from brewblox_ctl.utils import sh
@@ -95,6 +96,7 @@ class InstallOptions:
         self.init_history = True
         self.init_gateway = True
         self.init_eventbus = True
+        self.init_spark_backup = True
 
         if utils.path_exists('./docker-compose.yml'):
             self.init_compose = not utils.confirm('This directory already contains a docker-compose.yml file. ' +
@@ -115,6 +117,10 @@ class InstallOptions:
         if utils.path_exists('./mosquitto/'):
             self.init_eventbus = not utils.confirm('This directory already contains Mosquitto config files. ' +
                                                    'Do you want to keep them?')
+
+        if utils.path_exists('./spark/backup/'):
+            self.init_spark_backup = not utils.confirm('This directory already contains Spark backup files. ' +
+                                                       'Do you want to keep them?')
 
 
 @cli.command()
@@ -255,6 +261,10 @@ def install(ctx: click.Context, snapshot_file):
         if opts.init_eventbus:
             utils.info('Creating mosquitto config directory...')
             sh('sudo rm -rf ./mosquitto/; mkdir ./mosquitto/')
+
+        if opts.init_spark_backup:
+            utils.info('Creating Spark backup directory...')
+            sh('sudo rm -rf ./spark/backup/; mkdir -p ./spark/backup/')
 
         # Always copy cert config to traefik dir
         sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/traefik-cert.yaml ./traefik/')
