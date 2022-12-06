@@ -3,8 +3,9 @@ Migration scripts
 """
 
 import click
-from brewblox_ctl import actions, click_helpers, const, migration, sh, utils
 from packaging.version import Version
+
+from brewblox_ctl import actions, click_helpers, const, migration, sh, utils
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -58,7 +59,7 @@ def check_env_vars():
 
 def check_dirs():
     utils.info('Checking data directories...')
-    sh('mkdir -p ./traefik/ ./redis/ ./victoria/ ./mosquitto/')
+    sh('mkdir -p ./traefik/ ./redis/ ./victoria/ ./mosquitto/ ./spark/backup/')
 
 
 def bind_localtime():
@@ -96,6 +97,43 @@ def bind_localtime():
         utils.write_compose(usr_cfg)
 
 
+def bind_spark_backup():
+    usr_cfg = utils.read_compose()
+
+    changed = False
+    backup_volume = {
+        'type': 'bind',
+        'source': './spark/backup',
+        'target': '/app/backup',
+    }
+
+    for (name, service) in usr_cfg['services'].items():
+        name: str
+        service: dict
+
+        if not service.get('image', '').startswith('brewblox/brewblox-devcon-spark'):
+            continue
+
+        volumes = service.get('volumes', [])
+        present = False
+        for volume in volumes:
+            if (isinstance(volume, str) and volume.endswith(':/app/backup')) \
+                    or (isinstance(volume, dict) and volume.get('target') == '/app/backup'):
+                present = True
+                break
+
+        if present:
+            continue
+
+        changed = True
+        utils.info(f'Mounting backup volume in `{name}` service...')
+        volumes.append(backup_volume.copy())
+        service['volumes'] = volumes
+
+    if changed:
+        utils.write_compose(usr_cfg)
+
+
 def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
     # Always apply shared config files
@@ -117,6 +155,7 @@ def downed_migrate(prev_version):
     check_env_vars()
     check_dirs()
     bind_localtime()
+    bind_spark_backup()
 
 
 def upped_migrate(prev_version):

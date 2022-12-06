@@ -5,6 +5,7 @@ Add and configure optional services
 from os import getgid, getuid
 
 import click
+
 from brewblox_ctl import click_helpers, const, sh, utils
 from brewblox_ctl.discovery import (choose_device, find_device_by_host,
                                     list_devices)
@@ -166,7 +167,14 @@ def add_spark(name,
         'privileged': True,
         'restart': 'unless-stopped',
         'command': ' '.join(commands),
-        'volumes': [localtime_volume()]
+        'volumes': [
+            localtime_volume(),
+            {
+                'type': 'bind',
+                'source': './spark/backup',
+                'target': '/app/backup',
+            },
+        ]
     }
 
     if simulation:
