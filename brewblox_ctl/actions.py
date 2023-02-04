@@ -109,9 +109,11 @@ def fix_ipv6(config_file=None, restart=True):
         proc_match = re.match(r'.*--config-file[\s=](?P<file>.*\.json).*', dockerd_proc, flags=re.MULTILINE)
         config_file = proc_match and proc_match.group('file') or default_config_file
 
+    config_file = Path(config_file)
     utils.info(f'Using Docker config file {config_file}')
 
     # Read config. Create file if not exists
+    sh(f"sudo mkdir -p '{config_file.parent}'")
     sh(f"sudo touch '{config_file}'")
     config = sh(f"sudo cat '{config_file}'", capture=True)
 
