@@ -5,10 +5,11 @@ Tests brewblox_ctl.actions
 from socket import AF_INET, AF_INET6, SOCK_STREAM
 
 import pytest
-from brewblox_ctl import actions
-from brewblox_ctl.testing import check_sudo, matching
 from configobj import ConfigObj
 from psutil import AccessDenied, _common
+
+from brewblox_ctl import actions
+from brewblox_ctl.testing import check_sudo, matching
 
 TESTED = actions.__name__
 
@@ -143,42 +144,46 @@ def test_fix_ipv6(mocker, m_utils, m_sh):
         /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
         grep --color=auto dockerd
         """,   # ps aux
+        None,  # mkdir
         None,  # touch
         '{}',  # read file
         None,  # write file
         None,  # restart
 
         # with config provided, no restart
+        None,  # mkdir
         None,  # touch
         '',    # empty file
         None,  # write file
 
         # with config, service command not found
+        None,  # mkdir
         None,  # touch
         '{}',  # read file
         None,  # write file
 
         # with config, config already set
+        None,  # mkdir
         None,  # touch
         '{"fixed-cidr-v6": "2001:db8:1::/64"}',  # read file
     ]
 
     actions.fix_ipv6()
-    assert m_sh.call_count == 5
+    assert m_sh.call_count == 6
 
     actions.fix_ipv6('/etc/file.json', False)
-    assert m_sh.call_count == 5 + 3
+    assert m_sh.call_count == 6 + 4
 
     m_utils.command_exists.return_value = False
     actions.fix_ipv6('/etc/file.json')
-    assert m_sh.call_count == 5 + 3 + 3
+    assert m_sh.call_count == 6 + 4 + 4
 
     actions.fix_ipv6('/etc/file.json')
-    assert m_sh.call_count == 5 + 3 + 3 + 2
+    assert m_sh.call_count == 6 + 4 + 4 + 3
 
     m_utils.is_wsl.return_value = True
     actions.fix_ipv6('/etc/file.json')
-    assert m_sh.call_count == 5 + 3 + 3 + 2
+    assert m_sh.call_count == 6 + 4 + 4 + 3
 
 
 def test_edit_avahi_config(mocker, m_utils, m_sh):
