@@ -10,9 +10,10 @@ from unittest.mock import call
 import httpretty
 import pytest
 import yaml
+from requests import HTTPError
+
 from brewblox_ctl.commands import backup
 from brewblox_ctl.testing import check_sudo, invoke, matching
-from requests import HTTPError
 
 TESTED = backup.__name__
 HOST_URL = 'https://localhost'

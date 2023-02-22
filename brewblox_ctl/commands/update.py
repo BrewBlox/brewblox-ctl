@@ -251,8 +251,10 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
         actions.uninstall_old_ctl_package()
         actions.deploy_ctl_wrapper()
 
+    actions.check_compose_plugin()
+
     utils.info('Stopping services...')
-    sh(f'{sudo}docker-compose down')
+    sh(f'{sudo}docker compose down')
 
     if update_system_packages:
         actions.update_system_packages()
@@ -262,7 +264,7 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
 
     if pull:
         utils.info('Pulling docker images...')
-        sh(f'{sudo}docker-compose pull')
+        sh(f'{sudo}docker compose pull')
 
     if prune:
         utils.info('Pruning unused images...')
@@ -271,7 +273,7 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
         sh(f'{sudo}docker volume prune -f > /dev/null')
 
     utils.info('Starting services...')
-    sh(f'{sudo}docker-compose up -d')
+    sh(f'{sudo}docker compose up -d')
 
     if migrate:
         upped_migrate(prev_version)

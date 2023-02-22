@@ -15,7 +15,7 @@ from brewblox_ctl import actions, const, sh, utils
 
 
 def migrate_compose_split():
-    # Splitting compose configuration between docker-compose and docker-compose.shared.yml
+    # Splitting compose configuration between docker-compose.yml and docker-compose.shared.yml
     # Version pinning (0.2.2) will happen automatically
     utils.info('Moving system services to docker-compose.shared.yml...')
     config = utils.read_compose()
