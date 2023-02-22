@@ -41,8 +41,8 @@ def m_utils(mocker):
             'plaato': {
                 'image': 'brewblox/brewblox-plaato:rpi-edge',
             },
-            'automation': {
-                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+            'mcguffin': {
+                'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
             }
         }}
     return m
@@ -93,20 +93,6 @@ def test_check_version(m_utils, mocker):
         update.check_version(Version('1.3.0'))
 
 
-def test_check_automation_ui(m_utils):
-    update.check_automation_ui()
-    assert 'automation-ui' in m_utils.write_compose.call_args[0][0]['services']
-
-    m_utils.read_compose.side_effect = lambda: {
-        'version': '3.7',
-        'services': {}
-    }
-
-    # No automation service -> no changes
-    update.check_automation_ui()
-    assert m_utils.write_compose.call_count == 1
-
-
 def test_bind_localtime(m_utils):
     m_utils.read_compose.side_effect = lambda: {
         'version': '3.7',
@@ -122,8 +108,8 @@ def test_bind_localtime(m_utils):
                 'image': 'brewblox/brewblox-plaato:rpi-edge',
                 'volumes': ['/etc/localtime:/etc/localtime:ro']
             },
-            'automation': {
-                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+            'mcguffin': {
+                'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
                 'volumes': [{
                     'type': 'bind',
                     'source': '/etc/localtime',
@@ -162,8 +148,8 @@ def test_bind_localtime(m_utils):
                 'image': 'brewblox/brewblox-plaato:rpi-edge',
                 'volumes': ['/etc/localtime:/etc/localtime:ro']
             },
-            'automation': {
-                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+            'mcguffin': {
+                'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
                 'volumes': [{
                     'type': 'bind',
                     'source': '/etc/localtime',
@@ -197,8 +183,8 @@ def test_bind_spark_backup(m_utils):
                 'image': 'brewblox/brewblox-plaato:rpi-edge',
                 'volumes': ['/etc/localtime:/etc/localtime:ro']
             },
-            'automation': {
-                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+            'mcguffin': {
+                'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
                 'volumes': [{
                     'type': 'bind',
                     'source': '/etc/localtime',
@@ -243,8 +229,8 @@ def test_bind_spark_backup(m_utils):
                 'image': 'brewblox/brewblox-plaato:rpi-edge',
                 'volumes': ['/etc/localtime:/etc/localtime:ro']
             },
-            'automation': {
-                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+            'mcguffin': {
+                'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
                 'volumes': [{
                     'type': 'bind',
                     'source': '/etc/localtime',

@@ -38,20 +38,6 @@ def apply_config_files():
     utils.write_compose(usr_cfg)
 
 
-def check_automation_ui():
-    # The automation service is deprecated, and its editor is removed from the UI.
-    # The service was always optional - only add the automation-ui service if automation is present.
-    config = utils.read_compose()
-    services = config['services']
-    if 'automation' in services and 'automation-ui' not in services:
-        utils.info('Adding automation-ui service...')
-        services['automation-ui'] = {
-            'image': 'brewblox/brewblox-automation-ui:${BREWBLOX_RELEASE}',
-            'restart': 'unless-stopped',
-        }
-        utils.write_compose(config)
-
-
 def check_env_vars():
     utils.info('Checking .env variables...')
     utils.defaultenv()
@@ -151,7 +137,6 @@ def downed_migrate(prev_version):
         migration.migrate_ipv6_fix()
 
     # Not related to a specific release
-    check_automation_ui()
     check_env_vars()
     check_dirs()
     bind_localtime()
