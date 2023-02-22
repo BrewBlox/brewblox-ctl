@@ -2,7 +2,7 @@
 
 This is the primary tool for installing and managing Brewblox service hosts.
 
-For user install instructions, see https://www.brewblox.com/user/startup.
+For user install instructions, see <https://www.brewblox.com/user/startup>.
 
 ## Context: footloose configuration
 
@@ -10,6 +10,7 @@ One of the core tenets of Brewblox is to keep the footprint on the service host 
 This is partially aspirational. For example, we rely on Docker to provide much of this isolation, but Docker itself is not a built-in tool on Debian-based operating systems.
 
 There are three ways in which we promote isolation:
+
 - Services are containerized using Docker.
 - The `brewblox-ctl` management tooling is isolated using Python virtualenv.
 - All Brewblox-specific configuration and data is contained in a single directory.
@@ -17,6 +18,7 @@ There are three ways in which we promote isolation:
 ## The Brewblox directory
 
 Located by default in `$HOME/brewblox`, the Brewblox installation directory includes:
+
 - `.venv`: a Python virtualenv directory where brewblox-ctl is installed.
 - `docker-compose.shared.yml`: default docker-compose configuration. This file is overwritten during updates.
 - `docker-compose.yml`: user-defined docker-compose configuration. The contents of this file override `docker-compose.shared.yml`.
