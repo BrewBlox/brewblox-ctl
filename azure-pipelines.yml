@@ -23,7 +23,7 @@ steps:
   - task: UsePythonVersion@0
     inputs:
       addToPath: true
-      versionSpec: "3.7"
+      versionSpec: "3.10"
       architecture: "x64"
 
   - bash: |
@@ -53,7 +53,7 @@ steps:
       --container-name ctl
       --sas-token '$(CTL_SAS_TOKEN)'
       --name "$(TAG)/brewblox-ctl.tar.gz"
-      --file "./dist/brewblox-ctl-1.0.0.tar.gz"
+      --file "./dist/brewblox_ctl-1.0.0.tar.gz"
       --overwrite
     displayName: Upload to Azure Storage
     condition: and(succeeded(), variables.BRANCH)
