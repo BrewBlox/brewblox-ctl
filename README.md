@@ -20,8 +20,8 @@ There are three ways in which we promote isolation:
 Located by default in `$HOME/brewblox`, the Brewblox installation directory includes:
 
 - `.venv`: a Python virtualenv directory where brewblox-ctl is installed.
-- `docker-compose.shared.yml`: default docker-compose configuration. This file is overwritten during updates.
-- `docker-compose.yml`: user-defined docker-compose configuration. The contents of this file override `docker-compose.shared.yml`.
+- `docker-compose.shared.yml`: default docker compose configuration. This file is overwritten during updates.
+- `docker-compose.yml`: user-defined docker compose configuration. The contents of this file override `docker-compose.shared.yml`.
 - Directories mounted in Docker containers to store persistent data:
   - `mosquitto/`
   - `traefik/`

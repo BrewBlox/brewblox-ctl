@@ -55,6 +55,22 @@ def test_add_particle_udev_rules(m_utils, m_sh):
     assert m_utils.info.call_count == 1
 
 
+def test_check_compose_plugin(m_utils, m_sh, mocker):
+    m_utils.check_ok.return_value = True
+    actions.check_compose_plugin()
+    assert m_sh.call_count == 0
+
+    m_utils.check_ok.return_value = False
+    m_utils.command_exists.return_value = True
+    actions.check_compose_plugin()
+    assert m_sh.call_count == 1
+
+    m_utils.check_ok.return_value = False
+    m_utils.command_exists.return_value = False
+    with pytest.raises(SystemExit):
+        actions.check_compose_plugin()
+
+
 def test_check_ports(m_utils, m_sh, mocker):
     m_net_connections = mocker.patch(TESTED + '.psutil.net_connections', autospec=True)
     m_net_connections.return_value = []

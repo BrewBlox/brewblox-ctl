@@ -190,7 +190,7 @@ def add_spark(name,
     click.echo(f'Added Spark service `{name}`.')
     click.echo('It will automatically show up in the UI.\n')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker-compose up -d')
+        sh(f'{sudo}docker compose up -d')
 
 
 @cli.command()
@@ -240,7 +240,7 @@ def add_tilt(yes):
     click.echo(f'Added Tilt service `{name}`.')
     click.echo('It will automatically show up in the UI.\n')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker-compose up -d')
+        sh(f'{sudo}docker compose up -d')
 
 
 @cli.command()
@@ -288,7 +288,7 @@ def add_plaato(name, token, yes):
     click.echo(f'Added Plaato service `{name}`.')
     click.echo('This service publishes history data, but does not have a UI component.')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker-compose up -d')
+        sh(f'{sudo}docker compose up -d')
 
 
 @cli.command()
@@ -331,5 +331,5 @@ def add_node_red(yes):
     utils.write_compose(config)
     click.echo(f'Added Node-RED service `{name}`.')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker-compose up -d')
+        sh(f'{sudo}docker compose up -d')
         click.echo(f'Visit https://{host}:{port}/{name} in your browser to load the editor.')

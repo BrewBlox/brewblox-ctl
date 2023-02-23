@@ -5,6 +5,7 @@ Tests brewblox_ctl.commands.service
 from unittest.mock import Mock
 
 import pytest
+
 from brewblox_ctl.commands import service
 from brewblox_ctl.testing import check_sudo, invoke
 
@@ -159,9 +160,9 @@ def test_pull(m_utils, m_sh, mocker):
     m_restart = mocker.patch(TESTED + '.restart_services')
 
     invoke(service.pull)
-    m_sh.assert_called_with('SUDO docker-compose pull ')
+    m_sh.assert_called_with('SUDO docker compose pull ')
 
     invoke(service.pull, 'ui eventbus')
-    m_sh.assert_called_with('SUDO docker-compose pull ui eventbus')
+    m_sh.assert_called_with('SUDO docker compose pull ui eventbus')
 
     assert m_restart.call_count == 2

@@ -157,7 +157,7 @@ def install(ctx: click.Context, snapshot_file):
             - Load configuration from snapshot.
         - Else:
             - Check for port conflicts.
-            - Create docker-compose configuration files.
+            - Create docker compose configuration files.
             - Create datastore (Redis) directory.
             - Create history (Victoria) directory.
             - Create gateway (Traefik) directory.
@@ -206,6 +206,7 @@ def install(ctx: click.Context, snapshot_file):
         utils.info(f"Skipped: adding {user} to 'docker' group.")
 
     # Always apply actions
+    actions.check_compose_plugin()
     actions.disable_ssh_accept_env()
     actions.fix_ipv6(None, False)
     actions.edit_avahi_config()
@@ -241,7 +242,7 @@ def install(ctx: click.Context, snapshot_file):
 
         # Stop after we're sure we have a compose file
         utils.info('Stopping services...')
-        sh(f'{sudo}docker-compose down')
+        sh(f'{sudo}docker compose down')
 
         if opts.init_datastore:
             utils.info('Creating datastore directory...')
@@ -274,7 +275,7 @@ def install(ctx: click.Context, snapshot_file):
 
     if opts.docker_pull:
         utils.info('Pulling docker images...')
-        sh(f'{sudo}docker-compose pull')
+        sh(f'{sudo}docker compose pull')
 
     utils.info('All done!')
 

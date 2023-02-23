@@ -31,7 +31,7 @@ DEFAULT_PORT_HTTPS = 443
 DEFAULT_PORT_MQTT = 1883
 
 # Default content of the .env file
-# This is used by both brewblox-ctl and docker-compose
+# This is used by both brewblox-ctl and docker compose
 ENV_FILE_DEFAULTS = {
     # Declared by brewblox
     ENV_KEY_RELEASE: DEFAULT_RELEASE,
@@ -40,7 +40,7 @@ ENV_FILE_DEFAULTS = {
     ENV_KEY_PORT_HTTP: str(DEFAULT_PORT_HTTP),
     ENV_KEY_PORT_HTTPS: str(DEFAULT_PORT_HTTPS),
     ENV_KEY_PORT_MQTT: str(DEFAULT_PORT_MQTT),
-    # Declared by docker-compose
+    # Declared by docker compose
     # https://docs.docker.com/compose/reference/envvars/
     'COMPOSE_FILE': 'docker-compose.shared.yml:docker-compose.yml',
     'COMPOSE_PROJECT_NAME': 'brewblox',

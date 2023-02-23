@@ -5,6 +5,7 @@ User service management
 import re
 
 import click
+
 from brewblox_ctl import click_helpers, const, sh, utils
 from brewblox_ctl.commands.docker import up
 
@@ -29,7 +30,7 @@ def restart_services(ctx: click.Context, **kwargs):
               help='Image type filter. Leave blank to show all images.')
 @click.option('--file',
               default='docker-compose.yml',
-              help='docker-compose configuration file.')
+              help='docker compose configuration file.')
 def show(image, file):
     """Show all services of a specific type.
 
@@ -143,5 +144,5 @@ def expose(ctx, delete, service, value):
 def pull(ctx, services):
     """Pull one or more services without doing a full update."""
     sudo = utils.optsudo()
-    sh(f'{sudo}docker-compose pull ' + ' '.join(services))
+    sh(f'{sudo}docker compose pull ' + ' '.join(services))
     restart_services(ctx)

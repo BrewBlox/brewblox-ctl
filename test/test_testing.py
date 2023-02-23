@@ -39,14 +39,14 @@ def test_check_sudo():
     testing.check_sudo('something else')
     testing.check_sudo(v for v in 'xyz')
     testing.check_sudo('sudo docker run')
-    testing.check_sudo('SUDO docker-compose up -d')
+    testing.check_sudo('SUDO docker compose up -d')
 
 
 @pytest.mark.parametrize('cmd', [
     'docker run',
     '   docker run',
-    '\n\ndocker-compose kill',
-    'fluffy bunnies; docker-compose down',
+    '\n\ndocker compose kill',
+    'fluffy bunnies; docker compose down',
     'pretty kitties&&docker',
     'pretty kitties&&     docker',
     'cuddly puppies||docker-compose',

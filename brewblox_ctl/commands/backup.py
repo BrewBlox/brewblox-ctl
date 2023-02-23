@@ -15,10 +15,11 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 import click
 import requests
 import urllib3
-from brewblox_ctl import click_helpers, const, sh, utils
-from brewblox_ctl.commands import http
 from dotenv import load_dotenv
 from ruamel.yaml import YAML
+
+from brewblox_ctl import click_helpers, const, sh, utils
+from brewblox_ctl.commands import http
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -191,7 +192,7 @@ def load(archive,
     Steps:
         - Write .env
         - Read .env values
-        - Write docker-compose.yml, run `docker-compose up`.
+        - Write docker-compose.yml, run `docker compose up`.
         - Write all datastore files found in backup.
         - Write all Spark blocks found in backup.
         - Write Node-RED config files found in backup.
@@ -239,7 +240,7 @@ def load(archive,
                 with suppress(KeyError):
                     del svc['depends_on']
             utils.write_compose(config)
-            sh(f'{sudo}docker-compose up -d')
+            sh(f'{sudo}docker compose up -d')
         else:
             utils.info('docker-compose.yml file not found in backup archive')
 
@@ -306,7 +307,7 @@ def load(archive,
                 json.dump(data, tmp)
                 tmp.flush()
                 sh(f'{const.CLI} http post {host_url}/{spark}/blocks/backup/load -f {tmp.name}')
-                sh(f'{sudo}docker-compose restart {spark}')
+                sh(f'{sudo}docker compose restart {spark}')
 
     if load_node_red and node_red_files:
         sudo = ''
