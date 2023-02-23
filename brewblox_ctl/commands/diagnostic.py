@@ -96,7 +96,7 @@ def log(add_compose, add_system, upload):
     append('uname -a')
     append('python3 --version')
     append(f'{sudo}docker --version')
-    append(f'{sudo}docker compose --version')
+    append(f'{sudo}docker compose version')
 
     # Add active containers
     utils.info('Writing active containers...')
