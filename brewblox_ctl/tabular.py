@@ -17,12 +17,12 @@ class Table:
 
     def __init__(self,
                  keys: List[str],
-                 headers: Dict[str, str] = {},
-                 formatting: Dict[str, str] = {},
+                 headers: Dict[str, str] = None,
+                 formatting: Dict[str, str] = None,
                  ) -> None:
         self.keys = keys
-        self.headers = headers
-        self.formatting = formatting
+        self.headers = headers or {}
+        self.formatting = formatting or {}
         self.rows = []
         self.col_width = {}
 

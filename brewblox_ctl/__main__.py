@@ -14,7 +14,7 @@ from brewblox_ctl.commands import (add_service, backup, database, diagnostic,
                                    docker, env, fix, flash, http, install,
                                    service, snapshot, update)
 
-SUPPORTED_PYTHON_MINOR = 6
+SUPPORTED_PYTHON_MINOR = 7
 
 
 def escalate(ex):
