@@ -66,7 +66,7 @@ def deploy_ctl_wrapper():
 
 
 def check_compose_plugin():
-    if utils.check_ok(f'{utils.optsudo()}docker compose --version'):
+    if utils.check_ok(f'{utils.optsudo()}docker compose version'):
         return
     if utils.command_exists('apt-get'):
         utils.info('Installing Docker Compose plugin...')
