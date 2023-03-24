@@ -93,7 +93,7 @@ def zipf_read():
             'version': '3.7',
             'services': {
                 'spark-one': {
-                    'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                     'depends_on': ['datastore'],
                 },
                 'plaato': {
@@ -177,7 +177,7 @@ def f_read_compose(m_utils):
     m_utils.read_compose.return_value = {
         'services': {
             'spark-one': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
             },
             'plaato': {
                 'image': 'brewblox/brewblox-plaato:rpi-edge',

@@ -106,7 +106,7 @@ def add_spark(name,
     utils.check_config()
     utils.confirm_mode()
 
-    image_name = 'brewblox/brewblox-devcon-spark'
+    image_name = 'ghcr.io/brewblox/brewblox-devcon-spark'
     sudo = utils.optsudo()
     config = utils.read_compose()
 
@@ -217,7 +217,7 @@ def add_tilt(yes):
         check_create_overwrite(config, name)
 
     config['services'][name] = {
-        'image': 'brewblox/brewblox-tilt:${BREWBLOX_RELEASE}',
+        'image': 'ghcr.io/brewblox/brewblox-tilt:${BREWBLOX_RELEASE}',
         'restart': 'unless-stopped',
         'privileged': True,
         'network_mode': 'host',
@@ -275,7 +275,7 @@ def add_plaato(name, token, yes):
         check_create_overwrite(config, name)
 
     config['services'][name] = {
-        'image': 'brewblox/brewblox-plaato:${BREWBLOX_RELEASE}',
+        'image': 'ghcr.io/brewblox/brewblox-plaato:${BREWBLOX_RELEASE}',
         'restart': 'unless-stopped',
         'environment': {
             'PLAATO_AUTH': token,
@@ -312,7 +312,7 @@ def add_node_red(yes):
         check_create_overwrite(config, name)
 
     config['services'][name] = {
-        'image': 'brewblox/node-red:${BREWBLOX_RELEASE}',
+        'image': 'ghcr.io/brewblox/node-red:${BREWBLOX_RELEASE}',
         'restart': 'unless-stopped',
         'volumes': [
             localtime_volume(),
