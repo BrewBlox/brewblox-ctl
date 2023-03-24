@@ -137,7 +137,7 @@ def downed_migrate(prev_version):
         migration.migrate_ipv6_fix()
 
     if prev_version < Version('0.8.0'):
-        migration.migrate_ipv6_fix()
+        migration.migrate_ghcr_images()
 
     # Not related to a specific release
     check_env_vars()
