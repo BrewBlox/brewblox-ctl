@@ -5,6 +5,7 @@ Tests brewblox_ctl.commands.flash
 from unittest.mock import Mock
 
 import pytest
+
 from brewblox_ctl import const
 from brewblox_ctl.commands import flash
 from brewblox_ctl.testing import check_sudo, invoke
@@ -37,7 +38,7 @@ def test_run_particle_flasher(m_utils, m_sh):
     flash.run_particle_flasher('taggart', True, 'do-stuff')
     m_sh.assert_called_with(
         'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'brewblox/firmware-flasher:taggart do-stuff')
+        'ghcr.io/brewblox/firmware-flasher:taggart do-stuff')
 
 
 def test_esptool(m_utils):
@@ -79,7 +80,7 @@ def test_photon_flash(m_usb, m_utils, m_sh):
     invoke(flash.flash, '--release develop --pull')
     m_sh.assert_called_with(
         'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'brewblox/firmware-flasher:develop flash')
+        'ghcr.io/brewblox/firmware-flasher:develop flash')
 
 
 def test_p1_flash(m_usb, m_utils, m_sh):
@@ -93,7 +94,7 @@ def test_p1_flash(m_usb, m_utils, m_sh):
     invoke(flash.flash, '--release develop --pull')
     m_sh.assert_called_with(
         'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'brewblox/firmware-flasher:develop flash')
+        'ghcr.io/brewblox/firmware-flasher:develop flash')
 
 
 def test_esp_flash(m_usb, m_utils, m_sh):
@@ -108,7 +109,7 @@ def test_esp_flash(m_usb, m_utils, m_sh):
     m_sh.assert_called_with(
         'SUDO docker run -it --rm --privileged ' +
         '-v /dev:/dev -w /app/firmware --entrypoint bash --pull always ' +
-        'brewblox/brewblox-devcon-spark:develop flash')
+        'ghcr.io/brewblox/brewblox-devcon-spark:develop flash')
 
 
 def test_invalid_flash(m_usb, m_utils, m_sh):
@@ -162,4 +163,4 @@ def test_particle(m_utils, m_sh):
     assert m_sh.call_count == 2
     m_sh.assert_called_with(
         'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'brewblox/firmware-flasher:develop testey')
+        'ghcr.io/brewblox/firmware-flasher:develop testey')

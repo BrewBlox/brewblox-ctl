@@ -32,7 +32,7 @@ def match_id_services(config: Optional[dict]) -> Dict[str, str]:  # [ID, service
 
     output: Dict[str, List[str]] = {}
     for name, service in config.get('services', {}).items():
-        if not service.get('image', '').startswith('brewblox/brewblox-devcon-spark'):
+        if not service.get('image', '').startswith('ghcr.io/brewblox/brewblox-devcon-spark'):
             continue
         match = re.match(
             r'.*\-\-device\-id(\w|=)(?P<id>\w+)',

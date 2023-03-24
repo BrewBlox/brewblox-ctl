@@ -23,7 +23,7 @@ def makecert(dir, release: str = None):
         ' --rm --privileged' +
         ' --pull always' +
         f' -v "{absdir}":/certs/' +
-        f' brewblox/omgwtfssl:{tag}')
+        f' ghcr.io/brewblox/omgwtfssl:{tag}')
     sh(f'sudo chmod 644 "{absdir}/brewblox.crt"')
     sh(f'sudo chmod 600 "{absdir}/brewblox.key"')
 

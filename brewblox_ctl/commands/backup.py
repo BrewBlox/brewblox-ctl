@@ -89,7 +89,7 @@ def save(save_compose, ignore_spark_error):
     config = utils.read_compose()
     sparks = [
         k for k, v in config['services'].items()
-        if v.get('image', '').startswith('brewblox/brewblox-devcon-spark')
+        if v.get('image', '').startswith('ghcr.io/brewblox/brewblox-devcon-spark')
     ]
     zipf = zipfile.ZipFile(file, 'w', zipfile.ZIP_DEFLATED)
 

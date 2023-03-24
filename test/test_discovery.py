@@ -6,9 +6,10 @@ from socket import inet_aton
 from unittest.mock import Mock
 
 import pytest
+from zeroconf import ServiceInfo, ServiceStateChange
+
 from brewblox_ctl import const, discovery
 from brewblox_ctl.testing import check_sudo, matching
-from zeroconf import ServiceInfo, ServiceStateChange
 
 TESTED = discovery.__name__
 
@@ -128,19 +129,19 @@ def test_match_id_services():
     config = {
         'services': {
             'spark1': {
-                'image': 'brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE}',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE}',
                 'command': '--discovery=all --device-id=C4DD5766BB18',
             },
             'spark2': {
-                'image': 'brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE}',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE}',
                 'command': '--discovery=all --device-id=C4DD5766BB18',
             },
             'spark3': {
-                'image': 'brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE}',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE}',
                 'command': '--discovery=all --device-id=30003D001947383434353030',
             },
             'spark-none': {
-                'image': 'brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE}',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE}',
             },
             'service-other': {
                 'image': 'brewblox/brewblox-tilt:${BREWBLOX_RELEASE}',

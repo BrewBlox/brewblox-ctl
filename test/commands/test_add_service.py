@@ -3,6 +3,7 @@ Tests brewblox_ctl.commands.add_service
 """
 
 import pytest
+
 from brewblox_ctl.commands import add_service
 from brewblox_ctl.testing import check_sudo, invoke
 
@@ -101,7 +102,7 @@ def test_spark_overwrite(m_utils, m_sh, m_choose, mocker):
     m_utils.read_compose.side_effect = lambda: {
         'services': {
             'testey': {
-                'image': 'brewblox/brewblox-devcon-spark:develop'
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:develop'
             }}}
 
     invoke(add_service.add_spark, '--name testey --yes')

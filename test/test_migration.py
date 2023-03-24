@@ -7,6 +7,7 @@ from functools import partial
 
 import httpretty
 import pytest
+
 from brewblox_ctl import migration
 from brewblox_ctl.testing import check_sudo
 
@@ -51,7 +52,7 @@ def m_utils(mocker):
         'version': '3.7',
         'services': {
             'spark-one': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'depends_on': ['datastore'],
             },
             'plaato': {
@@ -96,7 +97,7 @@ def test_migrate_compose_datastore(m_utils, m_sh):
         'version': '3.7',
         'services': {
             'spark-one': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
             },
             'plaato': {
                 'image': 'brewblox/brewblox-plaato:rpi-edge',
@@ -277,3 +278,21 @@ def test_migrate_influxdb(m_utils, m_sh, mocker):
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 1
     assert m_copy.call_count == 3 + 2
+
+
+def test_migrate_ghcr_images(m_utils):
+    migration.migrate_ghcr_images()
+    m_utils.write_compose.assert_called_once_with({
+        'version': '3.7',
+        'services': {
+            'spark-one': {
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
+                'depends_on': ['datastore'],
+            },
+            'plaato': {
+                'image': 'ghcr.io/brewblox/brewblox-plaato:rpi-edge',
+            },
+            'automation': {
+                'image': 'ghcr.io/brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+            }
+        }})

@@ -97,7 +97,7 @@ def bind_spark_backup():
         name: str
         service: dict
 
-        if not service.get('image', '').startswith('brewblox/brewblox-devcon-spark'):
+        if not service.get('image', '').startswith('ghcr.io/brewblox/brewblox-devcon-spark'):
             continue
 
         volumes = service.get('volumes', [])
@@ -134,6 +134,9 @@ def downed_migrate(prev_version):
         migration.migrate_compose_datastore()
 
     if prev_version < Version('0.6.1'):
+        migration.migrate_ipv6_fix()
+
+    if prev_version < Version('0.8.0'):
         migration.migrate_ipv6_fix()
 
     # Not related to a specific release

@@ -127,7 +127,7 @@ def log(add_compose, add_system, upload):
 
     # Add blocks
     host_url = utils.host_url()
-    services = utils.list_services('brewblox/brewblox-devcon-spark')
+    services = utils.list_services('ghcr.io/brewblox/brewblox-devcon-spark')
     for svc in services:
         utils.info(f'Writing {svc} blocks...')
         header(f'Blocks: {svc}')

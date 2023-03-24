@@ -31,7 +31,7 @@ def run_particle_flasher(release: str, pull: bool, cmd: str):
     ])
 
     sh(f'{sudo}docker compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} brewblox/firmware-flasher:{tag} {cmd}')
+    sh(f'{sudo}docker run {opts} ghcr.io/brewblox/firmware-flasher:{tag} {cmd}')
 
 
 def run_esp_flasher(release: str, pull: bool):
@@ -49,7 +49,7 @@ def run_esp_flasher(release: str, pull: bool):
     ])
 
     sh(f'{sudo}docker compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} brewblox/brewblox-devcon-spark:{tag} flash')
+    sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-devcon-spark:{tag} flash')
 
 
 def find_usb_spark() -> usb.core.Device:

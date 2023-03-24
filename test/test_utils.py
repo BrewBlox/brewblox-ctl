@@ -377,7 +377,7 @@ def test_host_ip(m_getenv):
 
 def test_list_services():
     services = utils.list_services(
-        'brewblox/brewblox-history',
+        'ghcr.io/brewblox/brewblox-history',
         'brewblox_ctl/deployed/config/docker-compose.shared.yml')
     assert services == ['history']
 

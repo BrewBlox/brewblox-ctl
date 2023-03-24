@@ -322,3 +322,15 @@ def migrate_influxdb(
 
     # Stop migration container
     sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
+
+
+def migrate_ghcr_images():
+    # We migrated all brewblox images from Docker Hub to Github Container Registry
+    utils.info('Migrating brewblox images to ghcr.io registry...')
+    config = utils.read_compose()
+    for name, svc in config['services'].items():
+        img: str = svc['image']
+        if img.startswith('brewblox/'):
+            utils.info(f'Editing "{name}"...')
+            svc['image'] = 'ghcr.io/' + img
+    utils.write_compose(config)
