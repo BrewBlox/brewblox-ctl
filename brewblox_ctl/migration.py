@@ -3,6 +3,7 @@ Manual migration steps
 """
 
 import json
+import re
 from contextlib import suppress
 from datetime import datetime
 from tempfile import NamedTemporaryFile
@@ -326,11 +327,22 @@ def migrate_influxdb(
 
 def migrate_ghcr_images():
     # We migrated all brewblox images from Docker Hub to Github Container Registry
+    # At this point, we also stop supporting the "rpi-" prefix for ARM32 images
     utils.info('Migrating brewblox images to ghcr.io registry...')
     config = utils.read_compose()
     for name, svc in config['services'].items():
-        img: str = svc['image']
-        if img.startswith('brewblox/'):
+        img: str = svc.get('image', '')  # empty string won't match regex
+        # Image must:
+        # - Start with "brewblox/"
+        # - Have a tag from a default channel. We're not migrating feature branch tags.
+        # Image may:
+        # - Have a tag that starts with "rpi-". We'll remove this during replacement.
+        # - Have either a `$BREWBLOX_RELEASE` or `${BREWBLOX_RELEASE}` tag.
+        changed = re.sub(r'^brewblox/([\w\-]+)\:(rpi\-)?((\$\{?BREWBLOX_RELEASE\}?)|develop|edge)$',
+                         r'ghcr.io/brewblox/\1:\3',
+                         img)
+        if changed != img:
             utils.info(f'Editing "{name}"...')
-            svc['image'] = 'ghcr.io/' + img
+            svc['image'] = changed
+
     utils.write_compose(config)
