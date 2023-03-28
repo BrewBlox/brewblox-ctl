@@ -281,18 +281,54 @@ def test_migrate_influxdb(m_utils, m_sh, mocker):
 
 
 def test_migrate_ghcr_images(m_utils):
+    m_utils.read_compose.side_effect = lambda: {
+        'version': '3.7',
+        'services': {
+            'spark-one': {
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:edge',
+            },
+            'spark-two': {
+                'image': 'brewblox/brewblox-devcon-spark:feature-branch',
+            },
+            'spark-three': {
+                'image': 'brewblox/brewblox-devcon-spark:$BREWBLOX_RELEASE',
+            },
+            'plaato': {
+                'image': 'brewblox/brewblox-plaato:rpi-edge',
+            },
+            'automation': {
+                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+            },
+            'third-party': {
+                'image': 'external/image:tag',
+            },
+            'extension': {
+                'command': 'updated from shared compose',
+            },
+        }}
     migration.migrate_ghcr_images()
     m_utils.write_compose.assert_called_once_with({
         'version': '3.7',
         'services': {
             'spark-one': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
-                'depends_on': ['datastore'],
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:edge',
+            },
+            'spark-two': {
+                'image': 'brewblox/brewblox-devcon-spark:feature-branch',
+            },
+            'spark-three': {
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:$BREWBLOX_RELEASE',
             },
             'plaato': {
-                'image': 'ghcr.io/brewblox/brewblox-plaato:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-plaato:edge',
             },
             'automation': {
                 'image': 'ghcr.io/brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
-            }
+            },
+            'third-party': {
+                'image': 'external/image:tag',
+            },
+            'extension': {
+                'command': 'updated from shared compose',
+            },
         }})
