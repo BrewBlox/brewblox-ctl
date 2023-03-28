@@ -6,14 +6,17 @@
 # you can do so in docker-compose.yml.
 #
 # For more information, see https://docs.docker.com/compose/extends/
-version: "3.7"
-
 services:
   eventbus:
-    image: ghcr.io/brewblox/mosquitto:${BREWBLOX_RELEASE}
+    image: ghcr.io/brewblox/mosquitto:externals
     restart: unless-stopped
     labels:
       - traefik.http.services.eventbus.loadbalancer.server.port=15675
+      - traefik.tcp.routers.mqtts.entrypoints=mqtts
+      - traefik.tcp.routers.mqtts.tls=true
+      - traefik.tcp.routers.mqtts.rule=HostSNI(`*`)
+      - traefik.tcp.routers.mqtts.service=eventbus
+      - traefik.tcp.services.eventbus.loadBalancer.server.port=1884
     volumes:
       - type: bind
         source: ./mosquitto
@@ -58,7 +61,7 @@ services:
     # For an explanation: https://github.com/sdr-enthusiasts/Buster-Docker-Fixes
     privileged: true
   traefik:
-    image: traefik:2.8
+    image: traefik:2.9
     restart: unless-stopped
     labels:
       - traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/dashboard`)
@@ -79,6 +82,7 @@ services:
     ports:
       - "${BREWBLOX_PORT_HTTP:-80}:${BREWBLOX_PORT_HTTP:-80}"
       - "${BREWBLOX_PORT_HTTPS:-443}:${BREWBLOX_PORT_HTTPS:-443}"
+      - "8883:8883"
     command: >-
       --api.dashboard=true
       --providers.docker=true
@@ -88,6 +92,7 @@ services:
       --entrypoints.web.address=:${BREWBLOX_PORT_HTTP}
       --entrypoints.websecure.address=:${BREWBLOX_PORT_HTTPS}
       --entrypoints.websecure.http.tls=true
+      --entrypoints.mqtts.address=:8883/tcp
   ui:
     image: ghcr.io/brewblox/brewblox-ui:${BREWBLOX_RELEASE}
     restart: unless-stopped
