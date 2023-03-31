@@ -3,6 +3,7 @@ Commands for experimental features
 """
 
 import json
+from pathlib import Path
 
 import click
 
@@ -62,6 +63,7 @@ def enable_spark_mqtt(system_host, system_port, release):
     device_id = dev['id'].lower()
     device_host = dev['host']
     password = utils.random_string(20)
+    mosquitto_path = Path('./mosquitto').resolve()
 
     credentials = {
         'hostname': system_host,
@@ -72,7 +74,7 @@ def enable_spark_mqtt(system_host, system_port, release):
     # Set username/password for device
     sh(f'{sudo}docker run'
        ' -it --rm'
-       ' -v ./mosquitto:/mosquitto/include'
+       f' -v {mosquitto_path}:/mosquitto/include'
        ' --entrypoint mosquitto_passwd'
        f' ghcr.io/brewblox/mosquitto:{tag}'
        f' -b /mosquitto/include/externals.passwd'
