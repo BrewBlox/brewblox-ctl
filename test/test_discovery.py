@@ -214,6 +214,7 @@ def test_choose_device(m_utils, m_browser, m_conf, m_usb, mocker):
 
     assert discovery.choose_device('all')['id'] == '4F0052000551353432383931'
     assert discovery.choose_device('wifi')['id'] == 'id1'
+    assert discovery.choose_device('wifi', None, lambda dev: dev['id'] == 'id2')['id'] == 'id2'
 
     m_usb.core.find.return_value = []
     assert discovery.choose_device('usb') is None

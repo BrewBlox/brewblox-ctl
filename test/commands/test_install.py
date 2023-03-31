@@ -205,14 +205,14 @@ def test_check_init_opts(m_utils):
 
 def test_install_basic(m_utils, m_actions, m_input, m_sh, m_opts):
     invoke(install.install)
-    assert m_sh.call_count == 14  # do everything
+    assert m_sh.call_count == 15  # do everything
     assert m_input.call_count == 1  # prompt reboot
 
     m_sh.reset_mock()
     m_input.reset_mock()
     m_opts.prompt_reboot = False
     invoke(install.install)
-    assert m_sh.call_count == 14  # do everything
+    assert m_sh.call_count == 15  # do everything
     assert m_input.call_count == 0  # no reboot prompt
 
 
@@ -230,7 +230,7 @@ def test_install_minimal(m_utils, m_actions, m_input, m_sh, m_opts):
     m_opts.init_spark_backup = False
 
     invoke(install.install)
-    assert m_sh.call_count == 3  # Only the bare minimum
+    assert m_sh.call_count == 4  # Only the bare minimum
 
 
 def test_install_snapshot(m_utils, m_actions, m_input, m_sh, m_opts, m_snapshot_sh, m_snapshot_actions):

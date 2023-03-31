@@ -5,7 +5,7 @@ Device discovery
 import re
 from queue import Empty, Queue
 from socket import inet_ntoa
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import click
 import usb
@@ -102,7 +102,7 @@ def discover_wifi():
 def discover_device(discovery_type):
     if discovery_type in ['all', 'usb']:
         yield from discover_usb()
-    if discovery_type in ['all', 'wifi', 'lan']:
+    if discovery_type in ['all', 'wifi', 'lan', 'mqtt']:
         yield from discover_wifi()
 
 
@@ -128,7 +128,9 @@ def list_devices(discovery_type: str, compose_config: dict = None):
         })
 
 
-def choose_device(discovery_type: str, compose_config: dict = None):
+def choose_device(discovery_type: str,
+                  compose_config: dict = None,
+                  filter: Callable[[dict], bool] = lambda dev: True):
     id_services = match_id_services(compose_config)
     table = tabular.Table(
         keys=['index', 'connect', 'hw', 'id', 'host', 'service'],
@@ -145,11 +147,13 @@ def choose_device(discovery_type: str, compose_config: dict = None):
 
     utils.info('Discovering devices...')
     table.print_headers()
-    for i, dev in enumerate(discover_device(discovery_type)):
+    for dev in discover_device(discovery_type):
+        if not filter(dev):
+            continue
         devs.append(dev)
         table.print_row({
             **dev,
-            'index': i+1,
+            'index': len(devs),
             'service': id_services.get(dev['id'], ''),
         })
 

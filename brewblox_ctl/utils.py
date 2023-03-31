@@ -6,10 +6,12 @@ import grp
 import json
 import os
 import platform
+import random
 import re
 import shlex
 import shutil
 import socket
+import string
 from contextlib import closing
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
@@ -57,6 +59,11 @@ def strtobool(val):
     if re.match(FALSE_PATTERN, val):
         return False
     raise ValueError()
+
+
+def random_string(size: int) -> str:
+    opts = string.ascii_letters + string.ascii_lowercase + string.ascii_uppercase
+    return ''.join(random.choice(opts) for _ in range(size))
 
 
 def confirm(question, default=True):
@@ -319,6 +326,10 @@ def history_url():
 
 def datastore_url():
     return f'{host_url()}/history/datastore'
+
+
+def host_lan_ip() -> str:  # pragma: no cover
+    return sh("hostname -I | cut -d' ' -f1", capture=True)
 
 
 def host_ip():
