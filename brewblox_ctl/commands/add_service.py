@@ -101,7 +101,7 @@ def add_spark(name,
 
     If you want to fine-tune your service configuration, multiple arguments are available.
 
-    For a detailed explanation: https://brewblox.netlify.com/user/connect_settings.html
+    For a detailed explanation: https://www.brewblox.com/user/services/spark.html#spark-connection-settings
     """
     utils.check_config()
     utils.confirm_mode()
@@ -113,22 +113,22 @@ def add_spark(name,
     if not yes:
         check_create_overwrite(config, name)
 
-    for (nm, svc) in config['services'].items():
+    for (other_name, svc) in config['services'].items():
         img = svc.get('image', '')
         cmd = svc.get('command', '')
         if not any([
-            nm == name,
+            other_name == name,
             not img.startswith(image_name),
             '--device-id' in cmd,
             '--device-host' in cmd,
             '--simulation' in cmd,
         ]):
-            utils.warn(f'The existing Spark service `{nm}` does not have any connection settings.')
+            utils.warn(f'The existing Spark service `{other_name}` does not have any connection settings.')
             utils.warn('It will connect to any controller it can find.')
             utils.warn('This may cause multiple services to connect to the same controller.')
-            utils.warn(f'To reconfigure `{nm}`, please run:')
+            utils.warn(f'To reconfigure `{other_name}`, please run:')
             utils.warn('')
-            utils.warn(f'    brewblox-ctl add-spark --name {nm}')
+            utils.warn(f'    brewblox-ctl add-spark --name {other_name}')
             utils.warn('')
             utils.select('Press ENTER to continue or Ctrl-C to exit')
 
@@ -178,10 +178,10 @@ def add_spark(name,
     }
 
     if simulation:
-        mount_dir = f'simulator__{name}'
+        mount_dir = f'./simulator__{name}'
         config['services'][name]['volumes'].append({
             'type': 'bind',
-            'source': f'./{mount_dir}',
+            'source': mount_dir,
             'target': '/app/simulator'
         })
         sh(f'mkdir -m 777 -p {mount_dir}')

@@ -59,7 +59,7 @@ def test_remove(m_utils, m_sh, mocker):
 
 def test_ports(m_utils, m_sh):
     invoke(service.ports)
-    assert m_utils.setenv.call_count == 3
+    assert m_utils.setenv.call_count == 4
 
 
 def test_expose_from_empty(m_utils, m_sh):

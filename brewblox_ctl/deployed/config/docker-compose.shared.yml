@@ -7,20 +7,30 @@
 #
 # For more information, see https://docs.docker.com/compose/extends/
 version: "3.7"
-
 services:
   eventbus:
     image: ghcr.io/brewblox/mosquitto:${BREWBLOX_RELEASE}
     restart: unless-stopped
     labels:
+      # MQTT
+      - traefik.tcp.routers.mqtt.entrypoints=mqtt
+      - traefik.tcp.routers.mqtt.rule=HostSNI(`*`)
+      - traefik.tcp.routers.mqtt.tls=false
+      - traefik.tcp.routers.mqtt.service=mqtt
+      - traefik.tcp.services.mqtt.loadBalancer.server.port=1883
+      # MQTTS with TLS termination by traefik
+      - traefik.tcp.routers.mqtts.entrypoints=mqtts
+      - traefik.tcp.routers.mqtts.rule=HostSNI(`*`)
+      - traefik.tcp.routers.mqtts.tls=true
+      - traefik.tcp.routers.mqtts.service=mqtts
+      - traefik.tcp.services.mqtts.loadBalancer.server.port=1884
+      # MQTT over websockets
       - traefik.http.services.eventbus.loadbalancer.server.port=15675
     volumes:
       - type: bind
         source: ./mosquitto
         target: /mosquitto/include
         read_only: true
-    ports:
-      - "${BREWBLOX_PORT_MQTT:-1883}:1883"
   victoria:
     image: victoriametrics/victoria-metrics:v1.88.0
     restart: unless-stopped
@@ -58,7 +68,7 @@ services:
     # For an explanation: https://github.com/sdr-enthusiasts/Buster-Docker-Fixes
     privileged: true
   traefik:
-    image: traefik:2.8
+    image: traefik:2.9
     restart: unless-stopped
     labels:
       - traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/dashboard`)
@@ -79,6 +89,8 @@ services:
     ports:
       - "${BREWBLOX_PORT_HTTP:-80}:${BREWBLOX_PORT_HTTP:-80}"
       - "${BREWBLOX_PORT_HTTPS:-443}:${BREWBLOX_PORT_HTTPS:-443}"
+      - "${BREWBLOX_PORT_MQTT:-1883}:${BREWBLOX_PORT_MQTT:-1883}"
+      - "${BREWBLOX_PORT_MQTTS:-8883}:${BREWBLOX_PORT_MQTTS:-8883}"
     command: >-
       --api.dashboard=true
       --providers.docker=true
@@ -88,6 +100,8 @@ services:
       --entrypoints.web.address=:${BREWBLOX_PORT_HTTP}
       --entrypoints.websecure.address=:${BREWBLOX_PORT_HTTPS}
       --entrypoints.websecure.http.tls=true
+      --entrypoints.mqtt.address=:${BREWBLOX_PORT_MQTT}/tcp
+      --entrypoints.mqtts.address=:${BREWBLOX_PORT_MQTTS}/tcp
   ui:
     image: ghcr.io/brewblox/brewblox-ui:${BREWBLOX_RELEASE}
     restart: unless-stopped

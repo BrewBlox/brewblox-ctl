@@ -46,6 +46,7 @@ def check_env_vars():
 def check_dirs():
     utils.info('Checking data directories...')
     sh('mkdir -p ./traefik/ ./redis/ ./victoria/ ./mosquitto/ ./spark/backup/')
+    sh('touch ./mosquitto/externals.passwd')
 
 
 def bind_localtime():
