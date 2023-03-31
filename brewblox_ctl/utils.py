@@ -329,7 +329,7 @@ def datastore_url():
 
 
 def host_lan_ip() -> str:  # pragma: no cover
-    return sh("hostname -I | cut -d' ' -f1", capture=True)
+    return sh("hostname -I | cut -d' ' -f1", capture=True).strip()
 
 
 def host_ip():
