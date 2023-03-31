@@ -6,6 +6,7 @@
 # you can do so in docker-compose.yml.
 #
 # For more information, see https://docs.docker.com/compose/extends/
+version: "3.7"
 services:
   eventbus:
     image: ghcr.io/brewblox/mosquitto:${BREWBLOX_RELEASE}
