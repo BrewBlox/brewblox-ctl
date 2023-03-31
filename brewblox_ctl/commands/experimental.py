@@ -85,6 +85,6 @@ def enable_spark_mqtt(system_host, system_port, release):
 
     # Send credentials to controller
     sh(f'{const.CLI} http post'
-       f' {device_host}/mqtt_credentials'
+       f' http://{device_host}/mqtt_credentials'
        ' --quiet'
        f" -d '{json.dumps(credentials)}'")
