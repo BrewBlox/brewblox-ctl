@@ -26,9 +26,24 @@ def check_version(prev_version: Version):
         raise SystemExit(1)
 
 
+def check_dirs():
+    utils.info('Checking data directories...')
+    dirs = [
+        './traefik',
+        './redis',
+        './victoria',
+        './mosquitto',
+        './spark/backup',
+    ]
+
+    sh('mkdir -p ' + ' '.join(dirs))
+    sh('sudo chown --reference=./ ' + ' '.join(dirs))
+
+
 def apply_config_files():
     """Apply system-defined configuration from config dir"""
     utils.info('Updating configuration files...')
+    sh('touch ./mosquitto/externals.passwd')  # only make sure it exists
     sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/traefik-cert.yaml ./traefik/')
     sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.shared.yml ./')
     shared_cfg = utils.read_shared_compose()
@@ -41,12 +56,6 @@ def apply_config_files():
 def check_env_vars():
     utils.info('Checking .env variables...')
     utils.defaultenv()
-
-
-def check_dirs():
-    utils.info('Checking data directories...')
-    sh('mkdir -p ./traefik/ ./redis/ ./victoria/ ./mosquitto/ ./spark/backup/')
-    sh('touch ./mosquitto/externals.passwd')
 
 
 def bind_localtime():
@@ -123,7 +132,7 @@ def bind_spark_backup():
 
 def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
-    # Always apply shared config files
+    check_dirs()
     apply_config_files()
     actions.add_particle_udev_rules()
     actions.edit_avahi_config()
@@ -142,7 +151,6 @@ def downed_migrate(prev_version):
 
     # Not related to a specific release
     check_env_vars()
-    check_dirs()
     bind_localtime()
     bind_spark_backup()
 

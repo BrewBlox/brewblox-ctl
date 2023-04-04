@@ -337,8 +337,8 @@ def migrate_ghcr_images():
         # - Have a tag from a default channel. We're not migrating feature branch tags.
         # Image may:
         # - Have a tag that starts with "rpi-". We'll remove this during replacement.
-        # - Have either a `$BREWBLOX_RELEASE` or `${BREWBLOX_RELEASE}` tag.
-        changed = re.sub(r'^brewblox/([\w\-]+)\:(rpi\-)?((\$\{?BREWBLOX_RELEASE\}?)|develop|edge)$',
+        # - Have either a `$BREWBLOX_RELEASE`, `${BREWBLOX_RELEASE}`, or `${BREWBLOX_RELEASE:-default}` tag.
+        changed = re.sub(r'^brewblox/([\w\-]+)\:(rpi\-)?((\$\{?BREWBLOX_RELEASE(:\-\w+)?\}?)|develop|edge)$',
                          r'ghcr.io/brewblox/\1:\3',
                          img)
         if changed != img:

@@ -299,6 +299,9 @@ def test_migrate_ghcr_images(m_utils):
             'automation': {
                 'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
             },
+            'spark-fallback': {
+                'image': 'brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE:-develop}',
+            },
             'third-party': {
                 'image': 'external/image:tag',
             },
@@ -324,6 +327,9 @@ def test_migrate_ghcr_images(m_utils):
             },
             'automation': {
                 'image': 'ghcr.io/brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+            },
+            'spark-fallback': {
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE:-develop}',
             },
             'third-party': {
                 'image': 'external/image:tag',
