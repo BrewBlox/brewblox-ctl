@@ -25,10 +25,21 @@ HOST_LEN = 4*3+3
 
 
 class DiscoveryType(enum.Enum):
-    all = enum.auto()
-    usb = enum.auto()
-    mdns = enum.auto()
-    mqtt = enum.auto()
+    all = 1
+    usb = 2
+    mdns = 3
+    mqtt = 4
+
+    # aliases
+    wifi = 3
+    lan = 3
+
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def choices():
+        return list((str(v) for v in DiscoveryType.__members__))
 
 
 @dataclass

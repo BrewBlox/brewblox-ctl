@@ -37,7 +37,7 @@ def cli():
 
 @cli.command()
 @click.option('--discovery', 'discovery_type',
-              type=click.Choice(['all', 'usb', 'mdns', 'mqtt']),
+              type=click.Choice(DiscoveryType.choices()),
               default='all',
               help='Discovery setting. Use "all" to check both mDNS and USB')
 def discover_spark(discovery_type):
@@ -69,7 +69,7 @@ def discover_spark(discovery_type):
 @click.option('--device-id',
               help='Checked device ID')
 @click.option('--discovery', 'discovery_type',
-              type=click.Choice(['all', 'usb', 'mdns', 'mqtt']),
+              type=click.Choice(DiscoveryType.choices()),
               default='all',
               help='Methods for discovering devices. This will become part of the service configuration.')
 @click.option('--device-host',
@@ -110,6 +110,7 @@ def add_spark(name,
     image_name = 'ghcr.io/brewblox/brewblox-devcon-spark'
     sudo = utils.optsudo()
     config = utils.read_compose()
+    discovery_type = DiscoveryType[discovery_type]
 
     if not yes:
         check_create_overwrite(config, name)
@@ -137,7 +138,7 @@ def add_spark(name,
         if device_host:
             dev = find_device_by_host(device_host)
         else:
-            dev = choose_device(DiscoveryType[discovery_type], config)
+            dev = choose_device(discovery_type, config)
 
         if dev:
             device_id = dev.device_id
@@ -146,7 +147,7 @@ def add_spark(name,
             click.echo('No valid combination of device ID and device host.')
             raise SystemExit(1)
 
-    if discovery_type == 'mqtt':  # pragma: no cover
+    if discovery_type == DiscoveryType.mqtt:  # pragma: no cover
         utils.warn('Support for MQTT connections is still experimental.')
         utils.warn('To have the controller connect to the eventbus, you also need to run:')
         utils.warn('')
@@ -154,15 +155,15 @@ def add_spark(name,
         utils.warn('')
 
     commands = [
-        '--name=' + name,
-        '--discovery=' + discovery_type,
+        f'--name={name}',
+        f'--discovery={discovery_type}',
     ]
 
     if device_id:
-        commands += ['--device-id=' + device_id]
+        commands += [f'--device-id={device_id}']
 
     if device_host:
-        commands += ['--device-host=' + device_host]
+        commands += [f'--device-host={device_host}']
 
     if simulation:
         commands += ['--simulation']
