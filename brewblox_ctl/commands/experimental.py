@@ -8,7 +8,8 @@ from pathlib import Path
 import click
 
 from brewblox_ctl import click_helpers, const, sh, utils
-from brewblox_ctl.discovery import choose_device
+from brewblox_ctl.discovery import (DiscoveryType, choose_device,
+                                    find_device_by_host)
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -31,8 +32,10 @@ def experimental():
               default=None,
               help='External MQTTS port for the Brewblox system. '
               'This value defaults to the current BREWBLOX_PORT_MQTTS value.')
+@click.option('--device-host',
+              help='Static controller URL. This will only be used for the initial credential exchange.')
 @click.option('--release', default=None, help='Brewblox release track')
-def enable_spark_mqtt(system_host, system_port, release):
+def enable_spark_mqtt(system_host, system_port, device_host, release):
     """
     Enable MQTT for a Spark 4 controller.
 
@@ -53,15 +56,16 @@ def enable_spark_mqtt(system_host, system_port, release):
     if system_port is None:
         system_port = int(utils.getenv(const.ENV_KEY_PORT_MQTTS))
 
-    dev = choose_device('lan',
-                        config,
-                        lambda dev: dev['hw'] == 'Spark 4')
+    if device_host:
+        dev = find_device_by_host(device_host)
+    else:
+        dev = choose_device(DiscoveryType.mqtt, config)
 
     if not dev:
         return
 
-    device_id = dev['id'].lower()
-    device_host = dev['host']
+    device_id = dev.device_id
+    device_host = dev.device_host
     password = utils.random_string(20)
     mosquitto_path = Path('./mosquitto').resolve()
 
@@ -72,6 +76,7 @@ def enable_spark_mqtt(system_host, system_port, release):
     }
 
     # Set username/password for device
+    utils.info('Adding user to MQTT eventbus...')
     sh(f'{sudo}docker run'
        ' -it --rm'
        f' -v {mosquitto_path}:/mosquitto/include'
@@ -84,6 +89,7 @@ def enable_spark_mqtt(system_host, system_port, release):
     sh(f'{sudo}docker compose kill -s SIGHUP eventbus', silent=True)
 
     # Send credentials to controller
+    utils.info('Sending MQTT credentials to controller...')
     sh(f'{const.CLI} http post'
        f' http://{device_host}/mqtt_credentials'
        ' --quiet'

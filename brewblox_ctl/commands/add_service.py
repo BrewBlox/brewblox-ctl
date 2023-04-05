@@ -7,8 +7,8 @@ from os import getgid, getuid
 import click
 
 from brewblox_ctl import click_helpers, const, sh, utils
-from brewblox_ctl.discovery import (choose_device, find_device_by_host,
-                                    list_devices)
+from brewblox_ctl.discovery import (DiscoveryType, choose_device,
+                                    find_device_by_host, list_devices)
 
 
 def localtime_volume() -> dict:
@@ -37,24 +37,25 @@ def cli():
 
 @cli.command()
 @click.option('--discovery', 'discovery_type',
-              type=click.Choice(['all', 'usb', 'wifi', 'lan']),
+              type=click.Choice(['all', 'usb', 'mdns', 'mqtt']),
               default='all',
-              help='Discovery setting. Use "all" to check both Wifi and USB')
+              help='Discovery setting. Use "all" to check both mDNS and USB')
 def discover_spark(discovery_type):
     """
     Discover available Spark controllers.
 
-    This prints device ID for all devices, and IP address for Wifi devices.
-    If a device is connected over USB, and has Wifi active, it may show up twice.
+    This prints device ID for all devices, and IP address for wifi/ethernet devices.
+    If a device is connected over USB, and has wifi active, it may show up twice.
 
-    Multicast DNS (mDNS) is used for Wifi discovery.
-    Whether this works is dependent on the configuration of your router and avahi-daemon.
+    Whether Multicast DNS (mDNS) discovery works
+    is dependent on the configuration of your router and avahi-daemon.
     """
     try:
         config = utils.read_compose()
     except FileNotFoundError:
-        config = {}
-    list_devices(discovery_type, config)
+        config = None
+
+    list_devices(DiscoveryType[discovery_type], config)
 
 
 @cli.command()
@@ -68,9 +69,9 @@ def discover_spark(discovery_type):
 @click.option('--device-id',
               help='Checked device ID')
 @click.option('--discovery', 'discovery_type',
-              type=click.Choice(['all', 'usb', 'wifi', 'lan']),
+              type=click.Choice(['all', 'usb', 'mdns', 'mqtt']),
               default='all',
-              help='Discovery setting. Use "all" to check both LAN and USB')
+              help='Methods for discovering devices. This will become part of the service configuration.')
 @click.option('--device-host',
               help='Static controller URL')
 @click.option('-c', '--command',
@@ -136,10 +137,10 @@ def add_spark(name,
         if device_host:
             dev = find_device_by_host(device_host)
         else:
-            dev = choose_device(discovery_type, config)
+            dev = choose_device(DiscoveryType[discovery_type], config)
 
         if dev:
-            device_id = dev['id']
+            device_id = dev.device_id
         else:
             # We have no device ID, and no device host. Avoid a wildcard service
             click.echo('No valid combination of device ID and device host.')

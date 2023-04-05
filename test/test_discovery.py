@@ -9,6 +9,7 @@ import pytest
 from zeroconf import ServiceInfo, ServiceStateChange
 
 from brewblox_ctl import const, discovery
+from brewblox_ctl.discovery import DiscoveredDevice, DiscoveryType
 from brewblox_ctl.testing import check_sudo, matching
 
 TESTED = discovery.__name__
@@ -96,7 +97,7 @@ def m_usb(mocker):
 
     m = mocker.patch(TESTED + '.usb', autospec=True)
     m.core.find.return_value = [m_dev]
-    m.util.get_string.return_value = '4f0052000551353432383931'
+    m.util.get_string.return_value = '4F0052000551353432383931'
     return m
 
 
@@ -123,6 +124,21 @@ def m_find(mocker):
         'port': 8332
     }
     return m
+
+
+def test_handshake_message():
+    msg = discovery.HandshakeMessage('', '', '', '', '', '', 'photon', '', '', 'UPPERCASE')
+    assert msg.model == 'Spark 2'
+    assert msg.device_id == 'uppercase'
+
+    msg = discovery.HandshakeMessage('', '', '', '', '', '', 'p1', '', '', '')
+    assert msg.model == 'Spark 3'
+
+    msg = discovery.HandshakeMessage('', '', '', '', '', '', 'esp32', '', '', '')
+    assert msg.model == 'Spark 4'
+
+    msg = discovery.HandshakeMessage('', '', '', '', '', '', 'sim', '', '', '')
+    assert msg.model == 'sim'
 
 
 def test_match_id_services():
@@ -153,17 +169,17 @@ def test_match_id_services():
         },
     }
     assert discovery.match_id_services(config) == {
-        'C4DD5766BB18': 'spark1, spark2',
-        '30003D001947383434353030': 'spark3',
+        'c4dd5766bb18': 'spark1, spark2',
+        '30003d001947383434353030': 'spark3',
     }
 
 
 def test_discover_usb(m_usb):
-    expected = {
-        'connect': 'USB',
-        'id': '4F0052000551353432383931',
-        'hw': 'Spark 3',
-    }
+    expected = DiscoveredDevice(
+        discovery='USB',
+        model='Spark 3',
+        device_id='4f0052000551353432383931'
+    )
 
     gen = discovery.discover_usb()
     assert next(gen, None) == expected
@@ -171,55 +187,59 @@ def test_discover_usb(m_usb):
     assert next(gen, None) is None
 
 
-def test_discover_wifi(m_browser, m_conf):
-    gen = discovery.discover_wifi()
-    assert next(gen, None) == {
-        'connect': 'LAN',
-        'id': 'id1',
-        'hw': 'Spark 3',
-        'host': '1.2.3.4',
-    }
-    assert next(gen, None) == {
-        'connect': 'LAN',
-        'id': 'id2',
-        'hw': 'Spark 4',
-        'host': '4.3.2.1',
-    }
+def test_discover_mdns(m_browser, m_conf):
+    gen = discovery.discover_mdns()
+    assert next(gen, None) == DiscoveredDevice(
+        discovery='mDNS',
+        model='Spark 3',
+        device_id='id1',
+        device_host='1.2.3.4')
+    assert next(gen, None) == DiscoveredDevice(
+        discovery='mDNS',
+        model='Spark 4',
+        device_id='id2',
+        device_host='4.3.2.1')
     assert next(gen, None) is None
 
 
 def test_discover_device(m_utils, m_browser, m_conf, m_usb):
-    usb_devs = [v for v in discovery.discover_device('usb')]
+    usb_devs = [v for v in discovery.discover_device(DiscoveryType.usb)]
     assert len(usb_devs) == 2
-    assert usb_devs[0]['id'] == '4F0052000551353432383931'
+    assert usb_devs[0].device_id == '4f0052000551353432383931'
 
-    wifi_devs = [v for v in discovery.discover_device('wifi')]
+    wifi_devs = [v for v in discovery.discover_device(DiscoveryType.mdns)]
     assert len(wifi_devs) == 2
-    assert wifi_devs[0]['id'] == 'id1'
+    assert wifi_devs[0].device_id == 'id1'
 
-    all_devs = [v for v in discovery.discover_device('all')]
+    all_devs = [v for v in discovery.discover_device(DiscoveryType.all)]
     assert all_devs == usb_devs + wifi_devs
 
 
 def test_list_devices(m_utils, m_browser, m_conf, m_usb, mocker):
     m_echo = mocker.patch(discovery.tabular.__name__ + '.click.echo')
-    discovery.list_devices('all')
+    discovery.list_devices(DiscoveryType.all, None)
     assert m_echo.call_count == 6  # headers, spacers, 2 lan, 2 usb
-    m_echo.assert_called_with(matching('LAN  Spark 4 id2'))
+    m_echo.assert_called_with(matching(r'mDNS\s+Spark 4\s+id2\s+'))
 
 
 def test_choose_device(m_utils, m_browser, m_conf, m_usb, mocker):
     m_prompt = mocker.patch(TESTED + '.click.prompt')
     m_prompt.return_value = 1
 
-    assert discovery.choose_device('all')['id'] == '4F0052000551353432383931'
-    assert discovery.choose_device('wifi')['id'] == 'id1'
-    assert discovery.choose_device('wifi', None, lambda dev: dev['id'] == 'id2')['id'] == 'id2'
+    assert discovery.choose_device(DiscoveryType.all, None).device_id == '4f0052000551353432383931'
+    assert discovery.choose_device(DiscoveryType.mdns, None).device_id == 'id1'
 
     m_usb.core.find.return_value = []
-    assert discovery.choose_device('usb') is None
+    assert discovery.choose_device(DiscoveryType.usb, None) is None
+
+    assert discovery.choose_device(DiscoveryType.mqtt, None).device_id == 'id2'
 
 
 def test_find_device_by_host(m_utils, m_browser, m_conf, m_usb, mocker):
-    assert discovery.find_device_by_host('4.3.2.1')['id'] == 'id2'
+    m_get = mocker.patch(TESTED + '.requests.get', autospec=True)
+
+    m_get.return_value.text = '!BREWBLOX,fw_version,proto_version,fw_date,proto_date,sys_version,esp32,00,00,id2'
+    assert discovery.find_device_by_host('4.3.2.1').device_id == 'id2'
+
+    m_get.return_value.text = 'Hello, this is dog!'
     assert discovery.find_device_by_host('4f0052000551353432383931') is None
