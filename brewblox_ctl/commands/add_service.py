@@ -146,6 +146,13 @@ def add_spark(name,
             click.echo('No valid combination of device ID and device host.')
             raise SystemExit(1)
 
+    if discovery_type == 'mqtt':  # pragma: no cover
+        utils.warn('Support for MQTT connections is still experimental.')
+        utils.warn('To have the controller connect to the eventbus, you also need to run:')
+        utils.warn('')
+        utils.warn('    brewblox-ctl experimental enable-spark-mqtt')
+        utils.warn('')
+
     commands = [
         '--name=' + name,
         '--discovery=' + discovery_type,
