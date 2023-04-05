@@ -2,12 +2,15 @@
 Device discovery
 """
 
+import enum
 import re
+from dataclasses import asdict, dataclass
 from queue import Empty, Queue
 from socket import inet_ntoa
-from typing import Callable, Dict, List, Optional
+from typing import Dict, Generator, List, Optional
 
 import click
+import requests
 import usb
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
@@ -15,9 +18,55 @@ from brewblox_ctl import const, tabular, utils
 
 BREWBLOX_DNS_TYPE = '_brewblox._tcp.local.'
 DISCOVER_TIMEOUT_S = 5
-HW_LEN = 7
+DISCOVERY_LEN = 4  # USB / TCP / mDNS
+MODEL_LEN = 7  # 'Spark 2' / 'Spark 3' / 'Spark 4'
 MAX_ID_LEN = 24  # Spark 4 IDs are shorter
 HOST_LEN = 4*3+3
+
+
+class DiscoveryType(enum.Enum):
+    all = enum.auto()
+    usb = enum.auto()
+    mdns = enum.auto()
+    mqtt = enum.auto()
+
+
+@dataclass
+class DiscoveredDevice:
+    discovery: str
+    model: str
+    device_id: str
+    device_host: str = ''
+
+    def __post_init__(self):
+        self.device_id = self.device_id.lower()
+
+
+@dataclass
+class HandshakeMessage:
+    brewblox: str
+    firmware_version: str
+    proto_version: str
+    firmware_date: str
+    proto_date: str
+    system_version: str
+    platform: str
+    reset_reason_hex: str
+    reset_data_hex: str
+    device_id: str
+    model: str = ''
+
+    def __post_init__(self):
+        self.device_id = self.device_id.lower()
+
+        if self.platform == 'photon':
+            self.model = 'Spark 2'
+        elif self.platform == 'p1':
+            self.model = 'Spark 3'
+        elif self.platform == 'esp32':
+            self.model = 'Spark 4'
+        else:
+            self.model = self.platform
 
 
 def match_id_services(config: Optional[dict]) -> Dict[str, str]:  # [ID, service_name]
@@ -38,7 +87,7 @@ def match_id_services(config: Optional[dict]) -> Dict[str, str]:  # [ID, service
             r'.*\-\-device\-id(\w|=)(?P<id>\w+)',
             service.get('command', ''))
         if match:
-            id = match.group('id').upper()
+            id = match.group('id').lower()
             output.setdefault(id, []).append(name)
 
     return {
@@ -48,7 +97,30 @@ def match_id_services(config: Optional[dict]) -> Dict[str, str]:  # [ID, service
     }
 
 
-def discover_usb():
+def find_device_by_host(device_host: str) -> Optional[DiscoveredDevice]:
+    utils.info(f'Querying device with address {device_host}...')
+    try:
+        resp = requests.get(f'http://{device_host}', timeout=5)
+        resp.raise_for_status()
+
+        content = resp.text
+        if not content.startswith('!BREWBLOX'):
+            raise RuntimeError('Host did not respond with a Brewblox handshake')
+
+        handshake = HandshakeMessage(*content.split(','))
+        utils.info(f'Found a {handshake.model} with ID {handshake.device_id}')
+        return DiscoveredDevice(
+            discovery='TCP',
+            device_id=handshake.device_id,
+            model=handshake.model
+        )
+
+    except Exception as ex:
+        utils.warn(f'Failed to fetch device info: {str(ex)}')
+        return None
+
+
+def discover_usb() -> Generator[DiscoveredDevice, None, None]:
     devices = [
         *usb.core.find(find_all=True,
                        idVendor=const.VID_PARTICLE,
@@ -60,16 +132,14 @@ def discover_usb():
     ]
     for dev in devices:
         dev: usb.core.Device
-        id = usb.util.get_string(dev, dev.iSerialNumber).upper()
-        hw = {const.PID_PHOTON: 'Spark 2', const.PID_P1: 'Spark 3'}[dev.idProduct]
-        yield {
-            'connect': 'USB',
-            'id': id,
-            'hw': hw,
-        }
+        id = usb.util.get_string(dev, dev.iSerialNumber).lower()
+        model = {const.PID_PHOTON: 'Spark 2', const.PID_P1: 'Spark 3'}[dev.idProduct]
+        yield DiscoveredDevice(discovery='USB',
+                               model=model,
+                               device_id=id)
 
 
-def discover_wifi():
+def discover_mdns() -> Generator[DiscoveredDevice, None, None]:
     queue: Queue[ServiceInfo] = Queue()
     conf = Zeroconf()
 
@@ -85,36 +155,44 @@ def discover_wifi():
             if not info or not info.addresses or info.addresses == [b'\x00\x00\x00\x00']:
                 continue  # discard simulators
             id = info.properties[b'ID'].decode()
-            hw = info.properties[b'HW'].decode()
+            model = info.properties[b'HW'].decode()
             host = inet_ntoa(info.addresses[0])
-            yield {
-                'connect': 'LAN',
-                'id': id,
-                'hw': hw,
-                'host': host,
-            }
+            yield DiscoveredDevice(discovery='mDNS',
+                                   model=model,
+                                   device_id=id,
+                                   device_host=host)
     except Empty:
         pass
     finally:
         conf.close()
 
 
-def discover_device(discovery_type):
-    if discovery_type in ['all', 'usb']:
+def discover_device(discovery_type: DiscoveryType) -> Generator[DiscoveredDevice, None, None]:
+    if discovery_type in [DiscoveryType.all,
+                          DiscoveryType.usb]:
         yield from discover_usb()
-    if discovery_type in ['all', 'wifi', 'lan', 'mqtt']:
-        yield from discover_wifi()
+    if discovery_type in [DiscoveryType.all,
+                          DiscoveryType.mdns,
+                          DiscoveryType.mqtt]:
+        yield from discover_mdns()
 
 
-def list_devices(discovery_type: str, compose_config: dict = None):
+def list_devices(discovery_type: DiscoveryType,
+                 compose_config: Optional[dict]):
     id_services = match_id_services(compose_config)
     table = tabular.Table(
-        keys=['connect', 'hw', 'id', 'host', 'service'],
+        keys=[
+            'discovery',
+            'model',
+            'device_id',
+            'device_host',
+            'service'
+        ],
         headers={
-            'connect': 'Type',
-            'hw': 'Model'.ljust(HW_LEN),
-            'id': 'Device ID'.ljust(MAX_ID_LEN),
-            'host': 'Device host'.ljust(HOST_LEN),
+            'discovery': 'Discovery'.ljust(DISCOVERY_LEN),
+            'model': 'Model'.ljust(MODEL_LEN),
+            'device_id': 'Device ID'.ljust(MAX_ID_LEN),
+            'device_host': 'Device host'.ljust(HOST_LEN),
             'service': 'Service',
         }
     )
@@ -123,23 +201,30 @@ def list_devices(discovery_type: str, compose_config: dict = None):
     table.print_headers()
     for dev in discover_device(discovery_type):
         table.print_row({
-            **dev,
-            'service': id_services.get(dev['id'], ''),
+            **asdict(dev),
+            'service': id_services.get(dev.device_id, ''),
         })
 
 
-def choose_device(discovery_type: str,
-                  compose_config: dict = None,
-                  filter: Callable[[dict], bool] = lambda dev: True):
+def choose_device(discovery_type: DiscoveryType,
+                  compose_config: Optional[dict],
+                  ) -> Optional[DiscoveredDevice]:
     id_services = match_id_services(compose_config)
     table = tabular.Table(
-        keys=['index', 'connect', 'hw', 'id', 'host', 'service'],
+        keys=[
+            'index',
+            'discovery',
+            'model',
+            'device_id',
+            'device_host',
+            'service'
+        ],
         headers={
             'index': 'Index',
-            'connect': 'Type',
-            'hw': 'Model'.ljust(HW_LEN),
-            'id': 'Device ID'.ljust(MAX_ID_LEN),
-            'host': 'Device host'.ljust(HOST_LEN),
+            'discovery': 'Discovery'.ljust(DISCOVERY_LEN),
+            'model': 'Model'.ljust(MODEL_LEN),
+            'device_id': 'Device ID'.ljust(MAX_ID_LEN),
+            'device_host': 'Device host'.ljust(HOST_LEN),
             'service': 'Service',
         }
     )
@@ -148,13 +233,14 @@ def choose_device(discovery_type: str,
     utils.info('Discovering devices...')
     table.print_headers()
     for dev in discover_device(discovery_type):
-        if not filter(dev):
+        # TODO(Bob) less hacky check
+        if discovery_type == DiscoveryType.mqtt and dev.model != 'Spark 4':
             continue
         devs.append(dev)
         table.print_row({
-            **dev,
+            **asdict(dev),
             'index': len(devs),
-            'service': id_services.get(dev['id'], ''),
+            'service': id_services.get(dev.device_id, ''),
         })
 
     if not devs:
@@ -166,20 +252,3 @@ def choose_device(discovery_type: str,
                        default=1)
 
     return devs[idx-1]
-
-
-def find_device_by_host(device_host: str):
-    utils.info(f'Discovering device with address {device_host}...')
-    match = next((dev
-                  for dev in discover_device('lan')
-                  if dev.get('host') == device_host
-                  ),
-                 None)
-    if match:
-        id = match['id']
-        hw = match['hw']
-        utils.info(f'Discovered a {hw} with ID {id}')
-        return match
-    else:
-        click.echo('No devices discovered')
-        return None
