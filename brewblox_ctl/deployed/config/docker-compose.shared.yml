@@ -30,7 +30,6 @@ services:
       - type: bind
         source: ./mosquitto
         target: /mosquitto/include
-        read_only: true
   victoria:
     image: victoriametrics/victoria-metrics:v1.88.0
     restart: unless-stopped

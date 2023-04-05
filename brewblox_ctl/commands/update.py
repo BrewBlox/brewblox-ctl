@@ -35,15 +35,12 @@ def check_dirs():
         './mosquitto',
         './spark/backup',
     ]
-
     sh('mkdir -p ' + ' '.join(dirs))
-    sh('sudo chown --reference=./ ' + ' '.join(dirs))
 
 
 def apply_config_files():
     """Apply system-defined configuration from config dir"""
     utils.info('Updating configuration files...')
-    sh('touch ./mosquitto/externals.passwd')  # only make sure it exists
     sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/traefik-cert.yaml ./traefik/')
     sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.shared.yml ./')
     shared_cfg = utils.read_shared_compose()

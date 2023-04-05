@@ -270,9 +270,6 @@ def install(ctx: click.Context, snapshot_file):
         # Always copy cert config to traefik dir
         sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/traefik-cert.yaml ./traefik/')
 
-        # Always ensure mosquitto password file exists
-        sh('touch ./mosquitto/externals.passwd')
-
         # Init done - now set CFG version
         utils.setenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
 
