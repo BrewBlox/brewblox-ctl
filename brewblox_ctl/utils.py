@@ -62,7 +62,7 @@ def strtobool(val):
 
 
 def random_string(size: int) -> str:
-    opts = string.ascii_letters + string.ascii_lowercase + string.ascii_uppercase
+    opts = string.ascii_letters + string.digits
     return ''.join(random.choice(opts) for _ in range(size))
 
 
@@ -329,7 +329,17 @@ def datastore_url():
 
 
 def host_lan_ip() -> str:  # pragma: no cover
-    return sh("hostname -I | cut -d' ' -f1", capture=True).strip()
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(0)
+    try:
+        # We don't expect this to be reachable
+        s.connect(('10.254.254.254', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
 
 
 def host_ip():
