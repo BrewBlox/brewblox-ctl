@@ -328,6 +328,10 @@ def datastore_url():
     return f'{host_url()}/history/datastore'
 
 
+def hostname() -> str:  # pragma: no cover
+    return socket.gethostname()
+
+
 def host_lan_ip() -> str:  # pragma: no cover
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.settimeout(0)
