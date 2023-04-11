@@ -48,3 +48,15 @@ For users to call this as a single command, it needs to be findable using `$PATH
 It is deployed in `$HOME/.local/bin` if `$HOME` exists, otherwise in `/usr/local/bin`.
 
 Because it potentially controls multiple Brewblox installations, it is intentionally kept generic.
+
+## Development: using a local environment
+
+If you wish to test new or changed `brewblox-ctl` commands in a configured environment, you can do so with a symlinked version of your development directory.
+
+Install brewblox as normal, then (in your brewblox directory), run:
+
+```sh
+ln -s ${BREWBLOX_CTL_REPO_DIR}/brewblox_ctl ./brewblox_ctl
+```
+
+The `brewblox-ctl` script involves `python3 -m brewblox_ctl`, which prefers `./brewblox_ctl` over the installed version.

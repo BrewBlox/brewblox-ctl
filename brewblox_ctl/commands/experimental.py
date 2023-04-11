@@ -4,6 +4,7 @@ Commands for experimental features
 
 import json
 from pathlib import Path
+from typing import Optional
 
 import click
 
@@ -23,23 +24,33 @@ def experimental():
 
 
 @experimental.command()
-@click.option('--system-host',
+@click.option('--server-host',
               default=None,
               help='External hostname for the Brewblox system. '
-              'This value defaults to the server LAN IP address.')
-@click.option('--system-port',
+              'This value defaults to "$HOSTNAME.local".')
+@click.option('--server-port',
               type=int,
               default=None,
               help='External MQTTS port for the Brewblox system. '
               'This value defaults to the current BREWBLOX_PORT_MQTTS value.')
 @click.option('--device-host',
               help='Static controller URL. This will only be used for the initial credential exchange.')
+@click.option('--cert-file',
+              type=click.Path(exists=True, resolve_path=True, path_type=Path),
+              default='./traefik/brewblox.crt',
+              help='Path to broker certificate.')
 @click.option('--device-id',
               help='Manually set the device ID. '
               'brewblox-ctl will not attempt to communicate, and print a cURL command instead. '
               'If --device-host is set, it will be included in the printed command.')
-@click.option('--release', default=None, help='Brewblox release track')
-def enable_spark_mqtt(system_host, system_port, device_host, device_id, release):
+@click.option('--release', default=None, help='Brewblox release track.')
+def enable_spark_mqtt(server_host: Optional[str],
+                      server_port: Optional[int],
+                      device_host: Optional[str],
+                      cert_file: Path,
+                      device_id: Optional[str],
+                      release: Optional[str],
+                      ):
     """
     Enable MQTT for a Spark 4 controller.
 
@@ -56,14 +67,16 @@ def enable_spark_mqtt(system_host, system_port, device_host, device_id, release)
     config = utils.read_compose()
 
     # Users can manually set the device ID if the controller is remote
-    # In this case we don't send credentials, but print a command instead
-    send_credentials = not device_id
+    # In this case we don't send configuration, but print a command instead
+    send_config = not device_id
 
-    if system_host is None:
-        system_host = utils.host_lan_ip()
+    if server_host is None:
+        server_host = f'{utils.hostname()}.local'
 
-    if system_port is None:
-        system_port = int(utils.getenv(const.ENV_KEY_PORT_MQTTS, const.DEFAULT_PORT_MQTTS))
+    if server_port is None:
+        server_port = int(utils.getenv(const.ENV_KEY_PORT_MQTTS, const.DEFAULT_PORT_MQTTS))
+
+    cert = cert_file.read_text()
 
     # If this is a dry run, we'll massage the settings a bit
     # The command shouldn't fail if no controller is present
@@ -73,7 +86,7 @@ def enable_spark_mqtt(system_host, system_port, device_host, device_id, release)
         utils.warn("This is a dry run. We'll use dummy settings where needed.")
         utils.warn(f'Device ID = {device_id}')
         utils.warn(f'Device hostname = {device_host}')
-        utils.warn(f'System hostname = {system_host}')
+        utils.warn(f'System hostname = {server_host}')
 
     if device_id:
         dev = DiscoveredDevice(
@@ -96,8 +109,8 @@ def enable_spark_mqtt(system_host, system_port, device_host, device_id, release)
     mosquitto_path = Path('./mosquitto').resolve()
 
     credentials = {
-        'hostname': system_host,
-        'port': system_port,
+        'hostname': server_host,
+        'port': server_port,
         'password': password,
     }
 
@@ -118,16 +131,33 @@ def enable_spark_mqtt(system_host, system_port, device_host, device_id, release)
     # Use cURL to make the command reproducible on different machines
     send_credentials_cmd = ' '.join([
         'curl -sS -X POST',
-        f"-d '{json.dumps(credentials)}'",
         f'http://{device_host}/mqtt_credentials',
+        f"-d '{json.dumps(credentials)}'",
     ])
 
-    if send_credentials:
-        utils.info('Sending MQTT credentials to controller...')
+    send_cert_cmd = ' '.join([
+        'curl -sS -X POST',
+        f'http://{device_host}/mqtt_certificate',
+        f"-d '{cert}'"
+    ])
+
+    if send_config:
+        utils.info('Sending MQTT configuration to controller...')
         sh(send_credentials_cmd)
+        sh(send_cert_cmd)
     else:
-        utils.warn('Device ID was set manually.')
-        utils.warn('To set MQTT credentials on your Spark, run:')
-        utils.warn('')
-        utils.warn('    ' + send_credentials_cmd)
-        utils.warn('')
+        utils.warn('====================================================')
+        utils.warn('IMPORTANT: CONFIGURATION MUST BE APPLIED MANUALLY.')
+        utils.warn('This happens when the --device-id argument is used.')
+        utils.warn('To apply MQTT configuration, run the commands below.')
+        utils.warn('====================================================')
+        click.echo('')
+        click.echo(send_credentials_cmd)
+        click.echo('')
+        click.echo(send_cert_cmd)
+        click.echo('')
+        utils.warn('====================================================')
+        utils.warn('IMPORTANT: CONFIGURATION MUST BE APPLIED MANUALLY.')
+        utils.warn('This happens when the --device-id argument is used.')
+        utils.warn('To apply MQTT configuration, run the commands above.')
+        utils.warn('====================================================')

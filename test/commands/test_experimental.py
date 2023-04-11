@@ -15,7 +15,7 @@ TESTED = experimental.__name__
 def m_utils(mocker):
     m = mocker.patch(TESTED + '.utils', autospec=True)
     m.docker_tag.return_value = 'docker-tag'
-    m.host_lan_ip.return_value = 'external-host'
+    m.hostname.return_value = 'brewblox'
     m.optsudo.return_value = 'SUDO '
     m.random_string.return_value = 'password_string'
     m.ctx_opts.return_value.dry_run = False
@@ -56,22 +56,22 @@ def m_find(mocker):
 def test_enable_spark_mqtt_empty(m_sh, m_utils, m_choose):
     m_choose.side_effect = lambda _1, _2: None
 
-    invoke(experimental.enable_spark_mqtt)
+    invoke(experimental.enable_spark_mqtt, '--cert-file=README.md')
     assert m_sh.call_count == 0
 
     m_utils.ctx_opts.return_value.dry_run = True
-    invoke(experimental.enable_spark_mqtt)
+    invoke(experimental.enable_spark_mqtt, '--cert-file=README.md')
     assert m_sh.call_count > 0
 
 
 def test_enable_spark_mqtt(m_sh, m_utils, m_choose, m_find):
-    invoke(experimental.enable_spark_mqtt)
-    invoke(experimental.enable_spark_mqtt, '--system-host=192.168.0.1 --system-port=8888')
-    invoke(experimental.enable_spark_mqtt, '--device-host=192.168.0.1')
+    invoke(experimental.enable_spark_mqtt, '--cert-file=README.md')
+    invoke(experimental.enable_spark_mqtt, '--cert-file=README.md --server-host=192.168.0.1 --server-port=8888')
+    invoke(experimental.enable_spark_mqtt, '--cert-file=README.md --device-host=192.168.0.1')
     assert m_choose.call_count == 2
     assert m_find.call_count == 1
 
     # When device ID is set, credentials are not sent
-    invoke(experimental.enable_spark_mqtt, '--device-id=12345678')
+    invoke(experimental.enable_spark_mqtt, '--cert-file=README.md --device-id=12345678')
     assert ' 12345678 ' in m_sh.call_args_list[-2][0][0]
     assert 'docker compose kill' in m_sh.call_args_list[-1][0][0]
