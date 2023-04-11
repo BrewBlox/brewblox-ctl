@@ -123,7 +123,8 @@ def find_device_by_host(device_host: str) -> Optional[DiscoveredDevice]:
         return DiscoveredDevice(
             discovery='TCP',
             device_id=handshake.device_id,
-            model=handshake.model
+            model=handshake.model,
+            device_host=device_host,
         )
 
     except Exception as ex:
