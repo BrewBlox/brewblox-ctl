@@ -52,11 +52,25 @@ def enable_spark_mqtt(server_host: Optional[str],
                       release: Optional[str],
                       ):
     """
-    Enable MQTT for a Spark 4 controller.
+    Enables secured MQTT communication between a Spark 4 and Brewblox.
 
-    The Spark will connect to the password-protected MQTTS (MQTT + TLS) port.
-    This command will automatically generate a random password for this particular device,
-    and send the address and password to the Spark.
+    The server exposes a TLS+password protected MQTT port.
+    For MQTT login, the controller ID is always used as username.
+    To provide compatibility with self-signed server SSL certificates,
+    the Spark must be sent the certificate itself.
+
+    \b
+    Steps:
+        - Determine device ID. Discover Spark if --device-id not set.
+        - Generate new password.
+        - Add new MQTT user, with username = device ID. Overwrite if exists.
+        - Reload broker to apply configuration change.
+        - If controller is in local network:
+            - Send MQTT credentials to controller.
+            - Send server certificate to controller.
+        - Else:
+            - Print curl command for user to manually send MQTT credentials.
+            - Print curl command for user to manually send server certificate.
     """
     utils.check_config()
     utils.confirm_mode()
