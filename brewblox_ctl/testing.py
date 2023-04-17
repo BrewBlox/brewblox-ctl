@@ -40,7 +40,7 @@ def check_sudo(shell_cmd, *args, **kwargs):
     Utility function for checking whether there are any instances of un-sudo'd docker calls.
     Typically, utils.optsudo() is used, and mocked to return 'SUDO'.
 
-    This function checks whether an sh call was made that forgot to prefix docker/docker-compose with optsudo.
+    This function checks whether an sh call was made that forgot to prefix docker/docker compose with optsudo.
 
     To use, mock utils.sh, and set this function as side effect.
     """

@@ -6,6 +6,7 @@ Brewblox-ctl docker commands
 import re
 
 import click
+
 from brewblox_ctl import click_helpers, utils
 from brewblox_ctl.utils import sh
 
@@ -23,12 +24,12 @@ def cli():
 def up(detach, compose_args):
     """Start all services.
 
-    This wraps `docker-compose up -d`
+    This wraps `docker compose up -d`
     """
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh(f'{sudo}docker-compose up -d ' + ' '.join(list(compose_args)))
+    sh(f'{sudo}docker compose up -d ' + ' '.join(list(compose_args)))
 
 
 @cli.command(context_settings=dict(
@@ -38,12 +39,12 @@ def up(detach, compose_args):
 def down(compose_args):
     """Stop all services.
 
-    This wraps `docker-compose down`
+    This wraps `docker compose down`
     """
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh(f'{sudo}docker-compose down ' + ' '.join(list(compose_args)))
+    sh(f'{sudo}docker compose down ' + ' '.join(list(compose_args)))
 
 
 @cli.command(context_settings=dict(
@@ -53,15 +54,15 @@ def down(compose_args):
 def restart(compose_args):
     """Recreates all services.
 
-    This wraps `docker-compose up -d --force-recreate`
+    This wraps `docker compose up -d --force-recreate`
 
-    Note: `docker-compose restart` also exists -
+    Note: `docker compose restart` also exists -
     it restarts containers without recreating them.
     """
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh(f'{sudo}docker-compose up -d --force-recreate ' + ' '.join(list(compose_args)))
+    sh(f'{sudo}docker compose up -d --force-recreate ' + ' '.join(list(compose_args)))
 
 
 @cli.command()
@@ -85,7 +86,7 @@ def follow(services):
     """
     utils.check_config()
     sudo = utils.optsudo()
-    sh(f'{sudo}docker-compose logs --follow ' + ' '.join(services))
+    sh(f'{sudo}docker compose logs --follow ' + ' '.join(services))
 
 
 @cli.command()

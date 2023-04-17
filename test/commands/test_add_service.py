@@ -3,7 +3,9 @@ Tests brewblox_ctl.commands.add_service
 """
 
 import pytest
+
 from brewblox_ctl.commands import add_service
+from brewblox_ctl.discovery import DiscoveredDevice, DiscoveryType
 from brewblox_ctl.testing import check_sudo, invoke
 
 TESTED = add_service.__name__
@@ -39,21 +41,25 @@ def m_sh(mocker):
 
 @pytest.fixture
 def m_choose(mocker):
-    m = mocker.patch(TESTED + '.choose_device')
-    m.side_effect = lambda _1, _2: {
-        'id': '280038000847343337373738',
-        'host': '192.168.0.55',
-    }
+    m = mocker.patch(TESTED + '.choose_device', autospec=True)
+    m.side_effect = lambda _1, _2: DiscoveredDevice(
+        discovery='mDNS',
+        model='Spark 4',
+        device_id='280038000847343337373738',
+        device_host='192.168.0.55'
+    )
     return m
 
 
 @pytest.fixture
 def m_find_by_host(mocker):
-    m = mocker.patch(TESTED + '.find_device_by_host')
-    m.side_effect = lambda _1: {
-        'id': '280038000847343337373738',
-        'host': '192.168.0.55',
-    }
+    m = mocker.patch(TESTED + '.find_device_by_host', autospec=True)
+    m.side_effect = lambda _1: DiscoveredDevice(
+        discovery='mDNS',
+        model='Spark 4',
+        device_id='280038000847343337373738',
+        device_host='192.168.0.55'
+    )
     return m
 
 
@@ -62,24 +68,24 @@ def test_discover_spark(m_utils, mocker):
 
     m_utils.read_compose.return_value = {'services': {}}
     invoke(add_service.discover_spark)
-    m_discover.assert_called_with('all', {'services': {}})
+    m_discover.assert_called_with(DiscoveryType.all, {'services': {}})
 
     m_utils.read_compose.side_effect = FileNotFoundError
     invoke(add_service.discover_spark)
-    m_discover.assert_called_with('all', {})
+    m_discover.assert_called_with(DiscoveryType.all, None)
 
 
 def test_add_spark(m_utils, m_sh, mocker, m_choose, m_find_by_host):
     m_utils.read_compose.side_effect = lambda: {'services': {}}
     m_utils.confirm.return_value = True
 
-    invoke(add_service.add_spark, '--name testey --discover-now --discovery wifi --command "--do-stuff"')
+    invoke(add_service.add_spark, '--name testey --discover-now --discovery mdns --command "--do-stuff"')
     invoke(add_service.add_spark, input='testey\n')
 
     invoke(add_service.add_spark, '-n testey')
 
     m_choose.side_effect = lambda _1, _2=None: None
-    invoke(add_service.add_spark, '--name testey --discovery wifi', _err=True)
+    invoke(add_service.add_spark, '--name testey --discovery mdns', _err=True)
     invoke(add_service.add_spark, '--name testey --device-host 1234')
     invoke(add_service.add_spark, '--name testey --device-id 12345 --simulation')
     invoke(add_service.add_spark, '--name testey --simulation')
@@ -101,7 +107,7 @@ def test_spark_overwrite(m_utils, m_sh, m_choose, mocker):
     m_utils.read_compose.side_effect = lambda: {
         'services': {
             'testey': {
-                'image': 'brewblox/brewblox-devcon-spark:develop'
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:develop'
             }}}
 
     invoke(add_service.add_spark, '--name testey --yes')

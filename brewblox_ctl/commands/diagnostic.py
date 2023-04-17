@@ -7,6 +7,7 @@ import shlex
 from pathlib import Path
 
 import click
+
 from brewblox_ctl import click_helpers, const, sh, utils
 
 ENV_KEYS = [
@@ -38,7 +39,7 @@ def cli():
 @cli.command()
 @click.option('--add-compose/--no-add-compose',
               default=True,
-              help='Include or omit docker-compose config files in the generated log.')
+              help='Include or omit docker compose config files in the generated log.')
 @click.option('--add-system/--no-add-system',
               default=True,
               help='Include or omit system diagnostics in the generated log.')
@@ -95,12 +96,12 @@ def log(add_compose, add_system, upload):
     append('uname -a')
     append('python3 --version')
     append(f'{sudo}docker --version')
-    append(f'{sudo}docker-compose --version')
+    append(f'{sudo}docker compose version')
 
     # Add active containers
     utils.info('Writing active containers...')
     header('Containers')
-    append(f'{sudo}docker-compose ps -a')
+    append(f'{sudo}docker compose ps -a')
 
     # Add service logs
     try:
@@ -110,23 +111,23 @@ def log(add_compose, add_system, upload):
         for name in names:
             utils.info(f'Writing {name} service logs...')
             header(f'Service: {name}')
-            append(f'{sudo}docker-compose logs --timestamps --no-color --tail 200 {name}')
+            append(f'{sudo}docker compose logs --timestamps --no-color --tail 200 {name}')
     except Exception as ex:
         append('echo ' + shlex.quote(type(ex).__name__ + ': ' + str(ex)))
 
     # Add compose config
     if add_compose:
-        utils.info('Writing docker-compose configuration...')
+        utils.info('Writing docker compose configuration...')
         header('docker-compose.yml')
         append('cat docker-compose.yml')
         header('docker-compose.shared.yml')
         append('cat docker-compose.shared.yml')
     else:
-        utils.info('Skipping docker-compose configuration...')
+        utils.info('Skipping docker compose configuration...')
 
     # Add blocks
     host_url = utils.host_url()
-    services = utils.list_services('brewblox/brewblox-devcon-spark')
+    services = utils.list_services('ghcr.io/brewblox/brewblox-devcon-spark')
     for svc in services:
         utils.info(f'Writing {svc} blocks...')
         header(f'Blocks: {svc}')

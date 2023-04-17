@@ -23,7 +23,7 @@ def makecert(dir, release: str = None):
         ' --rm --privileged' +
         ' --pull always' +
         f' -v "{absdir}":/certs/' +
-        f' brewblox/omgwtfssl:{tag}')
+        f' ghcr.io/brewblox/omgwtfssl:{tag}')
     sh(f'sudo chmod 644 "{absdir}/brewblox.crt"')
     sh(f'sudo chmod 600 "{absdir}/brewblox.key"')
 
@@ -65,15 +65,31 @@ def deploy_ctl_wrapper():
         sh(f'sudo cp "{const.DIR_DEPLOYED_SCRIPTS}/brewblox-ctl" /usr/local/bin/')
 
 
+def check_compose_plugin():
+    if utils.check_ok(f'{utils.optsudo()}docker compose version'):
+        return
+    if utils.command_exists('apt-get'):
+        utils.info('Installing Docker Compose plugin...')
+        sh('sudo apt-get update && sudo apt-get install -y docker-compose-plugin')
+    else:
+        utils.warn('The Docker Compose plugin is not installed, and apt is not available.')
+        utils.warn('You need to install the Docker Compose plugin manually.')
+        utils.warn('')
+        utils.warn('    https://docs.docker.com/compose/install/linux/')
+        utils.warn('')
+        raise SystemExit(1)
+
+
 def check_ports():
     if utils.path_exists('./docker-compose.yml'):
         utils.info('Stopping services...')
-        sh(f'{utils.optsudo()}docker-compose down')
+        sh(f'{utils.optsudo()}docker compose down')
 
     ports = [
         int(utils.getenv(const.ENV_KEY_PORT_HTTP, const.DEFAULT_PORT_HTTP)),
         int(utils.getenv(const.ENV_KEY_PORT_HTTPS, const.DEFAULT_PORT_HTTPS)),
         int(utils.getenv(const.ENV_KEY_PORT_MQTT, const.DEFAULT_PORT_MQTT)),
+        int(utils.getenv(const.ENV_KEY_PORT_MQTTS, const.DEFAULT_PORT_MQTTS)),
     ]
 
     try:

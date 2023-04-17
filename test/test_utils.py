@@ -3,6 +3,7 @@ Tests brewblox_ctl.utils
 """
 
 import json
+import re
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError
 from unittest.mock import call
 
@@ -50,6 +51,15 @@ def test_ctx_opts():
     # Will raise an error outside click context
     with pytest.raises(RuntimeError):
         utils.ctx_opts()
+
+
+def test_random_string():
+    tested = []
+    for _ in range(20):
+        s = utils.random_string(20)
+        assert re.match(r'[a-zA-Z0-9]{20}', s)
+        assert s not in tested
+        tested.append(s)
 
 
 def test_confirm(mocked_ext):
@@ -377,7 +387,7 @@ def test_host_ip(m_getenv):
 
 def test_list_services():
     services = utils.list_services(
-        'brewblox/brewblox-history',
+        'ghcr.io/brewblox/brewblox-history',
         'brewblox_ctl/deployed/config/docker-compose.shared.yml')
     assert services == ['history']
 

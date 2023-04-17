@@ -10,7 +10,7 @@ HOST = 'https://localhost'
 
 # The configuration version installed by brewblox-ctl
 # This will be different from the env CFG_VERSION during updates
-CFG_VERSION = '0.7.0'
+CFG_VERSION = '0.8.0'
 
 # Keys to used environment variables
 ENV_KEY_CFG_VERSION = 'BREWBLOX_CFG_VERSION'
@@ -23,15 +23,17 @@ ENV_KEY_ALLOW_ARMV6 = 'BREWBLOX_ALLOW_ARMV6'
 ENV_KEY_PORT_HTTP = 'BREWBLOX_PORT_HTTP'
 ENV_KEY_PORT_HTTPS = 'BREWBLOX_PORT_HTTPS'
 ENV_KEY_PORT_MQTT = 'BREWBLOX_PORT_MQTT'
+ENV_KEY_PORT_MQTTS = 'BREWBLOX_PORT_MQTTS'
 
 # Default values
 DEFAULT_RELEASE = 'edge'
 DEFAULT_PORT_HTTP = 80
 DEFAULT_PORT_HTTPS = 443
 DEFAULT_PORT_MQTT = 1883
+DEFAULT_PORT_MQTTS = 8883
 
 # Default content of the .env file
-# This is used by both brewblox-ctl and docker-compose
+# This is used by both brewblox-ctl and docker compose
 ENV_FILE_DEFAULTS = {
     # Declared by brewblox
     ENV_KEY_RELEASE: DEFAULT_RELEASE,
@@ -40,7 +42,8 @@ ENV_FILE_DEFAULTS = {
     ENV_KEY_PORT_HTTP: str(DEFAULT_PORT_HTTP),
     ENV_KEY_PORT_HTTPS: str(DEFAULT_PORT_HTTPS),
     ENV_KEY_PORT_MQTT: str(DEFAULT_PORT_MQTT),
-    # Declared by docker-compose
+    ENV_KEY_PORT_MQTTS: str(DEFAULT_PORT_MQTTS),
+    # Declared by docker compose
     # https://docs.docker.com/compose/reference/envvars/
     'COMPOSE_FILE': 'docker-compose.shared.yml:docker-compose.yml',
     'COMPOSE_PROJECT_NAME': 'brewblox',

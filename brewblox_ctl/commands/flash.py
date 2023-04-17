@@ -7,6 +7,7 @@ from time import sleep
 
 import click
 import usb
+
 from brewblox_ctl import click_helpers, const, sh, utils
 
 LISTEN_MODE_WAIT_S = 1
@@ -29,8 +30,8 @@ def run_particle_flasher(release: str, pull: bool, cmd: str):
         '--pull ' + ('always' if pull else 'missing'),
     ])
 
-    sh(f'{sudo}docker-compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} brewblox/firmware-flasher:{tag} {cmd}')
+    sh(f'{sudo}docker compose --log-level CRITICAL down', check=False)
+    sh(f'{sudo}docker run {opts} ghcr.io/brewblox/firmware-flasher:{tag} {cmd}')
 
 
 def run_esp_flasher(release: str, pull: bool):
@@ -47,8 +48,8 @@ def run_esp_flasher(release: str, pull: bool):
         '--pull ' + ('always' if pull else 'missing'),
     ])
 
-    sh(f'{sudo}docker-compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} brewblox/brewblox-devcon-spark:{tag} flash')
+    sh(f'{sudo}docker compose --log-level CRITICAL down', check=False)
+    sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-devcon-spark:{tag} flash')
 
 
 def find_usb_spark() -> usb.core.Device:

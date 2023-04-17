@@ -35,7 +35,7 @@ def m_utils(mocker):
         'version': '3.7',
         'services': {
             'spark-one': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'depends_on': ['datastore'],
             },
             'plaato': {
@@ -98,10 +98,10 @@ def test_bind_localtime(m_utils):
         'version': '3.7',
         'services': {
             'spark-one': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
             },
             'spark-two': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'volumes': ['/data:/data']
             },
             'plaato': {
@@ -124,7 +124,7 @@ def test_bind_localtime(m_utils):
         'version': '3.7',
         'services': {
             'spark-one': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'volumes': [{
                     'type': 'bind',
                     'source': '/etc/localtime',
@@ -133,7 +133,7 @@ def test_bind_localtime(m_utils):
                 }]
             },
             'spark-two': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'volumes': [
                     '/data:/data',
                     {
@@ -165,14 +165,14 @@ def test_bind_spark_backup(m_utils):
         'version': '3.7',
         'services': {
             'spark-one': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
             },
             'spark-two': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'volumes': ['/data:/data']
             },
             'spark-three': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'volumes': [{
                     'type': 'bind',
                     'source': './custom/backup/dir',
@@ -199,7 +199,7 @@ def test_bind_spark_backup(m_utils):
         'version': '3.7',
         'services': {
             'spark-one': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'volumes': [{
                     'type': 'bind',
                     'source': './spark/backup',
@@ -207,7 +207,7 @@ def test_bind_spark_backup(m_utils):
                 }]
             },
             'spark-two': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'volumes': [
                     '/data:/data',
                     {
@@ -218,7 +218,7 @@ def test_bind_spark_backup(m_utils):
                 ]
             },
             'spark-three': {
-                'image': 'brewblox/brewblox-devcon-spark:rpi-edge',
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'volumes': [{
                     'type': 'bind',
                     'source': './custom/backup/dir',

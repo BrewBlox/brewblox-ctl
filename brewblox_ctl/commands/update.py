@@ -26,6 +26,18 @@ def check_version(prev_version: Version):
         raise SystemExit(1)
 
 
+def check_dirs():
+    utils.info('Checking data directories...')
+    dirs = [
+        './traefik',
+        './redis',
+        './victoria',
+        './mosquitto',
+        './spark/backup',
+    ]
+    sh('mkdir -p ' + ' '.join(dirs))
+
+
 def apply_config_files():
     """Apply system-defined configuration from config dir"""
     utils.info('Updating configuration files...')
@@ -41,11 +53,6 @@ def apply_config_files():
 def check_env_vars():
     utils.info('Checking .env variables...')
     utils.defaultenv()
-
-
-def check_dirs():
-    utils.info('Checking data directories...')
-    sh('mkdir -p ./traefik/ ./redis/ ./victoria/ ./mosquitto/ ./spark/backup/')
 
 
 def bind_localtime():
@@ -97,7 +104,7 @@ def bind_spark_backup():
         name: str
         service: dict
 
-        if not service.get('image', '').startswith('brewblox/brewblox-devcon-spark'):
+        if not service.get('image', '').startswith('ghcr.io/brewblox/brewblox-devcon-spark'):
             continue
 
         volumes = service.get('volumes', [])
@@ -122,7 +129,7 @@ def bind_spark_backup():
 
 def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
-    # Always apply shared config files
+    check_dirs()
     apply_config_files()
     actions.add_particle_udev_rules()
     actions.edit_avahi_config()
@@ -136,9 +143,11 @@ def downed_migrate(prev_version):
     if prev_version < Version('0.6.1'):
         migration.migrate_ipv6_fix()
 
+    if prev_version < Version('0.8.0'):
+        migration.migrate_ghcr_images()
+
     # Not related to a specific release
     check_env_vars()
-    check_dirs()
     bind_localtime()
     bind_spark_backup()
 
@@ -251,8 +260,10 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
         actions.uninstall_old_ctl_package()
         actions.deploy_ctl_wrapper()
 
+    actions.check_compose_plugin()
+
     utils.info('Stopping services...')
-    sh(f'{sudo}docker-compose down')
+    sh(f'{sudo}docker compose down')
 
     if update_system_packages:
         actions.update_system_packages()
@@ -262,7 +273,7 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
 
     if pull:
         utils.info('Pulling docker images...')
-        sh(f'{sudo}docker-compose pull')
+        sh(f'{sudo}docker compose pull')
 
     if prune:
         utils.info('Pruning unused images...')
@@ -271,7 +282,7 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
         sh(f'{sudo}docker volume prune -f > /dev/null')
 
     utils.info('Starting services...')
-    sh(f'{sudo}docker-compose up -d')
+    sh(f'{sudo}docker compose up -d')
 
     if migrate:
         upped_migrate(prev_version)

@@ -5,6 +5,7 @@ User service management
 import re
 
 import click
+
 from brewblox_ctl import click_helpers, const, sh, utils
 from brewblox_ctl.commands.docker import up
 
@@ -29,7 +30,7 @@ def restart_services(ctx: click.Context, **kwargs):
               help='Image type filter. Leave blank to show all images.')
 @click.option('--file',
               default='docker-compose.yml',
-              help='docker-compose configuration file.')
+              help='docker compose configuration file.')
 def show(image, file):
     """Show all services of a specific type.
 
@@ -70,7 +71,10 @@ def remove(ctx, services):
 @click.option('--mqtt',
               envvar=const.ENV_KEY_PORT_MQTT,
               help='Port used for MQTT connections.')
-def ports(http, https, mqtt):
+@click.option('--mqtts',
+              envvar=const.ENV_KEY_PORT_MQTTS,
+              help='Port used for MQTTS connections.')
+def ports(http, https, mqtt, mqtts):
     """Update used ports"""
     utils.check_config()
     utils.confirm_mode()
@@ -79,6 +83,7 @@ def ports(http, https, mqtt):
         const.ENV_KEY_PORT_HTTP: http,
         const.ENV_KEY_PORT_HTTPS: https,
         const.ENV_KEY_PORT_MQTT: mqtt,
+        const.ENV_KEY_PORT_MQTTS: mqtts,
     }
 
     utils.info('Writing port settings to .env...')
@@ -143,5 +148,5 @@ def expose(ctx, delete, service, value):
 def pull(ctx, services):
     """Pull one or more services without doing a full update."""
     sudo = utils.optsudo()
-    sh(f'{sudo}docker-compose pull ' + ' '.join(services))
+    sh(f'{sudo}docker compose pull ' + ' '.join(services))
     restart_services(ctx)

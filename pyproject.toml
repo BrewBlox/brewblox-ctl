@@ -15,20 +15,18 @@ configobj = "^5.0.6"
 zeroconf = "^0.47.3"
 pyusb = "^1.2.1"
 pyserial = "^3.5"
-docker = "^6.0.1"
-docker-compose = "^1.29.2"
-websocket-client = ">=0.32.0,<1"
 psutil = "^5.9.4"
 "ruamel.yaml" = "^0.17.21"
 packaging = "^23.0"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest-cov = "*"
 flake8 = ">=5"
 autopep8 = "*"
 pytest-mock = "*"
 flake8-quotes = "*"
 httpretty = "1.0.5"
+pyyaml = "^6.0"
 
 [build-system]
 requires = ["poetry-core~=1.0"]
