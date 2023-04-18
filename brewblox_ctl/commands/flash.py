@@ -31,7 +31,7 @@ def run_particle_flasher(release: str, pull: bool, cmd: str):
     ])
 
     sh(f'{sudo}docker compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} ghcr.io/brewblox/firmware-flasher:{tag} {cmd}')
+    sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-firmware-flasher:{tag} {cmd}')
 
 
 def run_esp_flasher(release: str, pull: bool):
