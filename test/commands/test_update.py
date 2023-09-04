@@ -29,6 +29,7 @@ def m_utils(mocker):
     m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     m.getenv.return_value = '/usr/local/bin:/home/pi/.local/bin'
+    m.prompt_user_info.return_value = ('username', 'password')
     m.datastore_url.return_value = STORE_URL
     m.user_home_exists.return_value = False  # Tested explicitly
     m.read_compose.side_effect = lambda: {
@@ -91,6 +92,12 @@ def test_check_version(m_utils, mocker):
 
     with pytest.raises(DummyError):
         update.check_version(Version('1.3.0'))
+
+
+def test_check_user(m_utils, mocker):
+    m_utils.read_users.return_value = {}
+    update.check_user()
+    m_utils.add_user.assert_called_with('username', 'password')
 
 
 def test_bind_localtime(m_utils):

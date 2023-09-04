@@ -18,6 +18,7 @@ pyserial = "^3.5"
 psutil = "^5.9.4"
 "ruamel.yaml" = "^0.17.21"
 packaging = "^23.0"
+passlib = "^1.7.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest-cov = "*"

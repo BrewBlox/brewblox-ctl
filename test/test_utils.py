@@ -102,6 +102,15 @@ def test_confirm_usb(mocked_ext):
     assert mocked_ext['input'].call_count == 1
 
 
+def test_prompt_user_info(mocker):
+    mocker.patch(TESTED + '.warn')
+    m_prompt = mocker.patch(TESTED + '.click.prompt')
+    m_prompt.side_effect = ['', ':', 'name']
+    m_pass = mocker.patch(TESTED + '.getpass')
+    m_pass.return_value = 'password'
+    assert utils.prompt_user_info() == ('name', 'password')
+
+
 def test_path_exists(mocker):
     m_path = mocker.patch(TESTED + '.Path').return_value
     m_path.exists.side_effect = [
@@ -367,12 +376,12 @@ def test_get_urls(m_getenv):
         '1234',
         '4321',
     ]
-    assert utils.history_url() == f'{const.HOST}:1234/history/history'
-    assert utils.datastore_url() == f'{const.HOST}:4321/history/datastore'
+    assert utils.history_url() == 'http://localhost:1234/history/history'
+    assert utils.datastore_url() == 'http://localhost:4321/history/datastore'
 
     assert m_getenv.call_args_list == [
-        call(const.ENV_KEY_PORT_HTTPS, '443'),
-        call(const.ENV_KEY_PORT_HTTPS, '443'),
+        call(const.ENV_KEY_PORT_ADMIN, '9600'),
+        call(const.ENV_KEY_PORT_ADMIN, '9600'),
     ]
 
 

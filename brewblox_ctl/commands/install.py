@@ -3,6 +3,7 @@ Brewblox-ctl installation commands
 """
 
 from time import sleep
+from typing import Optional, Tuple
 
 import click
 
@@ -18,23 +19,26 @@ def cli():
 
 class InstallOptions:
     def __init__(self) -> None:
-        self.use_defaults = False
-        self.skip_confirm = True
+        self.use_defaults: bool = False
+        self.skip_confirm: bool = True
 
-        self.apt_install = True
+        self.apt_install: bool = True
 
-        self.docker_install = True
-        self.docker_group_add = True
-        self.docker_pull = True
+        self.docker_install: bool = True
+        self.docker_group_add: bool = True
+        self.docker_pull: bool = True
 
-        self.reboot_needed = False
-        self.prompt_reboot = True
+        self.reboot_needed: bool = False
+        self.prompt_reboot: bool = True
 
-        self.init_compose = True
-        self.init_datastore = True
-        self.init_history = True
-        self.init_gateway = True
-        self.init_eventbus = True
+        self.init_compose: bool = True
+        self.init_auth: bool = True
+        self.init_datastore: bool = True
+        self.init_history: bool = True
+        self.init_gateway: bool = True
+        self.init_eventbus: bool = True
+
+        self.user_info: Optional[Tuple[str, str]] = None
 
     def check_confirm_opts(self):
         self.use_defaults = False
@@ -92,15 +96,21 @@ class InstallOptions:
 
     def check_init_opts(self):
         self.init_compose = True
+        self.init_auth = True
         self.init_datastore = True
         self.init_history = True
         self.init_gateway = True
         self.init_eventbus = True
         self.init_spark_backup = True
+        self.user_info = None
 
         if utils.path_exists('./docker-compose.yml'):
             self.init_compose = not utils.confirm('This directory already contains a docker-compose.yml file. ' +
                                                   'Do you want to keep it?')
+
+        if utils.path_exists('./auth/'):
+            self.init_auth = not utils.confirm('This directory already contains user authentication files. '
+                                               'Do you want to keep them?')
 
         if utils.path_exists('./redis/'):
             self.init_datastore = not utils.confirm('This directory already contains Redis datastore files. ' +
@@ -121,6 +131,10 @@ class InstallOptions:
         if utils.path_exists('./spark/backup/'):
             self.init_spark_backup = not utils.confirm('This directory already contains Spark backup files. ' +
                                                        'Do you want to keep them?')
+
+        if self.init_auth:
+            utils.info('A username/password is required to use the UI')
+            self.user_info = utils.prompt_user_info()
 
 
 @cli.command()
@@ -248,6 +262,10 @@ def install(ctx: click.Context, snapshot_file):
             utils.info('Creating datastore directory...')
             sh('sudo rm -rf ./redis/; mkdir ./redis/')
 
+        if opts.init_auth:
+            utils.info('Creating auth directory...')
+            sh('sudo rm -rf ./auth/; mkdir ./auth/')
+
         if opts.init_history:
             utils.info('Creating history directory...')
             sh('sudo rm -rf ./victoria/; mkdir ./victoria/')
@@ -266,6 +284,10 @@ def install(ctx: click.Context, snapshot_file):
         if opts.init_spark_backup:
             utils.info('Creating Spark backup directory...')
             sh('sudo rm -rf ./spark/backup/; mkdir -p ./spark/backup/')
+
+        if opts.user_info:
+            utils.info('Creating user...')
+            utils.add_user(*opts.user_info)
 
         # Always copy cert config to traefik dir
         sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/traefik-cert.yaml ./traefik/')

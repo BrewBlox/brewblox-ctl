@@ -74,7 +74,10 @@ def remove(ctx, services):
 @click.option('--mqtts',
               envvar=const.ENV_KEY_PORT_MQTTS,
               help='Port used for MQTTS connections.')
-def ports(http, https, mqtt, mqtts):
+@click.option('--admin',
+              envvar=const.ENV_KEY_PORT_ADMIN,
+              help='Port used for local admin connections.')
+def ports(http, https, mqtt, mqtts, admin):
     """Update used ports"""
     utils.check_config()
     utils.confirm_mode()
@@ -84,6 +87,7 @@ def ports(http, https, mqtt, mqtts):
         const.ENV_KEY_PORT_HTTPS: https,
         const.ENV_KEY_PORT_MQTT: mqtt,
         const.ENV_KEY_PORT_MQTTS: mqtts,
+        const.ENV_KEY_PORT_ADMIN: admin,
     }
 
     utils.info('Writing port settings to .env...')
