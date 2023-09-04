@@ -372,8 +372,8 @@ def show_data(desc: str, data):
 
 
 def host_url():
-    port = getenv(const.ENV_KEY_PORT_HTTPS, '443')
-    return f'{const.HOST}:{port}'
+    port = getenv(const.ENV_KEY_PORT_ADMIN, str(const.DEFAULT_PORT_ADMIN))
+    return f'http://localhost:{port}'
 
 
 def history_url():

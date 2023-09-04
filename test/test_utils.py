@@ -376,12 +376,12 @@ def test_get_urls(m_getenv):
         '1234',
         '4321',
     ]
-    assert utils.history_url() == f'{const.HOST}:1234/history/history'
-    assert utils.datastore_url() == f'{const.HOST}:4321/history/datastore'
+    assert utils.history_url() == 'http://localhost:1234/history/history'
+    assert utils.datastore_url() == 'http://localhost:4321/history/datastore'
 
     assert m_getenv.call_args_list == [
-        call(const.ENV_KEY_PORT_HTTPS, '443'),
-        call(const.ENV_KEY_PORT_HTTPS, '443'),
+        call(const.ENV_KEY_PORT_ADMIN, '9600'),
+        call(const.ENV_KEY_PORT_ADMIN, '9600'),
     ]
 
 

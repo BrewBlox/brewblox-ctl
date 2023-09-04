@@ -6,7 +6,6 @@ from pathlib import Path
 
 ARGS = sys.argv
 CLI = 'python3 -m brewblox_ctl'
-HOST = 'https://localhost'
 
 # The configuration version installed by brewblox-ctl
 # This will be different from the env CFG_VERSION during updates
@@ -24,6 +23,7 @@ ENV_KEY_PORT_HTTP = 'BREWBLOX_PORT_HTTP'
 ENV_KEY_PORT_HTTPS = 'BREWBLOX_PORT_HTTPS'
 ENV_KEY_PORT_MQTT = 'BREWBLOX_PORT_MQTT'
 ENV_KEY_PORT_MQTTS = 'BREWBLOX_PORT_MQTTS'
+ENV_KEY_PORT_ADMIN = 'BREWBLOX_PORT_ADMIN'
 
 # Default values
 DEFAULT_RELEASE = 'edge'
@@ -31,6 +31,7 @@ DEFAULT_PORT_HTTP = 80
 DEFAULT_PORT_HTTPS = 443
 DEFAULT_PORT_MQTT = 1883
 DEFAULT_PORT_MQTTS = 8883
+DEFAULT_PORT_ADMIN = 9600
 
 # Default content of the .env file
 # This is used by both brewblox-ctl and docker compose
@@ -43,6 +44,7 @@ ENV_FILE_DEFAULTS = {
     ENV_KEY_PORT_HTTPS: str(DEFAULT_PORT_HTTPS),
     ENV_KEY_PORT_MQTT: str(DEFAULT_PORT_MQTT),
     ENV_KEY_PORT_MQTTS: str(DEFAULT_PORT_MQTTS),
+    ENV_KEY_PORT_ADMIN: str(DEFAULT_PORT_ADMIN),
     # Declared by docker compose
     # https://docs.docker.com/compose/reference/envvars/
     'COMPOSE_FILE': 'docker-compose.shared.yml:docker-compose.yml',
