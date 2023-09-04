@@ -13,14 +13,17 @@ import shutil
 import socket
 import string
 from contextlib import closing
+from getpass import getpass
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
+from tempfile import NamedTemporaryFile
 from types import GeneratorType
-from typing import Generator, Union
+from typing import Generator, Tuple, Union
 
 import click
 import dotenv
 from dotenv.main import dotenv_values
+from passlib.hash import pbkdf2_sha512
 from ruamel.yaml import YAML
 from ruamel.yaml.compat import StringIO
 
@@ -126,6 +129,54 @@ def confirm_mode():  # pragma: no cover
         opts.skip_confirm = True
 
 
+def read_users() -> dict:
+    content = ''
+
+    if const.PASSWD_FILE.exists():  # pragma: no cover
+        content = sh(f'sudo cat "{const.PASSWD_FILE}"', capture=True) or ''
+
+    return {
+        name: hashed
+        for (name, hashed)
+        in [line.strip().split(':', 1)
+            for line in content.split('\n')
+            if ':' in line]
+    }
+
+
+def write_users(users: dict):
+    with NamedTemporaryFile('w') as tempf:
+        for k, v in users.items():
+            tempf.write(f'{k}:{v}\n')
+        tempf.flush()
+        sh(f'sudo cp "{tempf.name}" "{const.PASSWD_FILE}"')
+        sh(f'sudo chown root:root "{const.PASSWD_FILE}"')
+
+
+def prompt_user_info() -> Tuple[str, str]:
+    username = click.prompt('Name')
+    while not re.fullmatch(r'\w+', username):
+        warn('Names can only contain letters, numbers, - or _')
+        username = click.prompt('Name')
+    password = getpass()
+    return (username, password)
+
+
+def add_user(username: str, password: str):
+    users = read_users()
+    users[username] = pbkdf2_sha512.hash(password)
+    write_users(users)
+
+
+def remove_user(username):
+    users = read_users()
+    try:
+        del users[username]
+        write_users(users)
+    except KeyError:
+        pass
+
+
 def getenv(key, default=None):  # pragma: no cover
     return os.getenv(key, default)
 
@@ -202,6 +253,11 @@ def is_empty_dir(dir):  # pragma: no cover
 def user_home_exists() -> bool:  # pragma: no cover
     home = Path.home()
     return home.name != 'root' and home.exists()
+
+
+def cache_sudo():  # pragma: no cover
+    """Elevated privileges are cached for default 15m"""
+    sh('sudo true', silent=True)
 
 
 def optsudo():  # pragma: no cover

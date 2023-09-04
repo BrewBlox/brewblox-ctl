@@ -102,6 +102,15 @@ def test_confirm_usb(mocked_ext):
     assert mocked_ext['input'].call_count == 1
 
 
+def test_prompt_user_info(mocker):
+    mocker.patch(TESTED + '.warn')
+    m_prompt = mocker.patch(TESTED + '.click.prompt')
+    m_prompt.side_effect = ['', ':', 'name']
+    m_pass = mocker.patch(TESTED + '.getpass')
+    m_pass.return_value = 'password'
+    assert utils.prompt_user_info() == ('name', 'password')
+
+
 def test_path_exists(mocker):
     m_path = mocker.patch(TESTED + '.Path').return_value
     m_path.exists.side_effect = [

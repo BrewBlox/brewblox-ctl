@@ -30,12 +30,19 @@ def check_dirs():
     utils.info('Checking data directories...')
     dirs = [
         './traefik',
+        './auth',
         './redis',
         './victoria',
         './mosquitto',
         './spark/backup',
     ]
     sh('mkdir -p ' + ' '.join(dirs))
+
+
+def check_user():
+    if utils.read_users() == {}:
+        utils.info('A username/password is required to use the UI')
+        utils.add_user(*utils.prompt_user_info())
 
 
 def apply_config_files():
@@ -130,6 +137,7 @@ def bind_spark_backup():
 def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
     check_dirs()
+    check_user()
     apply_config_files()
     actions.add_particle_udev_rules()
     actions.edit_avahi_config()
@@ -239,6 +247,7 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
     """
     utils.check_config()
     utils.confirm_mode()
+    utils.cache_sudo()
     sudo = utils.optsudo()
 
     prev_version = Version(from_version)
@@ -253,7 +262,7 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
         utils.pip_install('pip')
         actions.install_ctl_package()
         # Restart update - we just replaced the source code
-        sh(' '.join([const.CLI, *const.ARGS[1:], '--update-ctl-done']))
+        sh(' '.join(['exec', const.CLI, *const.ARGS[1:], '--update-ctl-done']))
         return
 
     if update_ctl:

@@ -1,8 +1,8 @@
 """
 Const values
 """
-import pathlib
 import sys
+from pathlib import Path
 
 ARGS = sys.argv
 CLI = 'python3 -m brewblox_ctl'
@@ -59,9 +59,12 @@ LOG_WARN = 'WARN'.ljust(10)
 LOG_ERR = 'ERROR'.ljust(10)
 
 # Static file directories included in the brewblox-ctl package
-DIR_CTL_ROOT = str(pathlib.Path(__file__).parent.resolve())
-DIR_DEPLOYED_CONFIG = f'{DIR_CTL_ROOT}/deployed/config'
-DIR_DEPLOYED_SCRIPTS = f'{DIR_CTL_ROOT}/deployed/scripts'
+DIR_CTL_ROOT = Path(__file__).parent.resolve()
+DIR_DEPLOYED_CONFIG = DIR_CTL_ROOT / 'deployed/config'
+DIR_DEPLOYED_SCRIPTS = DIR_CTL_ROOT / 'deployed/scripts'
+
+# Config file locations
+PASSWD_FILE = Path('auth/users.passwd').resolve()
 
 # Apt dependencies required to run brewblox
 # This is a duplicate of the list in bootstrap-install.sh
