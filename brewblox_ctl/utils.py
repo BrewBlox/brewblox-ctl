@@ -29,11 +29,6 @@ from ruamel.yaml.compat import StringIO
 
 from brewblox_ctl import const
 
-# Matches API of distutils.util.strtobool
-# https://docs.python.org/3/distutils/apiref.html#distutils.util.strtobool
-TRUE_PATTERN = re.compile('^(y|yes|t|true|on|1)$', re.IGNORECASE)
-FALSE_PATTERN = re.compile('^(n|no|f|false|off|0)$', re.IGNORECASE)
-
 yaml = YAML()
 
 
@@ -56,12 +51,19 @@ def ctx_opts():
     return click.get_current_context().find_object(ContextOpts)
 
 
-def strtobool(val):
-    if re.match(TRUE_PATTERN, val):
+def strtobool(val: str) -> bool:
+    """Convert a string representation of truth to true (1) or false (0).
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
         return True
-    if re.match(FALSE_PATTERN, val):
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
         return False
-    raise ValueError()
+    else:
+        raise ValueError(f'invalid truth value {val}')
 
 
 def random_string(size: int) -> str:

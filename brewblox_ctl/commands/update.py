@@ -39,8 +39,19 @@ def check_dirs():
     sh('mkdir -p ' + ' '.join(dirs))
 
 
-def check_user():
-    if utils.read_users() == {}:
+def check_auth():
+    """
+    Checks authentication status.
+    The .env value must be explicitly set to true/false.
+    If authentication is enabled, at least one user must exist.
+    """
+    auth_enabled = utils.getenv(const.ENV_KEY_AUTH_ENABLED)
+
+    if auth_enabled is None:
+        auth_enabled = utils.confirm('Do you want to enable password authentication for UI access?')
+        utils.setenv(const.ENV_KEY_AUTH_ENABLED, str(auth_enabled))
+
+    if utils.strtobool(auth_enabled) and utils.read_users() == {}:
         utils.info('A username/password is required to use the UI')
         utils.add_user(*utils.prompt_user_info())
 
@@ -137,7 +148,7 @@ def bind_spark_backup():
 def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
     check_dirs()
-    check_user()
+    check_auth()
     apply_config_files()
     actions.add_particle_udev_rules()
     actions.edit_avahi_config()

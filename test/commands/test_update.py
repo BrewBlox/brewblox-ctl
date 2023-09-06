@@ -94,9 +94,10 @@ def test_check_version(m_utils, mocker):
         update.check_version(Version('1.3.0'))
 
 
-def test_check_user(m_utils, mocker):
+def test_check_auth(m_utils, mocker):
+    m_utils.getenv.return_value = None
     m_utils.read_users.return_value = {}
-    update.check_user()
+    update.check_auth()
     m_utils.add_user.assert_called_with('username', 'password')
 
 
