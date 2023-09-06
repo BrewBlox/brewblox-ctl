@@ -204,7 +204,7 @@ def test_check_init_opts(m_utils):
     assert opts.init_gateway is True
     assert opts.init_eventbus is True
     assert opts.init_spark_backup is True
-    assert m_utils.confirm.call_count == 7
+    assert m_utils.confirm.call_count == 9
 
 
 def test_install_basic(m_utils, m_actions, m_input, m_sh, m_opts):

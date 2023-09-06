@@ -90,6 +90,7 @@ def check_ports():
         int(utils.getenv(const.ENV_KEY_PORT_HTTPS, const.DEFAULT_PORT_HTTPS)),
         int(utils.getenv(const.ENV_KEY_PORT_MQTT, const.DEFAULT_PORT_MQTT)),
         int(utils.getenv(const.ENV_KEY_PORT_MQTTS, const.DEFAULT_PORT_MQTTS)),
+        int(utils.getenv(const.ENV_KEY_PORT_ADMIN, const.DEFAULT_PORT_ADMIN)),
     ]
 
     try:

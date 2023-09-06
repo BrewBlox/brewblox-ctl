@@ -38,6 +38,7 @@ class InstallOptions:
         self.init_gateway: bool = True
         self.init_eventbus: bool = True
 
+        self.enable_auth: bool = True
         self.user_info: Optional[Tuple[str, str]] = None
 
     def check_confirm_opts(self):
@@ -102,6 +103,8 @@ class InstallOptions:
         self.init_gateway = True
         self.init_eventbus = True
         self.init_spark_backup = True
+
+        self.enable_auth = True
         self.user_info = None
 
         if utils.path_exists('./docker-compose.yml'):
@@ -132,8 +135,10 @@ class InstallOptions:
             self.init_spark_backup = not utils.confirm('This directory already contains Spark backup files. ' +
                                                        'Do you want to keep them?')
 
-        if self.init_auth:
-            utils.info('A username/password is required to use the UI')
+        self.enable_auth = utils.confirm('Do you want to enable password authentication for UI access?')
+
+        if self.enable_auth and self.init_auth:
+            utils.info('Please set username and password for UI access')
             self.user_info = utils.prompt_user_info()
 
 
@@ -234,6 +239,7 @@ def install(ctx: click.Context, snapshot_file):
     utils.setenv(const.ENV_KEY_CFG_VERSION, '0.0.0')
     utils.setenv(const.ENV_KEY_SKIP_CONFIRM, str(opts.skip_confirm))
     utils.setenv(const.ENV_KEY_UPDATE_SYSTEM_PACKAGES, str(opts.apt_install))
+    utils.setenv(const.ENV_KEY_AUTH_ENABLED, str(opts.enable_auth))
     utils.defaultenv()
 
     # Install process splits here
@@ -286,7 +292,7 @@ def install(ctx: click.Context, snapshot_file):
             sh('sudo rm -rf ./spark/backup/; mkdir -p ./spark/backup/')
 
         if opts.user_info:
-            utils.info('Creating user...')
+            utils.info('Creating user for UI authentication...')
             utils.add_user(*opts.user_info)
 
         # Always copy cert config to traefik dir
