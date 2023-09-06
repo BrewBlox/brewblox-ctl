@@ -50,8 +50,10 @@ def check_auth():
     if auth_enabled is None:
         auth_enabled = utils.confirm('Do you want to enable password authentication for UI access?')
         utils.setenv(const.ENV_KEY_AUTH_ENABLED, str(auth_enabled))
+    else:
+        auth_enabled = utils.strtobool(auth_enabled)
 
-    if utils.strtobool(auth_enabled) and utils.read_users() == {}:
+    if auth_enabled and utils.read_users() == {}:
         utils.info('A username/password is required to use the UI')
         utils.add_user(*utils.prompt_user_info())
 
