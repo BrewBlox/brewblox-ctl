@@ -348,6 +348,10 @@ def esptool(*args):
     return sh('sudo -E env "PATH=$PATH" esptool.py ' + ' '.join(args))
 
 
+def dotenvtool(*args):
+    return sh(' '.join(['dotenv', '--quote=never', *args]))
+
+
 def info(msg):
     opts = ctx_opts()
     if not opts.quiet:
