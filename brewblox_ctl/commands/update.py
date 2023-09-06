@@ -45,6 +45,7 @@ def check_auth():
     The .env value must be explicitly set to true/false.
     If authentication is enabled, at least one user must exist.
     """
+    utils.info('Checking authentication settings...')
     auth_enabled = utils.getenv(const.ENV_KEY_AUTH_ENABLED)
 
     if auth_enabled is None:
