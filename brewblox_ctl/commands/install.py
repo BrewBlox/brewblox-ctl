@@ -3,7 +3,6 @@ Brewblox-ctl installation commands
 """
 
 from time import sleep
-from typing import Optional, Tuple
 
 import click
 
@@ -37,9 +36,6 @@ class InstallOptions:
         self.init_history: bool = True
         self.init_gateway: bool = True
         self.init_eventbus: bool = True
-
-        self.enable_auth: bool = True
-        self.user_info: Optional[Tuple[str, str]] = None
 
     def check_confirm_opts(self):
         self.use_defaults = False
@@ -104,9 +100,6 @@ class InstallOptions:
         self.init_eventbus = True
         self.init_spark_backup = True
 
-        self.enable_auth = True
-        self.user_info = None
-
         if utils.path_exists('./docker-compose.yml'):
             self.init_compose = not utils.confirm('This directory already contains a docker-compose.yml file. ' +
                                                   'Do you want to keep it?')
@@ -134,12 +127,6 @@ class InstallOptions:
         if utils.path_exists('./spark/backup/'):
             self.init_spark_backup = not utils.confirm('This directory already contains Spark backup files. ' +
                                                        'Do you want to keep them?')
-
-        self.enable_auth = utils.confirm('Do you want to enable password authentication for UI access?')
-
-        if self.enable_auth and self.init_auth:
-            utils.info('Please set username and password for UI access')
-            self.user_info = utils.prompt_user_info()
 
 
 @cli.command()
@@ -239,7 +226,6 @@ def install(ctx: click.Context, snapshot_file):
     utils.setenv(const.ENV_KEY_CFG_VERSION, '0.0.0')
     utils.setenv(const.ENV_KEY_SKIP_CONFIRM, str(opts.skip_confirm))
     utils.setenv(const.ENV_KEY_UPDATE_SYSTEM_PACKAGES, str(opts.apt_install))
-    utils.setenv(const.ENV_KEY_AUTH_ENABLED, str(opts.enable_auth))
     utils.defaultenv()
 
     # Install process splits here
@@ -290,10 +276,6 @@ def install(ctx: click.Context, snapshot_file):
         if opts.init_spark_backup:
             utils.info('Creating Spark backup directory...')
             sh('sudo rm -rf ./spark/backup/; mkdir -p ./spark/backup/')
-
-        if opts.user_info:
-            utils.info('Creating user for UI authentication...')
-            utils.add_user(*opts.user_info)
 
         # Always copy cert config to traefik dir
         sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/traefik-cert.yaml ./traefik/')
