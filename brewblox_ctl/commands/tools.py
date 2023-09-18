@@ -35,8 +35,9 @@ def esptool(cmd):
 )
 @click.argument('cmd', nargs=-1, type=click.UNPROCESSED)
 def dotenv(cmd):
-    """Run the dotenv tool for Spark 4 management.
+    """Run the dotenv tool.
 
-    This requires the Spark to be connected over USB.
+    This is a command-line shortcut for manually editing
+    the .env file.
     """
     utils.start_dotenv(*cmd)
