@@ -210,6 +210,10 @@ def defaultenv():  # pragma: no cover
             setenv(key, default_val)
 
 
+def start_dotenv(*args):
+    return sh(' '.join(['dotenv', '--quote=never', *args]))
+
+
 def path_exists(path_name):  # pragma: no cover
     return Path(path_name).exists()
 
@@ -342,7 +346,7 @@ def pip_install(*libs):
               + ' '.join(libs))
 
 
-def esptool(*args):
+def start_esptool(*args):
     if not command_exists('esptool.py'):
         pip_install('esptool')
     return sh('sudo -E env "PATH=$PATH" esptool.py ' + ' '.join(args))

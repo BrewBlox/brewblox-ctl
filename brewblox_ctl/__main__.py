@@ -11,8 +11,9 @@ from dotenv import load_dotenv
 
 from brewblox_ctl import click_helpers, const, utils
 from brewblox_ctl.commands import (add_service, backup, database, diagnostic,
-                                   docker, env, experimental, fix, flash, http,
-                                   install, service, snapshot, update, user)
+                                   docker, experimental, fix, flash, http,
+                                   install, service, snapshot, tools, update,
+                                   user)
 
 SUPPORTED_PYTHON_MINOR = 7
 
@@ -62,12 +63,12 @@ def main(args=sys.argv[1:]):
                 docker.cli,
                 install.cli,
                 user.cli,
-                env.cli,
                 update.cli,
                 http.cli,
                 add_service.cli,
                 service.cli,
                 flash.cli,
+                tools.cli,
                 diagnostic.cli,
                 fix.cli,
                 database.cli,

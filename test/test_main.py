@@ -2,7 +2,10 @@
 Tests brewblox_ctl.__main__
 """
 
+from tempfile import NamedTemporaryFile
+
 import pytest
+
 from brewblox_ctl import __main__ as main
 from brewblox_ctl import utils
 
@@ -38,7 +41,14 @@ def test_main(m_utils, mocker):
     m_utils.ContextOpts = utils.ContextOpts
 
     main.main(['--help'])
-    main.main(['env', 'get', 'USER'])
+
+    with NamedTemporaryFile(mode='w+t') as f:
+        f.write('REAL_KEY=value\n')
+        f.flush()
+        main.main(['dotenv', '-f', f'"{f.name}"', 'get', 'REAL_KEY'])
+
+        with pytest.raises(SystemExit):
+            main.main(['dotenv', '-f', f'"{f.name}"', 'get', 'DUMMY_KEY'])
 
 
 def test_is_root(m_utils):
