@@ -2,17 +2,11 @@
 Manage users for the auth service
 """
 
-import re
+from typing import Optional
 
 import click
 
-from brewblox_ctl import click_helpers, utils
-
-
-def check_username(ctx, param, value):
-    if not re.fullmatch(r'\w+', value):
-        raise click.BadParameter('Names can only contain letters, numbers, - or _')
-    return value
+from brewblox_ctl import click_helpers, const, utils
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -21,20 +15,32 @@ def cli():
 
 
 @cli.group(cls=click_helpers.OrderedGroup)
-def user():
-    """Add or remove web UI users."""
+def auth():
+    """Configure password authentication for the web UI."""
 
 
-@user.command()
+@auth.command()
+@click.option('--enable/--disable',
+              default=True,
+              help='Set enabled state.')
+def init(enable: bool):
+    """
+    Initialize password authentication.
+
+    Use `brewblox-ctl auth init --disable` to disable it again.
+    """
+    utils.setenv(const.ENV_KEY_AUTH_ENABLED, str(enable))
+
+    if enable and utils.confirm('Do you want to add a new user?'):
+        utils.add_user(None, None)
+
+
+@auth.command()
 @click.option('-u', '--username',
-              prompt=True,
-              callback=check_username,
               help='Name for the new web UI user')
 @click.option('-p', '--password',
-              prompt=True,
-              hide_input=True,
               help='Password for the new web UI user')
-def add(username: str, password: str):
+def add(username: Optional[str], password: Optional[str]):
     """
     Adds or updates a user.
 
@@ -43,7 +49,7 @@ def add(username: str, password: str):
     utils.add_user(username, password)
 
 
-@user.command()
+@auth.command()
 @click.option('-u', '--username',
               prompt=True,
               help='User name')
