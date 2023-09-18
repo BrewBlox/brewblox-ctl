@@ -343,13 +343,13 @@ def test_esptool(mocked_ext, m_sh):
     m_which = mocked_ext['shutil.which']
     m_which.return_value = ''
 
-    utils.esptool('--chip esp32', 'read_flash', 'coredump.bin')
+    utils.start_esptool('--chip esp32', 'read_flash', 'coredump.bin')
     m_sh.assert_called_with('sudo -E env "PATH=$PATH" esptool.py --chip esp32 read_flash coredump.bin')
     assert m_sh.call_count == 2
 
     m_sh.reset_mock()
     m_which.return_value = 'esptool.py'
-    utils.esptool()
+    utils.start_esptool()
     m_sh.assert_called_with('sudo -E env "PATH=$PATH" esptool.py ')
     assert m_sh.call_count == 1
 

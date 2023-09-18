@@ -174,10 +174,10 @@ def coredump(upload):
 
     The `esptool` python package is required, and will be installed if not found.
     """
-    utils.esptool('--chip esp32',
-                  '--baud 115200',
-                  'read_flash 0xA10000 81920',
-                  'coredump.bin')
+    utils.start_esptool('--chip esp32',
+                        '--baud 115200',
+                        'read_flash 0xA10000 81920',
+                        'coredump.bin')
     sh('base64 coredump.bin > coredump.b64')
 
     if upload:

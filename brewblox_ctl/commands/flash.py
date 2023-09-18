@@ -221,33 +221,3 @@ def particle(release, pull, command):
     utils.info('Starting Particle image...')
     utils.info("Type 'exit' and press enter to exit the shell")
     run_particle_flasher(release, pull, command)
-
-
-@cli.command(
-    context_settings={
-        'help_option_names': ['--click-help'],
-        'ignore_unknown_options': True,
-    }
-)
-@click.argument('cmd', nargs=-1, type=click.UNPROCESSED)
-def esptool(cmd):
-    """Run the esptool.py tool for Spark 4 management.
-
-    This requires the Spark to be connected over USB.
-    """
-    utils.esptool(*cmd)
-
-
-@cli.command(
-    context_settings={
-        'help_option_names': ['--click-help'],
-        'ignore_unknown_options': True,
-    }
-)
-@click.argument('cmd', nargs=-1, type=click.UNPROCESSED)
-def dotenv(cmd):
-    """Run the dotenv tool for Spark 4 management.
-
-    This requires the Spark to be connected over USB.
-    """
-    utils.dotenvtool(*cmd)
