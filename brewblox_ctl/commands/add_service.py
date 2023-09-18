@@ -229,13 +229,17 @@ def add_tilt(yes):
         'image': 'ghcr.io/brewblox/brewblox-tilt:${BREWBLOX_RELEASE}',
         'restart': 'unless-stopped',
         'privileged': True,
-        'network_mode': 'host',
         'volumes': [
             localtime_volume(),
             {
                 'type': 'bind',
                 'source': f'./{name}',
                 'target': '/share',
+            },
+            {
+                'type': 'bind',
+                'source': '/var/run/dbus',
+                'target': '/var/run/dbus',
             },
         ],
         'labels': [

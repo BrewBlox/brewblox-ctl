@@ -338,3 +338,78 @@ def test_migrate_ghcr_images(m_utils):
                 'command': 'updated from shared compose',
             },
         }})
+
+
+def test_migrate_tilt_images(m_utils):
+    m_utils.read_compose.side_effect = lambda: {
+        'version': '3.7',
+        'services': {
+            'spark-one': {
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:edge',
+            },
+            'tilt': {
+                'image': 'ghcr.io/brewblox/brewblox-tilt:feature-branch',
+                'network_mode': 'host',
+                'volumes': [
+                    './share:/share'
+                ]
+            },
+            'tilt-new': {
+                'image': 'ghcr.io/brewblox/brewblox-tilt:feature-branch',
+                'volumes': [
+                    {
+                        'type': 'bind',
+                        'source': '/var/run/dbus',
+                        'target': '/var/run/dbus',
+                    }
+                ]
+            },
+            'third-party': {
+                'image': 'external/image:tag',
+            },
+            'extension': {
+                'command': 'updated from shared compose',
+            },
+        }}
+    migration.migrate_tilt_images()
+    m_utils.write_compose.assert_called_once_with({
+        'version': '3.7',
+        'services': {
+            'spark-one': {
+                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:edge',
+            },
+            'tilt': {
+                'image': 'ghcr.io/brewblox/brewblox-tilt:feature-branch',
+                'volumes': [
+                    './share:/share',
+                    {
+                        'type': 'bind',
+                        'source': '/var/run/dbus',
+                        'target': '/var/run/dbus',
+                    }
+                ]
+            },
+            'tilt-new': {
+                'image': 'ghcr.io/brewblox/brewblox-tilt:feature-branch',
+                'volumes': [
+                    {
+                        'type': 'bind',
+                        'source': '/var/run/dbus',
+                        'target': '/var/run/dbus',
+                    }
+                ]
+            },
+            'third-party': {
+                'image': 'external/image:tag',
+            },
+            'extension': {
+                'command': 'updated from shared compose',
+            },
+        }})
+
+    # No-op if no tilt services
+    m_utils.read_compose.side_effect = lambda: {
+        'version': '3.7',
+        'services': {}}
+    migration.migrate_tilt_images()
+    assert m_utils.write_compose.call_count == 1
