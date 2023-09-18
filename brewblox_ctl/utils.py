@@ -18,7 +18,7 @@ from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
 from tempfile import NamedTemporaryFile
 from types import GeneratorType
-from typing import Generator, Tuple, Union
+from typing import Generator, Optional, Tuple, Union
 
 import click
 import dotenv
@@ -134,7 +134,7 @@ def confirm_mode():  # pragma: no cover
 def read_users() -> dict:
     content = ''
 
-    if const.PASSWD_FILE.exists():  # pragma: no cover
+    if const.PASSWD_FILE.exists():
         content = sh(f'sudo cat "{const.PASSWD_FILE}"', capture=True) or ''
 
     return {
@@ -147,6 +147,9 @@ def read_users() -> dict:
 
 
 def write_users(users: dict):
+    opts = ctx_opts()
+    if opts.dry_run or opts.verbose:
+        show_data(const.PASSWD_FILE, '***')
     with NamedTemporaryFile('w') as tempf:
         for k, v in users.items():
             tempf.write(f'{k}:{v}\n')
@@ -155,22 +158,25 @@ def write_users(users: dict):
         sh(f'sudo chown root:root "{const.PASSWD_FILE}"')
 
 
-def prompt_user_info() -> Tuple[str, str]:
-    username = click.prompt('Name')
+def prompt_user_info(username: Optional[str], password: Optional[str]) -> Tuple[str, str]:
+    if username is None:
+        username = click.prompt('Auth user name')
     while not re.fullmatch(r'\w+', username):
         warn('Names can only contain letters, numbers, - or _')
-        username = click.prompt('Name')
-    password = getpass()
+        username = click.prompt('Auth user name')
+    if password is None:
+        password = getpass(prompt='Auth password: ')
     return (username, password)
 
 
-def add_user(username: str, password: str):
+def add_user(username: Optional[str], password: Optional[str]):
+    username, password = prompt_user_info(username, password)
     users = read_users()
     users[username] = pbkdf2_sha512.hash(password)
     write_users(users)
 
 
-def remove_user(username):
+def remove_user(username: str):
     users = read_users()
     try:
         del users[username]
