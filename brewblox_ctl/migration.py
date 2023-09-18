@@ -7,7 +7,7 @@ import re
 from contextlib import suppress
 from datetime import datetime
 from tempfile import NamedTemporaryFile
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import requests
 import urllib3
@@ -346,3 +346,40 @@ def migrate_ghcr_images():
             svc['image'] = changed
 
     utils.write_compose(config)
+
+
+def migrate_tilt_images():
+    # The tilt service was changed to use host D-Bus instead of the Bluetooth adapter directly
+    # Required changes:
+    # - /var/run/dbus must be mounted
+    # - service does not have to be run in host mode
+
+    config = utils.read_compose()
+    changed = False
+
+    for name, svc in config['services'].items():
+        svc: Dict
+
+        # Check whether this is a Tilt image
+        if not svc.get('image', '').startswith('ghcr.io/brewblox/brewblox-tilt'):
+            continue
+
+        utils.info(f'Migrating `{name}` image configuration...')
+
+        if svc.get('network_mode') == 'host':
+            changed = True
+            del svc['network_mode']
+
+        dbus_volume = {
+            'type': 'bind',
+            'source': '/var/run/dbus',
+            'target': '/var/run/dbus',
+        }
+
+        volumes: List[Dict] = svc.get('volumes', [])
+        if dbus_volume not in volumes:
+            changed = True
+            svc['volumes'] = [*volumes, dbus_volume]
+
+    if changed:
+        utils.write_compose(config)

@@ -147,6 +147,9 @@ def downed_migrate(prev_version):
     if prev_version < Version('0.8.0'):
         migration.migrate_ghcr_images()
 
+    if prev_version < Version('0.9.0'):
+        migration.migrate_tilt_images()
+
     # Not related to a specific release
     check_env_vars()
     bind_localtime()
