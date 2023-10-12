@@ -3,10 +3,12 @@ Shared functionality
 """
 
 import json
+import os
 import re
 from copy import deepcopy
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Iterable
 
 import psutil
 from configobj import ConfigObj
@@ -14,18 +16,35 @@ from configobj import ConfigObj
 from brewblox_ctl import const, sh, utils
 
 
-def makecert(dir, release: str = None):
+def makecert(dir: str,
+             custom_domains: Iterable[str] = None,
+             release: str = None):
     absdir = Path(dir).resolve()
     sudo = utils.optsudo()
     tag = utils.docker_tag(release)
+    hostname = utils.hostname()
+    addresses = utils.host_ip_addresses()
+    domains = [
+        'brew.blox',  # dummy to have predictable output between installs
+        hostname,
+        hostname + '.local',
+        hostname + '.home',
+        *(custom_domains or []),
+    ]
+
     sh(f'mkdir -p "{absdir}"')
-    sh(f'{sudo}docker run' +
-        ' --rm --privileged' +
-        ' --pull always' +
-        f' -v "{absdir}":/certs/' +
-        f' ghcr.io/brewblox/omgwtfssl:{tag}')
-    sh(f'sudo chmod 644 "{absdir}/brewblox.crt"')
-    sh(f'sudo chmod 600 "{absdir}/brewblox.key"')
+    sh(f'sudo rm -rf "{absdir}/brew.blox"')
+    sh(' '.join([
+        f'{sudo}docker',
+        'run',
+        '--rm',
+        '--pull=always',
+        f'--user={os.geteuid()}:{os.getgid()}',
+        f'--volume="{absdir}":/cert',
+        f'ghcr.io/brewblox/minica:{tag}',
+        f'--domains="{",".join(domains)}"',
+        f'--ip-addresses={",".join(addresses)}',
+    ]))
 
 
 def update_system_packages():

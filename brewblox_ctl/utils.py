@@ -18,7 +18,7 @@ from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
 from tempfile import NamedTemporaryFile
 from types import GeneratorType
-from typing import Generator, Optional, Tuple, Union
+from typing import Generator, List, Optional, Tuple, Union
 
 import click
 import dotenv
@@ -414,12 +414,8 @@ def host_lan_ip() -> str:  # pragma: no cover
     return IP
 
 
-def host_ip():
-    try:
-        # remote IP / port, local IP / port
-        return getenv('SSH_CONNECTION', '').split()[2]
-    except IndexError:
-        return '127.0.0.1'
+def host_ip_addresses() -> List[str]:  # pragma: no cover
+    return sh('hostname -I', capture=True).strip().split(' ')
 
 
 def read_file(fname):  # pragma: no cover

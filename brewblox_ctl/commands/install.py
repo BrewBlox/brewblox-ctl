@@ -267,7 +267,7 @@ def install(ctx: click.Context, snapshot_file):
             sh('sudo rm -rf ./traefik/; mkdir ./traefik/')
 
             utils.info('Creating SSL certificate...')
-            actions.makecert('./traefik', release)
+            actions.makecert('./traefik', None, release)
 
         if opts.init_eventbus:
             utils.info('Creating mosquitto config directory...')
@@ -304,16 +304,27 @@ def install(ctx: click.Context, snapshot_file):
 @click.option('--dir',
               default='./traefik',
               help='Target directory for generated certs.')
+@click.option('--domain',
+              multiple=True,
+              help='Additional alternative domain name for the generated cert. ' +
+              'This option can be used multiple times.')
 @click.option('--release',
               default=None,
-              help='Brewblox release track.')
-def makecert(dir, release):
-    """Generate a self-signed SSL certificate.
+              help='Brewblox release track for the minica Docker image.')
+def makecert(dir, domain, release):
+    """Generate SSL CA and certificate
+
+    These are locally signed certificates, and will generate browser warnings
+    unless installed in a trust store.
+
+    By default, the generated cert covers all known LAN IP addresses for this machine,
+    along with {hostname}, {hostname}.local, and {hostname}.home.
 
     \b
     Steps:
         - Create directory if it does not exist.
-        - Create brewblox.crt and brewblox.key files.
+        - Create CA files: {dir}/minica.pem and {dir}/minica-key.pem.
+        - Create cert files: {dir}/brew.blox/cert.pem and {dir}/brew.blox/key.pem
     """
     utils.confirm_mode()
-    actions.makecert(dir, release)
+    actions.makecert(dir, domain, release)

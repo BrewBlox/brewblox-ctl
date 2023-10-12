@@ -247,4 +247,4 @@ def test_install_snapshot(m_utils, m_actions, m_input, m_sh, m_opts, m_snapshot_
 
 def test_makecert(m_utils, m_actions):
     invoke(install.makecert)
-    m_actions.makecert.assert_called_once_with('./traefik', None)
+    m_actions.makecert.assert_called_once_with('./traefik', (), None)
