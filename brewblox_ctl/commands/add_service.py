@@ -2,7 +2,7 @@
 Add and configure optional services
 """
 
-from os import getgid, getuid
+from os import geteuid, getgid
 
 import click
 
@@ -317,7 +317,7 @@ def add_node_red(yes):
 
     name = 'node-red'
     sudo = utils.optsudo()
-    host = utils.host_ip()
+    host = utils.host_ip_addresses()[0]
     port = utils.getenv(const.ENV_KEY_PORT_HTTPS)
     config = utils.read_compose()
 
@@ -338,7 +338,7 @@ def add_node_red(yes):
     }
 
     sh(f'mkdir -p ./{name}')
-    if [getgid(), getuid()] != [1000, 1000]:
+    if [getgid(), geteuid()] != [1000, 1000]:
         sh(f'sudo chown -R 1000:1000 ./{name}')
 
     utils.write_compose(config)

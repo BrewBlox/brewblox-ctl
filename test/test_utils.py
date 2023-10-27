@@ -458,20 +458,17 @@ def test_get_urls(m_getenv):
     ]
 
 
-def test_host_ip(m_getenv):
-    m_getenv.side_effect = [
-        '192.168.0.100 54321 192.168.0.69 22',
-        '',
-    ]
-    assert utils.host_ip() == '192.168.0.69'
-    assert utils.host_ip() == '127.0.0.1'
-
-
 def test_list_services():
     services = utils.list_services(
         'ghcr.io/brewblox/brewblox-history',
         'brewblox_ctl/deployed/config/docker-compose.shared.yml')
     assert services == ['history']
+
+
+def test_host_ip_addresses():
+    addresses = utils.host_ip_addresses()
+    assert addresses
+    assert isinstance(addresses[0], str)
 
 
 def test_read_shared_compose():

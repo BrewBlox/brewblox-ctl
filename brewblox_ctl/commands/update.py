@@ -150,6 +150,9 @@ def downed_migrate(prev_version):
     if prev_version < Version('0.9.0'):
         migration.migrate_tilt_images()
 
+    if prev_version < Version('0.10.0'):
+        actions.makecert('./traefik')
+
     # Not related to a specific release
     check_env_vars()
     bind_localtime()
