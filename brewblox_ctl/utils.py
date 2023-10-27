@@ -22,6 +22,7 @@ from typing import Generator, List, Optional, Tuple, Union
 
 import click
 import dotenv
+import psutil
 from dotenv.main import dotenv_values
 from passlib.hash import pbkdf2_sha512
 from ruamel.yaml import YAML
@@ -414,8 +415,16 @@ def host_lan_ip() -> str:  # pragma: no cover
     return IP
 
 
-def host_ip_addresses() -> List[str]:  # pragma: no cover
-    return sh('hostname -I', capture=True).strip().split(' ')
+def host_ip_addresses() -> List[str]:
+    addresses = []
+    for if_name, snics in psutil.net_if_addrs().items():
+        if re.fullmatch(r'(lo|veth[0-9a-f]+)', if_name):
+            continue
+        addresses += [snic.address
+                      for snic in snics
+                      if snic.family in [socket.AF_INET, socket.AF_INET6]
+                      and not snic.address.startswith('fe80::')]
+    return addresses
 
 
 def read_file(fname):  # pragma: no cover

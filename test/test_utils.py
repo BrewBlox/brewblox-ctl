@@ -465,6 +465,12 @@ def test_list_services():
     assert services == ['history']
 
 
+def test_host_ip_addresses():
+    addresses = utils.host_ip_addresses()
+    assert addresses
+    assert isinstance(addresses[0], str)
+
+
 def test_read_shared_compose():
     cfg = utils.read_shared_compose(
         'brewblox_ctl/deployed/config/docker-compose.shared.yml')
