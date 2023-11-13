@@ -478,7 +478,7 @@ def file_netcat(host: str,
     Not all supported systems (looking at you, Synology) come with `nc` pre-installed.
     This provides a naive netcat alternative in pure python.
     """
-    info(f'Uploading {path} to {host}:{port}...')
+    info(f'Uploading {path} to {host}:{port} ...')
 
     if ctx_opts().dry_run:
         return ''

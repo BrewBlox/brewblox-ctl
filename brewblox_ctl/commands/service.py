@@ -90,7 +90,7 @@ def ports(http, https, mqtt, mqtts, admin):
         const.ENV_KEY_PORT_ADMIN: admin,
     }
 
-    utils.info('Writing port settings to .env...')
+    utils.info('Writing port settings to .env ...')
     for key, val in cfg.items():
         utils.setenv(key, val)
 

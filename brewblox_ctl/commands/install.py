@@ -187,7 +187,7 @@ def install(ctx: click.Context, snapshot_file):
 
     # Install Apt packages
     if opts.apt_install:
-        utils.info('Installing apt packages...')
+        utils.info('Installing apt packages ...')
         apt_deps = ' '.join(const.APT_DEPENDENCIES)
         sh([
             'sudo apt-get update',
@@ -199,7 +199,7 @@ def install(ctx: click.Context, snapshot_file):
 
     # Install docker
     if opts.docker_install:
-        utils.info('Installing docker...')
+        utils.info('Installing docker ...')
         sh('curl -sL get.docker.com | sh', check=False)
     else:
         utils.info('Skipped: docker install.')
@@ -222,7 +222,7 @@ def install(ctx: click.Context, snapshot_file):
 
     # Set variables in .env file
     # Set version number to 0.0.0 until snapshot load / init is done
-    utils.info('Setting .env values...')
+    utils.info('Setting .env values ...')
     utils.setenv(const.ENV_KEY_CFG_VERSION, '0.0.0')
     utils.setenv(const.ENV_KEY_SKIP_CONFIRM, str(opts.skip_confirm))
     utils.setenv(const.ENV_KEY_UPDATE_SYSTEM_PACKAGES, str(opts.apt_install))
@@ -236,45 +236,45 @@ def install(ctx: click.Context, snapshot_file):
     else:
         release = utils.getenv('BREWBLOX_RELEASE')
 
-        utils.info('Checking for port conflicts...')
+        utils.info('Checking for port conflicts ...')
         actions.check_ports()
 
-        utils.info('Copying docker-compose.shared.yml...')
+        utils.info('Copying docker-compose.shared.yml ...')
         sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.shared.yml ./')
 
         if opts.init_compose:
-            utils.info('Copying docker-compose.yml...')
+            utils.info('Copying docker-compose.yml ...')
             sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.yml ./')
 
         # Stop after we're sure we have a compose file
-        utils.info('Stopping services...')
+        utils.info('Stopping services ...')
         sh(f'{sudo}docker compose down')
 
         if opts.init_datastore:
-            utils.info('Creating datastore directory...')
+            utils.info('Creating datastore directory ...')
             sh('sudo rm -rf ./redis/; mkdir ./redis/')
 
         if opts.init_auth:
-            utils.info('Creating auth directory...')
+            utils.info('Creating auth directory ...')
             sh('sudo rm -rf ./auth/; mkdir ./auth/')
 
         if opts.init_history:
-            utils.info('Creating history directory...')
+            utils.info('Creating history directory ...')
             sh('sudo rm -rf ./victoria/; mkdir ./victoria/')
 
         if opts.init_gateway:
-            utils.info('Creating gateway directory...')
+            utils.info('Creating gateway directory ...')
             sh('sudo rm -rf ./traefik/; mkdir ./traefik/')
 
-            utils.info('Creating SSL certificate...')
+            utils.info('Creating SSL certificate ...')
             actions.makecert('./traefik', None, release)
 
         if opts.init_eventbus:
-            utils.info('Creating mosquitto config directory...')
+            utils.info('Creating mosquitto config directory ...')
             sh('sudo rm -rf ./mosquitto/; mkdir ./mosquitto/')
 
         if opts.init_spark_backup:
-            utils.info('Creating Spark backup directory...')
+            utils.info('Creating Spark backup directory ...')
             sh('sudo rm -rf ./spark/backup/; mkdir -p ./spark/backup/')
 
         # Always copy cert config to traefik dir
@@ -284,7 +284,7 @@ def install(ctx: click.Context, snapshot_file):
         utils.setenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
 
     if opts.docker_pull:
-        utils.info('Pulling docker images...')
+        utils.info('Pulling docker images ...')
         sh(f'{sudo}docker compose pull')
 
     utils.info('All done!')
@@ -295,7 +295,7 @@ def install(ctx: click.Context, snapshot_file):
             utils.info('Press ENTER to reboot.')
             input()
         else:
-            utils.info('Rebooting in 10 seconds...')
+            utils.info('Rebooting in 10 seconds ...')
             sleep(10)
         sh('sudo reboot')
 
@@ -327,4 +327,4 @@ def makecert(dir, domain, release):
         - Create cert files: {dir}/brew.blox/cert.pem and {dir}/brew.blox/key.pem
     """
     utils.confirm_mode()
-    actions.makecert(dir, domain, release)
+    actions.makecert(dir, True, domain, release)

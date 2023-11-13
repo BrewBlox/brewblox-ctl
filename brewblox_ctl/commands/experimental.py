@@ -129,7 +129,7 @@ def enable_spark_mqtt(server_host: Optional[str],
     }
 
     # Set username/password for device
-    utils.info('Adding user to MQTT eventbus...')
+    utils.info('Adding user to MQTT eventbus ...')
     sh(f'{sudo}docker run' +
        ' -it --rm' +
        f' -v {mosquitto_path}:/mosquitto/include' +
@@ -156,7 +156,7 @@ def enable_spark_mqtt(server_host: Optional[str],
     ])
 
     if send_config:
-        utils.info('Sending MQTT configuration to controller...')
+        utils.info('Sending MQTT configuration to controller ...')
         sh(send_credentials_cmd)
         sh(send_cert_cmd)
     else:

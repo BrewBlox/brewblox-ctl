@@ -96,13 +96,13 @@ def flash(release, pull):
     dev = find_usb_spark()
 
     if dev.idProduct == const.PID_PHOTON:
-        utils.info('Flashing Spark 2...')
+        utils.info('Flashing Spark 2 ...')
         run_particle_flasher(release, pull, 'flash')
     elif dev.idProduct == const.PID_P1:
-        utils.info('Flashing Spark 3...')
+        utils.info('Flashing Spark 3 ...')
         run_particle_flasher(release, pull, 'flash')
     elif dev.idProduct == const.PID_ESP32:
-        utils.info('Flashing Spark 4...')
+        utils.info('Flashing Spark 4 ...')
         run_esp_flasher(release, pull)
     else:
         raise ValueError('Unknown USB device')
@@ -218,6 +218,6 @@ def particle(release, pull, command):
     """
     utils.confirm_mode()
 
-    utils.info('Starting Particle image...')
+    utils.info('Starting Particle image ...')
     utils.info("Type 'exit' and press enter to exit the shell")
     run_particle_flasher(release, pull, command)

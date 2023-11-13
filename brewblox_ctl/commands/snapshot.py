@@ -6,6 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import click
+
 from brewblox_ctl import actions, click_helpers, utils
 from brewblox_ctl.utils import sh
 
@@ -66,7 +67,7 @@ def load(file):
     dir = Path('./').resolve()
 
     with TemporaryDirectory() as tmpdir:
-        utils.info(f'Extracting snapshot to {dir} directory...')
+        utils.info(f'Extracting snapshot to {dir} directory ...')
         sh(f'tar -xzf {file} -C {tmpdir}')
         content = list(Path(tmpdir).iterdir())
         if utils.ctx_opts().dry_run:

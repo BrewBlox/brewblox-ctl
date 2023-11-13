@@ -18,7 +18,7 @@ from brewblox_ctl import actions, const, sh, utils
 def migrate_compose_split():
     # Splitting compose configuration between docker-compose.yml and docker-compose.shared.yml
     # Version pinning (0.2.2) will happen automatically
-    utils.info('Moving system services to docker-compose.shared.yml...')
+    utils.info('Moving system services to docker-compose.shared.yml ...')
     config = utils.read_compose()
     sys_names = [
         'mdns',
@@ -39,7 +39,7 @@ def migrate_compose_split():
 def migrate_compose_datastore():
     # The couchdb datastore service is gone
     # Older services may still rely on it
-    utils.info('Removing `depends_on` fields from docker-compose.yml...')
+    utils.info('Removing `depends_on` fields from docker-compose.yml ...')
     config = utils.read_compose()
     for svc in config['services'].values():
         with suppress(KeyError):
@@ -47,7 +47,7 @@ def migrate_compose_datastore():
     utils.write_compose(config)
 
     # Init dir. It will be filled during upped_migrate
-    utils.info('Creating redis/ dir...')
+    utils.info('Creating redis/ dir ...')
     sh('mkdir -p redis/')
 
 
@@ -64,17 +64,17 @@ def migrate_couchdb():
     redis_url = utils.datastore_url()
     couch_url = 'http://localhost:5984'
 
-    utils.info('Migrating datastore from CouchDB to Redis...')
+    utils.info('Migrating datastore from CouchDB to Redis ...')
 
     if opts.dry_run:
-        utils.info('Dry run. Skipping migration...')
+        utils.info('Dry run. Skipping migration ...')
         return
 
     if not utils.path_exists('./couchdb/'):
-        utils.info('couchdb/ dir not found. Skipping migration...')
+        utils.info('couchdb/ dir not found. Skipping migration ...')
         return
 
-    utils.info('Starting a temporary CouchDB container on port 5984...')
+    utils.info('Starting a temporary CouchDB container on port 5984 ...')
     sh(f'{sudo}docker rm -f couchdb-migrate', check=False)
     sh(f'{sudo}docker run --rm -d'
         ' --name couchdb-migrate'
@@ -283,14 +283,14 @@ def migrate_influxdb(
     utils.warn('For more info, see https://brewblox.netlify.app/dev/migration/influxdb.html')
 
     if opts.dry_run:
-        utils.info('Dry run. Skipping migration...')
+        utils.info('Dry run. Skipping migration ...')
         return
 
     if not utils.path_exists('./influxdb/'):
-        utils.info('influxdb/ dir not found. Skipping migration...')
+        utils.info('influxdb/ dir not found. Skipping migration ...')
         return
 
-    utils.info('Starting InfluxDB container...')
+    utils.info('Starting InfluxDB container ...')
 
     # Stop container in case previous migration was cancelled
     sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
@@ -328,7 +328,7 @@ def migrate_influxdb(
 def migrate_ghcr_images():
     # We migrated all brewblox images from Docker Hub to Github Container Registry
     # At this point, we also stop supporting the "rpi-" prefix for ARM32 images
-    utils.info('Migrating brewblox images to ghcr.io registry...')
+    utils.info('Migrating brewblox images to ghcr.io registry ...')
     config = utils.read_compose()
     for name, svc in config['services'].items():
         img: str = svc.get('image', '')  # empty string won't match regex
@@ -342,7 +342,7 @@ def migrate_ghcr_images():
                          r'ghcr.io/brewblox/\1:\3',
                          img)
         if changed != img:
-            utils.info(f'Editing "{name}"...')
+            utils.info(f'Editing "{name}" ...')
             svc['image'] = changed
 
     utils.write_compose(config)
@@ -364,7 +364,7 @@ def migrate_tilt_images():
         if not svc.get('image', '').startswith('ghcr.io/brewblox/brewblox-tilt'):
             continue
 
-        utils.info(f'Migrating `{name}` image configuration...')
+        utils.info(f'Migrating `{name}` image configuration ...')
 
         if svc.get('network_mode') == 'host':
             changed = True

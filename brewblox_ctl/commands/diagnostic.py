@@ -85,13 +85,13 @@ def log(add_compose, add_system, upload):
     append('date')
 
     # Add .env values
-    utils.info('Writing Brewblox .env values...')
+    utils.info('Writing Brewblox .env values ...')
     header('.env')
     for key in ENV_KEYS:
         append(f'echo "{key}={utils.getenv(key)}"')
 
     # Add version info
-    utils.info('Writing software version info...')
+    utils.info('Writing software version info ...')
     header('Versions')
     append('uname -a')
     append('python3 --version')
@@ -99,7 +99,7 @@ def log(add_compose, add_system, upload):
     append(f'{sudo}docker compose version')
 
     # Add active containers
-    utils.info('Writing active containers...')
+    utils.info('Writing active containers ...')
     header('Containers')
     append(f'{sudo}docker compose ps -a')
 
@@ -109,7 +109,7 @@ def log(add_compose, add_system, upload):
         shared_names = list(utils.read_shared_compose()['services'].keys())
         names = [n for n in config_names if n not in shared_names] + shared_names
         for name in names:
-            utils.info(f'Writing {name} service logs...')
+            utils.info(f'Writing {name} service logs ...')
             header(f'Service: {name}')
             append(f'{sudo}docker compose logs --timestamps --no-color --tail 200 {name}')
     except Exception as ex:
@@ -117,25 +117,25 @@ def log(add_compose, add_system, upload):
 
     # Add compose config
     if add_compose:
-        utils.info('Writing docker compose configuration...')
+        utils.info('Writing docker compose configuration ...')
         header('docker-compose.yml')
         append('cat docker-compose.yml')
         header('docker-compose.shared.yml')
         append('cat docker-compose.shared.yml')
     else:
-        utils.info('Skipping docker compose configuration...')
+        utils.info('Skipping docker compose configuration ...')
 
     # Add blocks
     host_url = utils.host_url()
     services = utils.list_services('ghcr.io/brewblox/brewblox-devcon-spark')
     for svc in services:
-        utils.info(f'Writing {svc} blocks...')
+        utils.info(f'Writing {svc} blocks ...')
         header(f'Blocks: {svc}')
         append(f'{const.CLI} http post --pretty {host_url}/{svc}/blocks/all/read')
 
     # Add system diagnostics
     if add_system:
-        utils.info('Writing system diagnostics...')
+        utils.info('Writing system diagnostics ...')
         header('docker info')
         append(f'{sudo}docker info')
         header('journalctl -u docker')
@@ -149,7 +149,7 @@ def log(add_compose, add_system, upload):
         header('dmesg')
         append('dmesg -T')
     else:
-        utils.info('Skipping system diagnostics...')
+        utils.info('Skipping system diagnostics ...')
 
     # Upload
     if upload:

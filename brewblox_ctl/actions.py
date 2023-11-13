@@ -17,6 +17,7 @@ from brewblox_ctl import const, sh, utils
 
 
 def makecert(dir: str,
+             always: bool = False,
              custom_domains: Iterable[str] = None,
              release: str = None):
     absdir = Path(dir).resolve()
@@ -32,25 +33,28 @@ def makecert(dir: str,
         *(custom_domains or []),
     ]
 
-    sh(f'mkdir -p "{absdir}"')
-    sh(f'sudo rm -rf "{absdir}/brew.blox"')
-    sh(' '.join([
-        f'{sudo}docker',
-        'run',
-        '--rm',
-        '--pull=always',
-        f'--user={os.geteuid()}:{os.getgid()}',
-        f'--volume="{absdir}":/cert',
-        f'ghcr.io/brewblox/minica:{tag}',
-        f'--domains="{",".join(domains)}"',
-        f'--ip-addresses={",".join(addresses)}',
-    ]))
+    if always or not utils.path_exists(absdir / 'brew.blox/cert.pem'):
+        utils.info(f'Generating new certificates in {absdir}  ...')
+        sh(f'mkdir -p "{absdir}"')
+        sh(f'sudo rm -rf "{absdir}/brew.blox"')
+        sh(' '.join([
+            f'{sudo}docker',
+            'run',
+            '--rm',
+            '--pull=always',
+            f'--user={os.geteuid()}:{os.getgid()}',
+            f'--volume="{absdir}":/cert',
+            f'ghcr.io/brewblox/minica:{tag}',
+            f'--domains="{",".join(domains)}"',
+            f'--ip-addresses={",".join(addresses)}',
+        ]))
+
     sh(f'chmod +r {absdir}/minica.pem')
 
 
 def update_system_packages():
     if utils.command_exists('apt-get'):
-        utils.info('Updating apt packages...')
+        utils.info('Updating apt packages ...')
         sh('sudo apt-get update && sudo apt-get upgrade -y')
 
 
@@ -58,7 +62,7 @@ def add_particle_udev_rules():
     rules_dir = '/etc/udev/rules.d'
     target = f'{rules_dir}/50-particle.rules'
     if not utils.path_exists(target) and utils.command_exists('udevadm'):
-        utils.info('Adding udev rules for Particle devices...')
+        utils.info('Adding udev rules for Particle devices ...')
         sh(f'sudo mkdir -p {rules_dir}')
         sh(f'sudo cp {const.DIR_DEPLOYED_CONFIG}/50-particle.rules {target}')
         sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
@@ -89,7 +93,7 @@ def check_compose_plugin():
     if utils.check_ok(f'{utils.optsudo()}docker compose version'):
         return
     if utils.command_exists('apt-get'):
-        utils.info('Installing Docker Compose plugin...')
+        utils.info('Installing Docker Compose plugin ...')
         sh('sudo apt-get update && sudo apt-get install -y docker-compose-plugin')
     else:
         utils.warn('The Docker Compose plugin is not installed, and apt is not available.')
@@ -102,7 +106,7 @@ def check_compose_plugin():
 
 def check_ports():
     if utils.path_exists('./docker-compose.yml'):
-        utils.info('Stopping services...')
+        utils.info('Stopping services ...')
         sh(f'{utils.optsudo()}docker compose down')
 
     ports = [
@@ -133,7 +137,7 @@ def check_ports():
 
 
 def fix_ipv6(config_file=None, restart=True):
-    utils.info('Fixing Docker IPv6 settings...')
+    utils.info('Fixing Docker IPv6 settings ...')
 
     if utils.is_wsl():
         utils.info('WSL environment detected. Skipping IPv6 config changes.')
@@ -168,7 +172,7 @@ def fix_ipv6(config_file=None, restart=True):
     # Restart daemon
     if restart:
         if utils.command_exists('service'):
-            utils.info('Restarting Docker service...')
+            utils.info('Restarting Docker service ...')
             sh('sudo service docker restart')
         else:
             utils.warn('"service" command not found. Please restart your machine to apply config changes.')
@@ -201,7 +205,7 @@ def edit_avahi_config():
         sh(f'sudo cp -fp {tmp.name} {conf}')
 
     if utils.command_exists('systemctl'):
-        utils.info('Restarting avahi-daemon service...')
+        utils.info('Restarting avahi-daemon service ...')
         sh('sudo systemctl restart avahi-daemon')
     else:
         utils.warn('"systemctl" command not found. Please restart your machine to enable Wifi discovery.')
@@ -232,11 +236,11 @@ def disable_ssh_accept_env():
     with NamedTemporaryFile('w') as tmp:
         tmp.write(updated)
         tmp.flush()
-        utils.info('Updating SSHD config to disable AcceptEnv...')
+        utils.info('Updating SSHD config to disable AcceptEnv ...')
         utils.show_data('/etc/ssh/sshd_config', updated)
         sh(f'sudo chmod --reference={file} {tmp.name}')
         sh(f'sudo cp -fp {tmp.name} {file}')
 
     if utils.command_exists('systemctl'):
-        utils.info('Restarting SSH service...')
+        utils.info('Restarting SSH service ...')
         sh('sudo systemctl restart ssh')
