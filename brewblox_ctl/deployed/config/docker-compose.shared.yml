@@ -136,9 +136,13 @@ services:
     image: ghcr.io/brewblox/brewblox-ui:${BREWBLOX_RELEASE}
     restart: unless-stopped
     labels:
-      - traefik.http.routers.ui.rule=PathPrefix(`/ui`) || Path(`/`)
+      - traefik.http.routers.ui.rule=PathPrefix(`/ui`) || PathPrefix(`/static`) || Path(`/`)
     volumes:
       - type: bind
         source: /etc/localtime
         target: /etc/localtime
+        read_only: true
+      - type: bind
+        source: ./traefik/minica.pem
+        target: /var/www/static/minica.pem
         read_only: true

@@ -32,7 +32,7 @@ def test_makecert(m_utils, m_sh):
     m_utils.hostname.return_value = 'hostname'
     m_utils.host_ip_addresses.return_value = ['192.168.0.1']
     actions.makecert('./traefik')
-    assert m_sh.call_count == 3
+    assert m_sh.call_count == 4
 
 
 def test_update_system_packages(m_utils, m_sh):

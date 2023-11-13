@@ -45,6 +45,7 @@ def makecert(dir: str,
         f'--domains="{",".join(domains)}"',
         f'--ip-addresses={",".join(addresses)}',
     ]))
+    sh(f'chmod +r {absdir}/minica.pem')
 
 
 def update_system_packages():
