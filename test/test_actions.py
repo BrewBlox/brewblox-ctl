@@ -37,7 +37,7 @@ def test_makecert(m_utils, m_sh):
     assert m_sh.call_count == 1
 
     actions.makecert('./traefik', True)
-    assert m_sh.call_count == 5
+    assert m_sh.call_count == 6
 
 
 def test_update_system_packages(m_utils, m_sh):

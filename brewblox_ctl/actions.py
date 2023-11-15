@@ -33,8 +33,11 @@ def makecert(dir: str,
         *(custom_domains or []),
     ]
 
-    if always or not utils.path_exists(absdir / 'brew.blox/cert.pem'):
-        utils.info(f'Generating new certificates in {absdir}  ...')
+    create_cert = always or not utils.path_exists(absdir / 'brew.blox/cert.pem')
+    create_der = create_cert or not utils.path_exists(absdir / 'minica.der')
+
+    if create_cert:
+        utils.info(f'Generating new certificates in {absdir} ...')
         sh(f'mkdir -p "{absdir}"')
         sh(f'sudo rm -rf "{absdir}/brew.blox"')
         sh(' '.join([
@@ -47,6 +50,21 @@ def makecert(dir: str,
             f'ghcr.io/brewblox/minica:{tag}',
             f'--domains="{",".join(domains)}"',
             f'--ip-addresses={",".join(addresses)}',
+        ]))
+
+    if create_der:
+        sh(' '.join([
+            f'{sudo}docker',
+            'run',
+            '--rm',
+            f'--user={os.geteuid()}:{os.getgid()}',
+            f'--volume="{absdir}":/cert',
+            'alpine/openssl',
+            'x509',
+            '-in /cert/minica.pem',
+            '-inform PEM',
+            '-out /cert/minica.der',
+            '-outform DER',
         ]))
 
     sh(f'chmod +r {absdir}/minica.pem')

@@ -146,3 +146,7 @@ services:
         source: ./traefik/minica.pem
         target: /var/www/static/minica.pem
         read_only: true
+      - type: bind
+        source: ./traefik/minica.der
+        target: /var/www/static/minica.der
+        read_only: true
