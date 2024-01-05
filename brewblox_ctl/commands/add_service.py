@@ -74,8 +74,6 @@ def discover_spark(discovery_type):
               help='Methods for discovering devices. This will become part of the service configuration.')
 @click.option('--device-host',
               help='Static controller URL')
-@click.option('-c', '--command',
-              help='Additional arguments to pass to the service command')
 @click.option('-y', '--yes',
               is_flag=True,
               help='Do not prompt for confirmation')
@@ -90,7 +88,6 @@ def add_spark(name,
               device_id,
               discovery_type,
               device_host,
-              command,
               yes,
               release,
               simulation):
@@ -116,8 +113,8 @@ def add_spark(name,
         check_create_overwrite(config, name)
 
     for (other_name, svc) in config['services'].items():
-        img = svc.get('image', '')
-        cmd = svc.get('command', '')
+        img: str = svc.get('image', '')
+        cmd: str = svc.get('command', '')
         if not any([
             other_name == name,
             not img.startswith(image_name),
@@ -154,28 +151,21 @@ def add_spark(name,
         utils.warn('    brewblox-ctl experimental enable-spark-mqtt')
         utils.warn('')
 
-    commands = [
-        f'--name={name}',
-        f'--discovery={discovery_type}',
-    ]
+    environment: list[str] = []
 
-    if device_id:
-        commands += [f'--device-id={device_id}']
+    def push_env(key: str, value):
+        if value:
+            environment.append(f'BREWBLOX_SPARK_{key.upper()}={value}')
 
-    if device_host:
-        commands += [f'--device-host={device_host}']
-
-    if simulation:
-        commands += ['--simulation']
-
-    if command:
-        commands += [command]
+    push_env('discovery', discovery_type)
+    push_env('device_id', device_id)
+    push_env('device_host', device_host)
 
     config['services'][name] = {
         'image': f'{image_name}:{utils.docker_tag(release)}',
         'privileged': True,
         'restart': 'unless-stopped',
-        'command': ' '.join(commands),
+        'environment': environment,
         'volumes': [
             localtime_volume(),
             {

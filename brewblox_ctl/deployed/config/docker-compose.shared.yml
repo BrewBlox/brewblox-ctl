@@ -35,17 +35,18 @@ services:
   victoria:
     image: victoriametrics/victoria-metrics:v1.88.0
     restart: unless-stopped
+    command: --envflag.enable=true --envflag.prefix=VM_
     labels:
       - traefik.http.services.victoria.loadbalancer.server.port=8428
+    environment:
+      - VM_retentionPeriod=100y
+      - VM_influxMeasurementFieldSeparator=/
+      - VM_http_pathPrefix=/victoria
+      - VM_search_latencyOffset=10s
     volumes:
       - type: bind
         source: ./victoria
         target: /victoria-metrics-data
-    command: >-
-      --retentionPeriod=100y
-      --influxMeasurementFieldSeparator=/
-      --http.pathPrefix=/victoria
-      --search.latencyOffset=10s
 
   redis:
     image: redis:6.0
@@ -76,7 +77,7 @@ services:
     restart: unless-stopped
     environment:
       - BREWBLOX_AUTH_ENABLED
-      - BREWBLOX_AUTH_IGNORE=/|/ui/.*
+      - BREWBLOX_AUTH_IGNORE=/|/(ui|shared)/.*
     volumes:
       - type: bind
         source: ./auth
@@ -116,21 +117,21 @@ services:
       - "${BREWBLOX_PORT_MQTT}:${BREWBLOX_PORT_MQTT}"
       - "${BREWBLOX_PORT_MQTTS}:${BREWBLOX_PORT_MQTTS}"
       - "127.0.0.1:${BREWBLOX_PORT_ADMIN}:${BREWBLOX_PORT_ADMIN}"
-    command: >-
-      --api.dashboard=true
-      --providers.docker=true
-      --providers.docker.constraints="LabelRegex(`com.docker.compose.project`, `${COMPOSE_PROJECT_NAME}`)"
-      --providers.docker.defaultrule="PathPrefix(`/{{ index .Labels \"com.docker.compose.service\" }}`)"
-      --providers.file.directory=/config
-      --entrypoints.websecure.address=:${BREWBLOX_PORT_HTTPS}
-      --entrypoints.websecure.http.tls=true
-      --entrypoints.websecure.http.middlewares=cors,auth
-      --entrypoints.web.address=:${BREWBLOX_PORT_HTTP}
-      --entrypoints.web.http.redirections.entrypoint.to=websecure
-      --entrypoints.admin.address=:${BREWBLOX_PORT_ADMIN}
-      --entrypoints.admin.http.middlewares=cors
-      --entrypoints.mqtt.address=:${BREWBLOX_PORT_MQTT}/tcp
-      --entrypoints.mqtts.address=:${BREWBLOX_PORT_MQTTS}/tcp
+    environment:
+      - TRAEFIK_API_DASHBOARD=true
+      - TRAEFIK_PROVIDERS_DOCKER=true
+      - TRAEFIK_PROVIDERS_DOCKER_CONSTRAINTS=LabelRegex(`com.docker.compose.project`, `${COMPOSE_PROJECT_NAME}`)
+      - TRAEFIK_PROVIDERS_DOCKER_DEFAULTRULE=PathPrefix(`/{{ index .Labels "com.docker.compose.service" }}`)
+      - TRAEFIK_PROVIDERS_FILE_DIRECTORY=/config
+      - TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS=:${BREWBLOX_PORT_HTTPS}
+      - TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS=true
+      - TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_MIDDLEWARES=cors,auth
+      - TRAEFIK_ENTRYPOINTS_WEB_ADDRESS=:${BREWBLOX_PORT_HTTP}
+      - TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO=websecure
+      - TRAEFIK_ENTRYPOINTS_ADMIN_ADDRESS=:${BREWBLOX_PORT_ADMIN}
+      - TRAEFIK_ENTRYPOINTS_ADMIN_HTTP_MIDDLEWARES=cors
+      - TRAEFIK_ENTRYPOINTS_MQTT_ADDRESS=:${BREWBLOX_PORT_MQTT}/tcp
+      - TRAEFIK_ENTRYPOINTS_MQTTS_ADDRESS=:${BREWBLOX_PORT_MQTTS}/tcp
 
   ui:
     image: ghcr.io/brewblox/brewblox-ui:${BREWBLOX_RELEASE}

@@ -80,7 +80,7 @@ def test_add_spark(m_utils, m_sh, mocker, m_choose, m_find_by_host):
     m_utils.read_compose.side_effect = lambda: {'services': {}}
     m_utils.confirm.return_value = True
 
-    invoke(add_service.add_spark, '--name testey --discover-now --discovery mdns --command "--do-stuff"')
+    invoke(add_service.add_spark, '--name testey --discover-now --discovery mdns')
     invoke(add_service.add_spark, input='testey\n')
 
     invoke(add_service.add_spark, '-n testey')
