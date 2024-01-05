@@ -160,6 +160,7 @@ def add_spark(name,
     push_env('discovery', discovery_type)
     push_env('device_id', device_id)
     push_env('device_host', device_host)
+    push_env('simulation', simulation)
 
     config['services'][name] = {
         'image': f'{image_name}:{utils.docker_tag(release)}',
