@@ -25,16 +25,16 @@ def m_sh(mocker):
 
 
 def test_init(m_utils):
-    invoke(auth.init)
+    invoke(auth.enable)
     m_utils.setenv.assert_called_with(const.ENV_KEY_AUTH_ENABLED, 'True')
     m_utils.add_user.assert_called_with(None, None)
 
-    invoke(auth.init, '--disable')
+    invoke(auth.disable)
     m_utils.setenv.assert_called_with(const.ENV_KEY_AUTH_ENABLED, 'False')
     assert m_utils.add_user.call_count == 1
 
     m_utils.confirm.return_value = False
-    invoke(auth.init)
+    invoke(auth.enable)
     m_utils.setenv.assert_called_with(const.ENV_KEY_AUTH_ENABLED, 'True')
     assert m_utils.add_user.call_count == 1
 

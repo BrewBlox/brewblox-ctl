@@ -20,19 +20,24 @@ def auth():
 
 
 @auth.command()
-@click.option('--enable/--disable',
-              default=True,
-              help='Set enabled state.')
-def init(enable: bool):
+def enable():
     """
-    Initialize password authentication.
-
-    Use `brewblox-ctl auth init --disable` to disable it again.
+    Enable password authentication.
     """
-    utils.setenv(const.ENV_KEY_AUTH_ENABLED, str(enable))
+    utils.setenv(const.ENV_KEY_AUTH_ENABLED, str(True))
 
-    if enable and utils.confirm('Do you want to add a new user?'):
+    if utils.confirm('Do you want to add a new user?'):
         utils.add_user(None, None)
+
+
+@auth.command()
+def disable():
+    """
+    Disable password authentication.
+
+    This will not remove existing users.
+    """
+    utils.setenv(const.ENV_KEY_AUTH_ENABLED, str(False))
 
 
 @auth.command()
