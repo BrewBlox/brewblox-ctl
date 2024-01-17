@@ -19,8 +19,8 @@ def m_getgid(mocker):
 
 
 @pytest.fixture(autouse=True)
-def m_getuid(mocker):
-    m = mocker.patch(TESTED + '.getuid')
+def m_geteuid(mocker):
+    m = mocker.patch(TESTED + '.geteuid')
     m.return_value = 1000
     return m
 
@@ -29,6 +29,7 @@ def m_getuid(mocker):
 def m_utils(mocker):
     m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
+    m.host_ip_addresses.return_value = ['192.168.0.1']
     return m
 
 
@@ -79,7 +80,7 @@ def test_add_spark(m_utils, m_sh, mocker, m_choose, m_find_by_host):
     m_utils.read_compose.side_effect = lambda: {'services': {}}
     m_utils.confirm.return_value = True
 
-    invoke(add_service.add_spark, '--name testey --discover-now --discovery mdns --command "--do-stuff"')
+    invoke(add_service.add_spark, '--name testey --discover-now --discovery mdns')
     invoke(add_service.add_spark, input='testey\n')
 
     invoke(add_service.add_spark, '-n testey')
@@ -175,8 +176,8 @@ def test_add_node_red(m_utils, m_sh, mocker):
     assert m_sh.call_count == 0
 
 
-def test_add_node_red_other_uid(m_utils, m_sh, mocker, m_getuid):
-    m_getuid.return_value = 1001
+def test_add_node_red_other_uid(m_utils, m_sh, mocker, m_geteuid):
+    m_geteuid.return_value = 1001
     m_utils.confirm.return_value = True
     m_utils.read_compose.side_effect = lambda: {'services': {}}
     invoke(add_service.add_node_red)

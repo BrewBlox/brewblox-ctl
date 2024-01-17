@@ -118,7 +118,7 @@ def kill(zombies):
             sh('sudo netstat -pna', capture=True))
 
         if procs:
-            utils.info(f'Removing {len(procs)} zombies...')
+            utils.info(f'Removing {len(procs)} zombies ...')
             sh('sudo service docker stop')
             sh([f'sudo kill -9 {proc}' for proc in procs])
             sh('sudo service docker start')

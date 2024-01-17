@@ -27,6 +27,7 @@ def m_input(mocker):
 @pytest.fixture
 def m_opts(mocker):
     m = mocker.patch(TESTED + '.InstallOptions')
+    m.return_value.user_info = ('username', 'password')
     return m.return_value
 
 
@@ -41,6 +42,7 @@ def m_utils(mocker):
     m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     m.docker_tag.side_effect = lambda v: v
+    m.prompt_user_info.return_value = ('username', 'password')
     return m
 
 
@@ -186,6 +188,7 @@ def test_check_init_opts(m_utils):
     m_utils.path_exists.return_value = True
     opts.check_init_opts()
     assert opts.init_compose is False
+    assert opts.init_auth is False
     assert opts.init_datastore is False
     assert opts.init_history is False
     assert opts.init_gateway is False
@@ -195,24 +198,25 @@ def test_check_init_opts(m_utils):
     m_utils.path_exists.return_value = False
     opts.check_init_opts()
     assert opts.init_compose is True
+    assert opts.init_auth is True
     assert opts.init_datastore is True
     assert opts.init_history is True
     assert opts.init_gateway is True
     assert opts.init_eventbus is True
     assert opts.init_spark_backup is True
-    assert m_utils.confirm.call_count == 6
+    assert m_utils.confirm.call_count == 7
 
 
 def test_install_basic(m_utils, m_actions, m_input, m_sh, m_opts):
     invoke(install.install)
-    assert m_sh.call_count == 14  # do everything
+    assert m_sh.call_count == 15  # do everything
     assert m_input.call_count == 1  # prompt reboot
 
     m_sh.reset_mock()
     m_input.reset_mock()
     m_opts.prompt_reboot = False
     invoke(install.install)
-    assert m_sh.call_count == 14  # do everything
+    assert m_sh.call_count == 15  # do everything
     assert m_input.call_count == 0  # no reboot prompt
 
 
@@ -223,11 +227,13 @@ def test_install_minimal(m_utils, m_actions, m_input, m_sh, m_opts):
     m_opts.docker_pull = False
     m_opts.reboot_needed = False
     m_opts.init_compose = False
+    m_opts.init_auth = False
     m_opts.init_datastore = False
     m_opts.init_history = False
     m_opts.init_gateway = False
     m_opts.init_eventbus = False
     m_opts.init_spark_backup = False
+    m_opts.user_info = None
 
     invoke(install.install)
     assert m_sh.call_count == 3  # Only the bare minimum
@@ -241,4 +247,4 @@ def test_install_snapshot(m_utils, m_actions, m_input, m_sh, m_opts, m_snapshot_
 
 def test_makecert(m_utils, m_actions):
     invoke(install.makecert)
-    m_actions.makecert.assert_called_once_with('./traefik', None)
+    m_actions.makecert.assert_called_once_with('./traefik', True, (), None)

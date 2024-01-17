@@ -7,6 +7,7 @@
 #
 # For more information, see https://docs.docker.com/compose/extends/
 version: "3.7"
+
 services:
   eventbus:
     image: ghcr.io/brewblox/mosquitto:${BREWBLOX_RELEASE}
@@ -30,20 +31,23 @@ services:
       - type: bind
         source: ./mosquitto
         target: /mosquitto/include
+
   victoria:
     image: victoriametrics/victoria-metrics:v1.88.0
     restart: unless-stopped
+    command: --envflag.enable=true --envflag.prefix=VM_
     labels:
       - traefik.http.services.victoria.loadbalancer.server.port=8428
+    environment:
+      - VM_retentionPeriod=100y
+      - VM_influxMeasurementFieldSeparator=/
+      - VM_http_pathPrefix=/victoria
+      - VM_search_latencyOffset=10s
     volumes:
       - type: bind
         source: ./victoria
         target: /victoria-metrics-data
-    command: >-
-      --retentionPeriod=100y
-      --influxMeasurementFieldSeparator=/
-      --http.pathPrefix=/victoria
-      --search.latencyOffset=10s
+
   redis:
     image: redis:6.0
     restart: unless-stopped
@@ -54,6 +58,7 @@ services:
         source: ./redis
         target: /data
     command: --appendonly yes
+
   history:
     image: ghcr.io/brewblox/brewblox-history:${BREWBLOX_RELEASE}
     restart: unless-stopped
@@ -66,13 +71,34 @@ services:
     # This flag should be removed when Debian Buster is no longer supported
     # For an explanation: https://github.com/sdr-enthusiasts/Buster-Docker-Fixes
     privileged: true
+
+  auth:
+    image: ghcr.io/brewblox/brewblox-auth:${BREWBLOX_RELEASE}
+    restart: unless-stopped
+    environment:
+      - BREWBLOX_AUTH_ENABLED
+      - BREWBLOX_AUTH_IGNORE=/|/(ui|shared)/.*
+    volumes:
+      - type: bind
+        source: ./auth
+        target: /app/data
+      - type: bind
+        source: /etc/localtime
+        target: /etc/localtime
+        read_only: true
+
   traefik:
-    image: traefik:2.9
+    image: traefik:2.10
     restart: unless-stopped
     labels:
       - traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/dashboard`)
       - traefik.http.routers.api.service=api@internal
       - traefik.http.middlewares.prefix-strip.stripprefixregex.regex=/[^/]+
+      - traefik.http.middlewares.auth.forwardauth.address=http://auth:5000/auth/verify
+      - traefik.http.middlewares.cors.headers.AccessControlAllowMethods=CONNECT,HEAD,GET,DELETE,OPTIONS,PATCH,POST,PUT,TRACE
+      - traefik.http.middlewares.cors.headers.accessControlAllowOriginListRegex=.*
+      - traefik.http.middlewares.cors.headers.AccessControlAllowCredentials=true
+      - traefik.http.middlewares.cors.headers.AccessControlAllowHeaders=Origin,X-Requested-With,Content-Type,Accept
     volumes:
       - type: bind
         source: ./traefik
@@ -86,28 +112,42 @@ services:
         target: /etc/localtime
         read_only: true
     ports:
-      - "${BREWBLOX_PORT_HTTP:-80}:${BREWBLOX_PORT_HTTP:-80}"
-      - "${BREWBLOX_PORT_HTTPS:-443}:${BREWBLOX_PORT_HTTPS:-443}"
-      - "${BREWBLOX_PORT_MQTT:-1883}:${BREWBLOX_PORT_MQTT:-1883}"
-      - "${BREWBLOX_PORT_MQTTS:-8883}:${BREWBLOX_PORT_MQTTS:-8883}"
-    command: >-
-      --api.dashboard=true
-      --providers.docker=true
-      --providers.docker.constraints="LabelRegex(`com.docker.compose.project`, `${COMPOSE_PROJECT_NAME}`)"
-      --providers.docker.defaultrule="PathPrefix(`/{{ index .Labels \"com.docker.compose.service\" }}`)"
-      --providers.file.directory=/config
-      --entrypoints.web.address=:${BREWBLOX_PORT_HTTP}
-      --entrypoints.websecure.address=:${BREWBLOX_PORT_HTTPS}
-      --entrypoints.websecure.http.tls=true
-      --entrypoints.mqtt.address=:${BREWBLOX_PORT_MQTT}/tcp
-      --entrypoints.mqtts.address=:${BREWBLOX_PORT_MQTTS}/tcp
+      - "${BREWBLOX_PORT_HTTP}:${BREWBLOX_PORT_HTTP}"
+      - "${BREWBLOX_PORT_HTTPS}:${BREWBLOX_PORT_HTTPS}"
+      - "${BREWBLOX_PORT_MQTT}:${BREWBLOX_PORT_MQTT}"
+      - "${BREWBLOX_PORT_MQTTS}:${BREWBLOX_PORT_MQTTS}"
+      - "127.0.0.1:${BREWBLOX_PORT_ADMIN}:${BREWBLOX_PORT_ADMIN}"
+    environment:
+      - TRAEFIK_API_DASHBOARD=true
+      - TRAEFIK_PROVIDERS_DOCKER=true
+      - TRAEFIK_PROVIDERS_DOCKER_CONSTRAINTS=LabelRegex(`com.docker.compose.project`, `${COMPOSE_PROJECT_NAME}`)
+      - TRAEFIK_PROVIDERS_DOCKER_DEFAULTRULE=PathPrefix(`/{{ index .Labels "com.docker.compose.service" }}`)
+      - TRAEFIK_PROVIDERS_FILE_DIRECTORY=/config
+      - TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS=:${BREWBLOX_PORT_HTTPS}
+      - TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS=true
+      - TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_MIDDLEWARES=cors,auth
+      - TRAEFIK_ENTRYPOINTS_WEB_ADDRESS=:${BREWBLOX_PORT_HTTP}
+      - TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO=websecure
+      - TRAEFIK_ENTRYPOINTS_ADMIN_ADDRESS=:${BREWBLOX_PORT_ADMIN}
+      - TRAEFIK_ENTRYPOINTS_ADMIN_HTTP_MIDDLEWARES=cors
+      - TRAEFIK_ENTRYPOINTS_MQTT_ADDRESS=:${BREWBLOX_PORT_MQTT}/tcp
+      - TRAEFIK_ENTRYPOINTS_MQTTS_ADDRESS=:${BREWBLOX_PORT_MQTTS}/tcp
+
   ui:
     image: ghcr.io/brewblox/brewblox-ui:${BREWBLOX_RELEASE}
     restart: unless-stopped
     labels:
-      - traefik.http.routers.ui.rule=PathPrefix(`/ui`) || Path(`/`)
+      - traefik.http.routers.ui.rule=PathPrefix(`/ui`) || PathPrefix(`/static`) || Path(`/`)
     volumes:
       - type: bind
         source: /etc/localtime
         target: /etc/localtime
+        read_only: true
+      - type: bind
+        source: ./traefik/minica.pem
+        target: /var/www/static/minica.pem
+        read_only: true
+      - type: bind
+        source: ./traefik/minica.der
+        target: /var/www/static/minica.der
         read_only: true

@@ -83,7 +83,7 @@ def save(save_compose, ignore_spark_error):
 
     store_url = utils.datastore_url()
 
-    utils.info('Waiting for the datastore...')
+    utils.info('Waiting for the datastore ...')
     http.wait(store_url + '/ping', info_updates=True)
 
     config = utils.read_compose()
@@ -246,7 +246,7 @@ def load(archive,
 
     if load_datastore:
         if redis_file in available or couchdb_files:
-            utils.info('Waiting for the datastore...')
+            utils.info('Waiting for the datastore ...')
             sh(f'{const.CLI} http wait {store_url}/ping')
             # Wipe UI/Automation, but leave Spark files
             mdelete_cmd = '{} http post {}/mdelete --quiet -d \'{{"namespace":"{}", "filter":"*"}}\''
@@ -330,7 +330,7 @@ def load(archive,
     zipf.close()
 
     if update:
-        utils.info('Updating brewblox...')
+        utils.info('Updating brewblox ...')
         sh(f'{const.CLI} update')
 
     utils.info('Done!')

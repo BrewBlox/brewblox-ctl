@@ -15,6 +15,18 @@ from brewblox_ctl import const, utils
 TESTED = utils.__name__
 
 
+class MatchingHash:
+
+    def __init__(self, value: str):
+        self._value = value
+
+    def __eq__(self, hash):
+        return utils.pbkdf2_sha512.verify(self._value, hash)
+
+    def __repr__(self) -> str:
+        return f'<MatchingHash for {self._value}>'
+
+
 @pytest.fixture
 def m_getenv(mocker):
     return mocker.patch(TESTED + '.getenv', autospec=True)
@@ -100,6 +112,76 @@ def test_check_ok(mocked_ext):
 def test_confirm_usb(mocked_ext):
     utils.confirm_usb()
     assert mocked_ext['input'].call_count == 1
+
+
+def test_read_users(m_sh, mocker):
+    m_sh.return_value = '\n'.join([
+        'usr1:hashed_password_1',
+        'usr2:hashed_password_2'
+    ])
+    m_passwd_file = mocker.patch(TESTED + '.const.PASSWD_FILE')
+    m_passwd_file.exists.return_value = True
+
+    assert utils.read_users() == {
+        'usr1': 'hashed_password_1',
+        'usr2': 'hashed_password_2',
+    }
+
+    m_passwd_file.exists.return_value = False
+    assert utils.read_users() == {}
+
+
+def test_write_users(m_sh, mocker):
+    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts.verbose = False
+    m_opts.dry_run = True
+
+    utils.write_users({'usr': 'passwd'})
+    assert m_sh.call_count == 2
+
+    m_opts.dry_run = False
+    utils.write_users({'usr': 'passwd'})
+    assert m_sh.call_count == 4
+
+
+def test_prompt_user_info(mocker):
+    mocker.patch(TESTED + '.warn')
+    m_prompt = mocker.patch(TESTED + '.click.prompt')
+    m_prompt.side_effect = ['', ':', 'name']
+    m_getpass = mocker.patch(TESTED + '.getpass')
+    m_getpass.return_value = 'password'
+    assert utils.prompt_user_info(None, None) == ('name', 'password')
+
+
+def test_add_user(mocker):
+    mocker.patch(TESTED + '.warn')
+    m_prompt = mocker.patch(TESTED + '.click.prompt')
+    m_prompt.return_value = 'usr'
+    m_getpass = mocker.patch(TESTED + '.getpass')
+    m_getpass.return_value = 'passwd'
+    m_read_users = mocker.patch(TESTED + '.read_users')
+    m_read_users.side_effect = lambda: {'existing': '***'}
+    m_write_users = mocker.patch(TESTED + '.write_users')
+
+    utils.add_user('name', 'pass')
+    assert m_prompt.call_count == 0
+    assert m_getpass.call_count == 0
+    m_write_users.assert_called_with({'existing': '***',
+                                      'name': MatchingHash('pass')})
+
+
+def test_remove_user(mocker):
+    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts.dry_run = False
+    m_read_users = mocker.patch(TESTED + '.read_users', autospec=True)
+    m_read_users.side_effect = lambda: {'usr': 'passwd'}
+    m_write_users = mocker.patch(TESTED + '.write_users', autospec=True)
+
+    utils.remove_user('santa')
+    assert m_write_users.call_count == 0
+
+    utils.remove_user('usr')
+    m_write_users.assert_called_with({})
 
 
 def test_path_exists(mocker):
@@ -330,17 +412,17 @@ def test_pip_install(mocker, m_sh):
     m_sh.assert_called_with('python3 -m pip install --upgrade --no-cache-dir --prefer-binary lib lib2')
 
 
-def test_esptool(mocked_ext, m_sh):
+def test_start_esptool(mocked_ext, m_sh):
     m_which = mocked_ext['shutil.which']
     m_which.return_value = ''
 
-    utils.esptool('--chip esp32', 'read_flash', 'coredump.bin')
+    utils.start_esptool('--chip esp32', 'read_flash', 'coredump.bin')
     m_sh.assert_called_with('sudo -E env "PATH=$PATH" esptool.py --chip esp32 read_flash coredump.bin')
     assert m_sh.call_count == 2
 
     m_sh.reset_mock()
     m_which.return_value = 'esptool.py'
-    utils.esptool()
+    utils.start_esptool()
     m_sh.assert_called_with('sudo -E env "PATH=$PATH" esptool.py ')
     assert m_sh.call_count == 1
 
@@ -367,22 +449,13 @@ def test_get_urls(m_getenv):
         '1234',
         '4321',
     ]
-    assert utils.history_url() == f'{const.HOST}:1234/history/history'
-    assert utils.datastore_url() == f'{const.HOST}:4321/history/datastore'
+    assert utils.history_url() == 'http://localhost:1234/history/history'
+    assert utils.datastore_url() == 'http://localhost:4321/history/datastore'
 
     assert m_getenv.call_args_list == [
-        call(const.ENV_KEY_PORT_HTTPS, '443'),
-        call(const.ENV_KEY_PORT_HTTPS, '443'),
+        call(const.ENV_KEY_PORT_ADMIN, '9600'),
+        call(const.ENV_KEY_PORT_ADMIN, '9600'),
     ]
-
-
-def test_host_ip(m_getenv):
-    m_getenv.side_effect = [
-        '192.168.0.100 54321 192.168.0.69 22',
-        '',
-    ]
-    assert utils.host_ip() == '192.168.0.69'
-    assert utils.host_ip() == '127.0.0.1'
 
 
 def test_list_services():
@@ -390,6 +463,12 @@ def test_list_services():
         'ghcr.io/brewblox/brewblox-history',
         'brewblox_ctl/deployed/config/docker-compose.shared.yml')
     assert services == ['history']
+
+
+def test_host_ip_addresses():
+    addresses = utils.host_ip_addresses()
+    assert addresses
+    assert isinstance(addresses[0], str)
 
 
 def test_read_shared_compose():

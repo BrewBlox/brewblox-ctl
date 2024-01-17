@@ -109,7 +109,7 @@ def match_id_services(config: Optional[dict]) -> Dict[str, str]:  # [ID, service
 
 
 def find_device_by_host(device_host: str) -> Optional[DiscoveredDevice]:
-    utils.info(f'Querying device with address {device_host}...')
+    utils.info(f'Querying device with address {device_host} ...')
     try:
         resp = requests.get(f'http://{device_host}', timeout=5)
         resp.raise_for_status()
@@ -209,7 +209,7 @@ def list_devices(discovery_type: DiscoveryType,
         }
     )
 
-    utils.info('Discovering devices...')
+    utils.info('Discovering devices ...')
     table.print_headers()
     for dev in discover_device(discovery_type):
         table.print_row({
@@ -242,7 +242,7 @@ def choose_device(discovery_type: DiscoveryType,
     )
     devs = []
 
-    utils.info('Discovering devices...')
+    utils.info('Discovering devices ...')
     table.print_headers()
     for dev in discover_device(discovery_type):
         # TODO(Bob) less hacky check

@@ -29,6 +29,7 @@ def m_utils(mocker):
     m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     m.getenv.return_value = '/usr/local/bin:/home/pi/.local/bin'
+    m.prompt_user_info.return_value = ('username', 'password')
     m.datastore_url.return_value = STORE_URL
     m.user_home_exists.return_value = False  # Tested explicitly
     m.read_compose.side_effect = lambda: {

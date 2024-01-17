@@ -18,23 +18,24 @@ def cli():
 
 class InstallOptions:
     def __init__(self) -> None:
-        self.use_defaults = False
-        self.skip_confirm = True
+        self.use_defaults: bool = False
+        self.skip_confirm: bool = True
 
-        self.apt_install = True
+        self.apt_install: bool = True
 
-        self.docker_install = True
-        self.docker_group_add = True
-        self.docker_pull = True
+        self.docker_install: bool = True
+        self.docker_group_add: bool = True
+        self.docker_pull: bool = True
 
-        self.reboot_needed = False
-        self.prompt_reboot = True
+        self.reboot_needed: bool = False
+        self.prompt_reboot: bool = True
 
-        self.init_compose = True
-        self.init_datastore = True
-        self.init_history = True
-        self.init_gateway = True
-        self.init_eventbus = True
+        self.init_compose: bool = True
+        self.init_auth: bool = True
+        self.init_datastore: bool = True
+        self.init_history: bool = True
+        self.init_gateway: bool = True
+        self.init_eventbus: bool = True
 
     def check_confirm_opts(self):
         self.use_defaults = False
@@ -92,6 +93,7 @@ class InstallOptions:
 
     def check_init_opts(self):
         self.init_compose = True
+        self.init_auth = True
         self.init_datastore = True
         self.init_history = True
         self.init_gateway = True
@@ -101,6 +103,10 @@ class InstallOptions:
         if utils.path_exists('./docker-compose.yml'):
             self.init_compose = not utils.confirm('This directory already contains a docker-compose.yml file. ' +
                                                   'Do you want to keep it?')
+
+        if utils.path_exists('./auth/'):
+            self.init_auth = not utils.confirm('This directory already contains user authentication files. '
+                                               'Do you want to keep them?')
 
         if utils.path_exists('./redis/'):
             self.init_datastore = not utils.confirm('This directory already contains Redis datastore files. ' +
@@ -181,7 +187,7 @@ def install(ctx: click.Context, snapshot_file):
 
     # Install Apt packages
     if opts.apt_install:
-        utils.info('Installing apt packages...')
+        utils.info('Installing apt packages ...')
         apt_deps = ' '.join(const.APT_DEPENDENCIES)
         sh([
             'sudo apt-get update',
@@ -193,7 +199,7 @@ def install(ctx: click.Context, snapshot_file):
 
     # Install docker
     if opts.docker_install:
-        utils.info('Installing docker...')
+        utils.info('Installing docker ...')
         sh('curl -sL get.docker.com | sh', check=False)
     else:
         utils.info('Skipped: docker install.')
@@ -216,7 +222,7 @@ def install(ctx: click.Context, snapshot_file):
 
     # Set variables in .env file
     # Set version number to 0.0.0 until snapshot load / init is done
-    utils.info('Setting .env values...')
+    utils.info('Setting .env values ...')
     utils.setenv(const.ENV_KEY_CFG_VERSION, '0.0.0')
     utils.setenv(const.ENV_KEY_SKIP_CONFIRM, str(opts.skip_confirm))
     utils.setenv(const.ENV_KEY_UPDATE_SYSTEM_PACKAGES, str(opts.apt_install))
@@ -230,41 +236,45 @@ def install(ctx: click.Context, snapshot_file):
     else:
         release = utils.getenv('BREWBLOX_RELEASE')
 
-        utils.info('Checking for port conflicts...')
+        utils.info('Checking for port conflicts ...')
         actions.check_ports()
 
-        utils.info('Copying docker-compose.shared.yml...')
+        utils.info('Copying docker-compose.shared.yml ...')
         sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.shared.yml ./')
 
         if opts.init_compose:
-            utils.info('Copying docker-compose.yml...')
+            utils.info('Copying docker-compose.yml ...')
             sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.yml ./')
 
         # Stop after we're sure we have a compose file
-        utils.info('Stopping services...')
+        utils.info('Stopping services ...')
         sh(f'{sudo}docker compose down')
 
         if opts.init_datastore:
-            utils.info('Creating datastore directory...')
+            utils.info('Creating datastore directory ...')
             sh('sudo rm -rf ./redis/; mkdir ./redis/')
 
+        if opts.init_auth:
+            utils.info('Creating auth directory ...')
+            sh('sudo rm -rf ./auth/; mkdir ./auth/')
+
         if opts.init_history:
-            utils.info('Creating history directory...')
+            utils.info('Creating history directory ...')
             sh('sudo rm -rf ./victoria/; mkdir ./victoria/')
 
         if opts.init_gateway:
-            utils.info('Creating gateway directory...')
+            utils.info('Creating gateway directory ...')
             sh('sudo rm -rf ./traefik/; mkdir ./traefik/')
 
-            utils.info('Creating SSL certificate...')
-            actions.makecert('./traefik', release)
+            utils.info('Creating SSL certificate ...')
+            actions.makecert('./traefik', None, release)
 
         if opts.init_eventbus:
-            utils.info('Creating mosquitto config directory...')
+            utils.info('Creating mosquitto config directory ...')
             sh('sudo rm -rf ./mosquitto/; mkdir ./mosquitto/')
 
         if opts.init_spark_backup:
-            utils.info('Creating Spark backup directory...')
+            utils.info('Creating Spark backup directory ...')
             sh('sudo rm -rf ./spark/backup/; mkdir -p ./spark/backup/')
 
         # Always copy cert config to traefik dir
@@ -274,7 +284,7 @@ def install(ctx: click.Context, snapshot_file):
         utils.setenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
 
     if opts.docker_pull:
-        utils.info('Pulling docker images...')
+        utils.info('Pulling docker images ...')
         sh(f'{sudo}docker compose pull')
 
     utils.info('All done!')
@@ -285,7 +295,7 @@ def install(ctx: click.Context, snapshot_file):
             utils.info('Press ENTER to reboot.')
             input()
         else:
-            utils.info('Rebooting in 10 seconds...')
+            utils.info('Rebooting in 10 seconds ...')
             sleep(10)
         sh('sudo reboot')
 
@@ -294,16 +304,27 @@ def install(ctx: click.Context, snapshot_file):
 @click.option('--dir',
               default='./traefik',
               help='Target directory for generated certs.')
+@click.option('--domain',
+              multiple=True,
+              help='Additional alternative domain name for the generated cert. ' +
+              'This option can be used multiple times.')
 @click.option('--release',
               default=None,
-              help='Brewblox release track.')
-def makecert(dir, release):
-    """Generate a self-signed SSL certificate.
+              help='Brewblox release track for the minica Docker image.')
+def makecert(dir, domain, release):
+    """Generate SSL CA and certificate
+
+    These are locally signed certificates, and will generate browser warnings
+    unless installed in a trust store.
+
+    By default, the generated cert covers all known LAN IP addresses for this machine,
+    along with {hostname}, {hostname}.local, and {hostname}.home.
 
     \b
     Steps:
         - Create directory if it does not exist.
-        - Create brewblox.crt and brewblox.key files.
+        - Create CA files: {dir}/minica.pem and {dir}/minica-key.pem.
+        - Create cert files: {dir}/brew.blox/cert.pem and {dir}/brew.blox/key.pem
     """
     utils.confirm_mode()
-    actions.makecert(dir, release)
+    actions.makecert(dir, True, domain, release)

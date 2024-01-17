@@ -13,23 +13,22 @@ import shutil
 import socket
 import string
 from contextlib import closing
+from getpass import getpass
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
+from tempfile import NamedTemporaryFile
 from types import GeneratorType
-from typing import Generator, Union
+from typing import Generator, List, Optional, Tuple, Union
 
 import click
 import dotenv
+import psutil
 from dotenv.main import dotenv_values
+from passlib.hash import pbkdf2_sha512
 from ruamel.yaml import YAML
 from ruamel.yaml.compat import StringIO
 
 from brewblox_ctl import const
-
-# Matches API of distutils.util.strtobool
-# https://docs.python.org/3/distutils/apiref.html#distutils.util.strtobool
-TRUE_PATTERN = re.compile('^(y|yes|t|true|on|1)$', re.IGNORECASE)
-FALSE_PATTERN = re.compile('^(n|no|f|false|off|0)$', re.IGNORECASE)
 
 yaml = YAML()
 
@@ -53,12 +52,19 @@ def ctx_opts():
     return click.get_current_context().find_object(ContextOpts)
 
 
-def strtobool(val):
-    if re.match(TRUE_PATTERN, val):
+def strtobool(val: str) -> bool:
+    """Convert a string representation of truth to true (1) or false (0).
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
         return True
-    if re.match(FALSE_PATTERN, val):
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
         return False
-    raise ValueError()
+    else:
+        raise ValueError(f'invalid truth value {val}')
 
 
 def random_string(size: int) -> str:
@@ -126,6 +132,60 @@ def confirm_mode():  # pragma: no cover
         opts.skip_confirm = True
 
 
+def read_users() -> dict:
+    content = ''
+
+    if const.PASSWD_FILE.exists():
+        content = sh(f'sudo cat "{const.PASSWD_FILE}"', capture=True) or ''
+
+    return {
+        name: hashed
+        for (name, hashed)
+        in [line.strip().split(':', 1)
+            for line in content.split('\n')
+            if ':' in line]
+    }
+
+
+def write_users(users: dict):
+    opts = ctx_opts()
+    if opts.dry_run or opts.verbose:
+        show_data(const.PASSWD_FILE, '***')
+    with NamedTemporaryFile('w') as tempf:
+        for k, v in users.items():
+            tempf.write(f'{k}:{v}\n')
+        tempf.flush()
+        sh(f'sudo cp "{tempf.name}" "{const.PASSWD_FILE}"')
+        sh(f'sudo chown root:root "{const.PASSWD_FILE}"')
+
+
+def prompt_user_info(username: Optional[str], password: Optional[str]) -> Tuple[str, str]:
+    if username is None:
+        username = click.prompt('Auth user name')
+    while not re.fullmatch(r'\w+', username):
+        warn('Names can only contain letters, numbers, - or _')
+        username = click.prompt('Auth user name')
+    if password is None:
+        password = getpass(prompt='Auth password: ')
+    return (username, password)
+
+
+def add_user(username: Optional[str], password: Optional[str]):
+    username, password = prompt_user_info(username, password)
+    users = read_users()
+    users[username] = pbkdf2_sha512.hash(password)
+    write_users(users)
+
+
+def remove_user(username: str):
+    users = read_users()
+    try:
+        del users[username]
+        write_users(users)
+    except KeyError:
+        pass
+
+
 def getenv(key, default=None):  # pragma: no cover
     return os.getenv(key, default)
 
@@ -155,6 +215,10 @@ def defaultenv():  # pragma: no cover
         existing = getenv(key)
         if existing is None:
             setenv(key, default_val)
+
+
+def start_dotenv(*args):
+    return sh(' '.join(['dotenv', '--quote=never', *args]))
 
 
 def path_exists(path_name):  # pragma: no cover
@@ -202,6 +266,11 @@ def is_empty_dir(dir):  # pragma: no cover
 def user_home_exists() -> bool:  # pragma: no cover
     home = Path.home()
     return home.name != 'root' and home.exists()
+
+
+def cache_sudo():  # pragma: no cover
+    """Elevated privileges are cached for default 15m"""
+    sh('sudo true', silent=True)
 
 
 def optsudo():  # pragma: no cover
@@ -284,7 +353,7 @@ def pip_install(*libs):
               + ' '.join(libs))
 
 
-def esptool(*args):
+def start_esptool(*args):
     if not command_exists('esptool.py'):
         pip_install('esptool')
     return sh('sudo -E env "PATH=$PATH" esptool.py ' + ' '.join(args))
@@ -316,8 +385,8 @@ def show_data(desc: str, data):
 
 
 def host_url():
-    port = getenv(const.ENV_KEY_PORT_HTTPS, '443')
-    return f'{const.HOST}:{port}'
+    port = getenv(const.ENV_KEY_PORT_ADMIN, str(const.DEFAULT_PORT_ADMIN))
+    return f'http://localhost:{port}'
 
 
 def history_url():
@@ -346,12 +415,16 @@ def host_lan_ip() -> str:  # pragma: no cover
     return IP
 
 
-def host_ip():
-    try:
-        # remote IP / port, local IP / port
-        return getenv('SSH_CONNECTION', '').split()[2]
-    except IndexError:
-        return '127.0.0.1'
+def host_ip_addresses() -> List[str]:
+    addresses = []
+    for if_name, snics in psutil.net_if_addrs().items():
+        if re.fullmatch(r'(lo|veth[0-9a-f]+)', if_name):
+            continue
+        addresses += [snic.address
+                      for snic in snics
+                      if snic.family in [socket.AF_INET, socket.AF_INET6]
+                      and not snic.address.startswith('fe80::')]
+    return addresses
 
 
 def read_file(fname):  # pragma: no cover
@@ -405,7 +478,7 @@ def file_netcat(host: str,
     Not all supported systems (looking at you, Synology) come with `nc` pre-installed.
     This provides a naive netcat alternative in pure python.
     """
-    info(f'Uploading {path} to {host}:{port}...')
+    info(f'Uploading {path} to {host}:{port} ...')
 
     if ctx_opts().dry_run:
         return ''

@@ -27,9 +27,10 @@ def check_version(prev_version: Version):
 
 
 def check_dirs():
-    utils.info('Checking data directories...')
+    utils.info('Checking data directories ...')
     dirs = [
         './traefik',
+        './auth',
         './redis',
         './victoria',
         './mosquitto',
@@ -38,9 +39,14 @@ def check_dirs():
     sh('mkdir -p ' + ' '.join(dirs))
 
 
+def check_cert():
+    utils.info('Checking TLS certificates ...')
+    actions.makecert('./traefik', False)
+
+
 def apply_config_files():
     """Apply system-defined configuration from config dir"""
-    utils.info('Updating configuration files...')
+    utils.info('Updating configuration files ...')
     sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/traefik-cert.yaml ./traefik/')
     sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.shared.yml ./')
     shared_cfg = utils.read_shared_compose()
@@ -51,7 +57,7 @@ def apply_config_files():
 
 
 def check_env_vars():
-    utils.info('Checking .env variables...')
+    utils.info('Checking .env variables ...')
     utils.defaultenv()
 
 
@@ -82,7 +88,7 @@ def bind_localtime():
             continue
 
         changed = True
-        utils.info(f'Mounting localtime in `{name}` service...')
+        utils.info(f'Mounting localtime in `{name}` service ...')
         volumes.append(localtime_volume.copy())
         service['volumes'] = volumes
 
@@ -119,7 +125,7 @@ def bind_spark_backup():
             continue
 
         changed = True
-        utils.info(f'Mounting backup volume in `{name}` service...')
+        utils.info(f'Mounting backup volume in `{name}` service ...')
         volumes.append(backup_volume.copy())
         service['volumes'] = volumes
 
@@ -146,10 +152,14 @@ def downed_migrate(prev_version):
     if prev_version < Version('0.8.0'):
         migration.migrate_ghcr_images()
 
+    if prev_version < Version('0.9.0'):
+        migration.migrate_tilt_images()
+
     # Not related to a specific release
     check_env_vars()
     bind_localtime()
     bind_spark_backup()
+    check_cert()
 
 
 def upped_migrate(prev_version):
@@ -239,6 +249,7 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
     """
     utils.check_config()
     utils.confirm_mode()
+    utils.cache_sudo()
     sudo = utils.optsudo()
 
     prev_version = Version(from_version)
@@ -246,14 +257,14 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
     check_version(prev_version)
 
     if not update_ctl_done:
-        utils.info(f'Starting update for brewblox {utils.getenv(const.ENV_KEY_RELEASE)}...')
+        utils.info(f'Starting update for brewblox {utils.getenv(const.ENV_KEY_RELEASE)} ...')
 
     if update_ctl and not update_ctl_done:
-        utils.info('Updating brewblox-ctl...')
+        utils.info('Updating brewblox-ctl ...')
         utils.pip_install('pip')
         actions.install_ctl_package()
         # Restart update - we just replaced the source code
-        sh(' '.join([const.CLI, *const.ARGS[1:], '--update-ctl-done']))
+        sh(' '.join(['exec', const.CLI, *const.ARGS[1:], '--update-ctl-done']))
         return
 
     if update_ctl:
@@ -262,7 +273,7 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
 
     actions.check_compose_plugin()
 
-    utils.info('Stopping services...')
+    utils.info('Stopping services ...')
     sh(f'{sudo}docker compose down')
 
     if update_system_packages:
@@ -272,16 +283,16 @@ def update(update_ctl, update_ctl_done, pull, update_system_packages, migrate, p
         downed_migrate(prev_version)
 
     if pull:
-        utils.info('Pulling docker images...')
+        utils.info('Pulling docker images ...')
         sh(f'{sudo}docker compose pull')
 
     if prune:
-        utils.info('Pruning unused images...')
+        utils.info('Pruning unused images ...')
         sh(f'{sudo}docker image prune -f > /dev/null')
-        utils.info('Pruning unused volumes...')
+        utils.info('Pruning unused volumes ...')
         sh(f'{sudo}docker volume prune -f > /dev/null')
 
-    utils.info('Starting services...')
+    utils.info('Starting services ...')
     sh(f'{sudo}docker compose up -d')
 
     if migrate:
