@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# tput is used to color shell messages
+# Not all systems have it, and if they don't, we can safely noop it
+type tput >/dev/null 2>&1 || alias tput=:
+
 log_info() {
     echo "$(tput setaf 6)INFO       $1 $(tput sgr0)"
 }
