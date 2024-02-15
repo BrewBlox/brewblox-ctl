@@ -38,7 +38,7 @@ services:
         target: /mosquitto/include
 
   victoria:
-    image: victoriametrics/victoria-metrics:v1.88.0
+    image: victoriametrics/victoria-metrics:v1.98.0
     restart: unless-stopped
     command: --envflag.enable=true --envflag.prefix=VM_
     labels:
