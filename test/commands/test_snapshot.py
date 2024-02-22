@@ -6,6 +6,7 @@ Tests brewblox_ctl.commands.snapshot
 from pathlib import Path
 
 import pytest.__main__
+
 from brewblox_ctl.commands import snapshot
 from brewblox_ctl.testing import check_sudo, invoke, matching
 
@@ -29,6 +30,7 @@ def m_utils(mocker):
     m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     m.docker_tag.side_effect = lambda v: v
+    m.has_running_containers.return_value = True
     return m
 
 
@@ -50,12 +52,13 @@ def test_save_defaults(m_utils, m_sh):
 
     invoke(snapshot.save)
     cwd = Path('.').resolve().name
-    m_sh.assert_called_with(matching(r'sudo tar -C .* -czf ../brewblox-snapshot.tar.gz ' + cwd))
+    m_sh.assert_any_call(matching(r'sudo tar -C .* -czf ../brewblox-snapshot.tar.gz ' + cwd))
 
 
 def test_save_file_exists(m_utils, m_sh):
     m_utils.path_exists.return_value = True
     m_utils.confirm.return_value = False
+    m_utils.has_running_containers.return_value = False
 
     invoke(snapshot.save)
     assert m_sh.call_count == 0
@@ -83,7 +86,7 @@ def test_load_defaults(m_actions, m_utils, m_sh):
     m_utils.path_exists.return_value = False
     invoke(snapshot.load)
     cwd = Path('.').resolve().name + '/'
-    m_sh.assert_called_with(matching(r'.*' + cwd))
+    m_sh.assert_any_call(matching(r'.*' + cwd))
 
 
 def test_load_empty(m_actions, m_utils, m_sh):
