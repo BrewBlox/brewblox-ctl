@@ -268,6 +268,11 @@ def user_home_exists() -> bool:  # pragma: no cover
     return home.name != 'root' and home.exists()
 
 
+def has_running_containers():  # pragma: no cover
+    sudo = optsudo()
+    return sh(f'{sudo}docker compose ps -q', capture=True).strip() != ''
+
+
 def cache_sudo():  # pragma: no cover
     """Elevated privileges are cached for default 15m"""
     sh('sudo true', silent=True)

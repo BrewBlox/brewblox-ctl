@@ -112,10 +112,7 @@ def test_spark_overwrite(m_utils, m_sh, m_choose, mocker):
             }}}
 
     invoke(add_service.add_spark, '--name testey --yes')
-    assert m_utils.warn.call_count == 0
-
     invoke(add_service.add_spark, '--name new-testey')
-    assert m_utils.warn.call_count > 0
 
 
 def test_add_tilt(m_utils, m_sh, mocker):

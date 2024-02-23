@@ -3,6 +3,7 @@ Add and configure optional services
 """
 
 from os import geteuid, getgid
+from typing import Optional
 
 import click
 
@@ -83,14 +84,14 @@ def discover_spark(discovery_type):
 @click.option('--simulation',
               is_flag=True,
               help='Add a simulation service. This will override discovery and connection settings.')
-def add_spark(name,
-              discover_now,
-              device_id,
-              discovery_type,
-              device_host,
-              yes,
-              release,
-              simulation):
+def add_spark(name: str,
+              discover_now: bool,
+              device_id: Optional[str],
+              discovery_type: str,
+              device_host: Optional[str],
+              yes: bool,
+              release: str,
+              simulation: bool):
     """
     Create or update a Spark service.
 
@@ -104,32 +105,12 @@ def add_spark(name,
     utils.check_config()
     utils.confirm_mode()
 
-    image_name = 'ghcr.io/brewblox/brewblox-devcon-spark'
     sudo = utils.optsudo()
-    config = utils.read_compose()
-    discovery_type = DiscoveryType[discovery_type]
+    config: dict = utils.read_compose()
+    discovery_type: DiscoveryType = DiscoveryType[discovery_type]
 
     if not yes:
         check_create_overwrite(config, name)
-
-    for (other_name, svc) in config['services'].items():
-        img: str = svc.get('image', '')
-        cmd: str = svc.get('command', '')
-        if not any([
-            other_name == name,
-            not img.startswith(image_name),
-            '--device-id' in cmd,
-            '--device-host' in cmd,
-            '--simulation' in cmd,
-        ]):
-            utils.warn(f'The existing Spark service `{other_name}` does not have any connection settings.')
-            utils.warn('It will connect to any controller it can find.')
-            utils.warn('This may cause multiple services to connect to the same controller.')
-            utils.warn(f'To reconfigure `{other_name}`, please run:')
-            utils.warn('')
-            utils.warn(f'    brewblox-ctl add-spark --name {other_name}')
-            utils.warn('')
-            utils.select('Press ENTER to continue or Ctrl-C to exit')
 
     if discover_now and not simulation and not device_id:
         if device_host:
@@ -163,7 +144,7 @@ def add_spark(name,
     push_env('simulation', simulation)
 
     config['services'][name] = {
-        'image': f'{image_name}:{utils.docker_tag(release)}',
+        'image': f'ghcr.io/brewblox/brewblox-devcon-spark:{utils.docker_tag(release)}',
         'privileged': True,
         'restart': 'unless-stopped',
         'environment': environment,

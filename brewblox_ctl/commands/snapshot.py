@@ -39,6 +39,7 @@ def save(file, force):
     """
     utils.check_config()
     utils.confirm_mode()
+    sudo = utils.optsudo()
     dir = Path('./').resolve()
 
     if utils.path_exists(file):
@@ -48,8 +49,16 @@ def save(file, force):
         else:
             return
 
+    running = utils.has_running_containers()
+
+    if running:
+        sh(f'{sudo}docker compose stop')
+
     sh(f'sudo tar -C {dir.parent} --exclude .venv -czf {file} {dir.name}')
     click.echo(Path(file).resolve())
+
+    if running:
+        sh(f'{sudo}docker compose start')
 
 
 @snapshot.command()
