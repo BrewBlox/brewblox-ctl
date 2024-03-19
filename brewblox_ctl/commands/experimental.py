@@ -8,7 +8,7 @@ from typing import Optional
 
 import click
 
-from brewblox_ctl import click_helpers, const, sh, utils
+from brewblox_ctl import click_helpers, sh, utils
 from brewblox_ctl.discovery import (DiscoveredDevice, DiscoveryType,
                                     choose_device, find_device_by_host)
 
@@ -75,10 +75,11 @@ def enable_spark_mqtt(server_host: Optional[str],
     utils.check_config()
     utils.confirm_mode()
 
-    opts = utils.ctx_opts()
+    opts = utils.get_opts()
+    config = utils.get_config()
     sudo = utils.optsudo()
     tag = utils.docker_tag(release)
-    config = utils.read_compose()
+    compose = utils.read_compose()
 
     # Users can manually set the device ID if the controller is remote
     # In this case we don't send configuration, but print a command instead
@@ -88,7 +89,7 @@ def enable_spark_mqtt(server_host: Optional[str],
         server_host = f'{utils.hostname()}.local'
 
     if server_port is None:
-        server_port = int(utils.getenv(const.ENV_KEY_PORT_MQTTS, const.DEFAULT_PORT_MQTTS))
+        server_port = config.ports.mqtts
 
     cert = cert_file.read_text()
 
@@ -112,7 +113,7 @@ def enable_spark_mqtt(server_host: Optional[str],
     elif device_host:
         dev = find_device_by_host(device_host)
     else:
-        dev = choose_device(DiscoveryType.mqtt, config)
+        dev = choose_device(DiscoveryType.mqtt, compose)
 
     if not dev:
         return

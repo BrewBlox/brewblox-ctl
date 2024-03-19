@@ -42,14 +42,14 @@ def save(file, force):
     sudo = utils.optsudo()
     dir = Path('./').resolve()
 
-    if utils.path_exists(file):
+    if utils.file_exists(file):
         if force or utils.confirm(f'`{file}` already exists. ' +
                                   'Do you want to overwrite it?'):
             sh(f'rm -f {file}')
         else:
             return
 
-    running = utils.has_running_containers()
+    running = utils.is_compose_up()
 
     if running:
         sh(f'{sudo}docker compose stop')
@@ -87,5 +87,6 @@ def load(file):
         # We need to explicitly include dotfiles in the mv glob
         src = content[0]
         sh(f'mv {src}/.[!.]* {src}/* {dir}/')
+        utils.get_config.cache_clear()
 
     actions.install_ctl_package(download='missing')

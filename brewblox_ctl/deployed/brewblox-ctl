@@ -32,7 +32,7 @@ flush_stdin() {
 # Args:
 # - target directory
 is_brewblox_dir() {
-    [[ -f "$1/.env" ]] && grep -q "BREWBLOX_RELEASE" "$1/.env"
+    [[ -f "$1/brewblox.yml" ]]
     return
 }
 
@@ -45,8 +45,8 @@ install_ctl() {
     # - Value for previous install
     # - Default
     if [ -z "${BREWBLOX_RELEASE:-}" ]; then
-        if is_brewblox_dir "${PWD}"; then
-            BREWBLOX_RELEASE=$(grep BREWBLOX_RELEASE .env | cut -d '=' -f2)
+        if is_brewblox_dir "${PWD}" && grep -q "release:" "${PWD}/brewblox.yml"; then
+            BREWBLOX_RELEASE=$(grep "release:" "${PWD}/brewblox.yml" | cut -d ':' -f2 | xargs)
         else
             BREWBLOX_RELEASE="edge"
         fi

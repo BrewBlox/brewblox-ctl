@@ -9,17 +9,15 @@ import click
 from click.exceptions import ClickException
 from dotenv import load_dotenv
 
-from brewblox_ctl import click_helpers, const, utils
-from brewblox_ctl.commands import (add_service, auth, backup, database,
-                                   diagnostic, docker, experimental, fix,
-                                   flash, http, install, service, snapshot,
-                                   tools, update)
-
-SUPPORTED_PYTHON_MINOR = 8
+from brewblox_ctl import click_helpers, utils
+from brewblox_ctl.commands import (add_service, auth, backup, configuration,
+                                   database, diagnostic, docker, experimental,
+                                   fix, flash, http, install, service,
+                                   snapshot, tools, update)
 
 
 def escalate(ex):
-    if utils.getenv(const.ENV_KEY_DEBUG):
+    if utils.get_config().debug:
         raise ex
     else:
         raise SystemExit(1)
@@ -44,24 +42,12 @@ def main(args=sys.argv[1:]):
             click.secho('brewblox-ctl should not be run as root.', fg='red')
             raise SystemExit(1)
 
-        if utils.is_armv6() \
-                and not utils.getenv(const.ENV_KEY_ALLOW_ARMV6):
-            click.secho('ARMv6 detected. The Raspberry Pi Zero and 1 are not supported.', fg='red')
-            raise SystemExit(1)
-
-        if sys.version_info[1] < SUPPORTED_PYTHON_MINOR:
-            major = sys.version_info[0]
-            minor = sys.version_info[1]
-            click.echo(f'WARNING: You are using Python {major}.{minor}, which is no longer maintained.')
-            click.echo('We recommend upgrading your system.')
-            click.echo('For more information, please visit https://brewblox.netlify.app/user/system_upgrades.html')
-            click.echo('')
-
         @click.group(
             cls=click_helpers.OrderedCommandCollection,
             sources=[
                 docker.cli,
                 install.cli,
+                configuration.cli,
                 auth.cli,
                 update.cli,
                 http.cli,
@@ -78,7 +64,6 @@ def main(args=sys.argv[1:]):
             ])
         @click.option('-y', '--yes',
                       is_flag=True,
-                      envvar=const.ENV_KEY_SKIP_CONFIRM,
                       help='Do not prompt to confirm commands.')
         @click.option('-d', '--dry', '--dry-run',
                       is_flag=True,
@@ -92,8 +77,7 @@ def main(args=sys.argv[1:]):
         @click.option('--color/--no-color',
                       default=None,
                       help='Format messages with unicode color codes.')
-        @click.pass_context
-        def cli(ctx, yes, dry, quiet, verbose, color):
+        def cli(yes, dry, quiet, verbose, color):
             """
             The Brewblox management tool.
 
@@ -104,9 +88,9 @@ def main(args=sys.argv[1:]):
                 brewblox-ctl --quiet down
                 brewblox-ctl --verbose up
             """
-            opts = ctx.ensure_object(utils.ContextOpts)
+            opts = utils.get_opts()
             opts.dry_run = dry
-            opts.skip_confirm = yes
+            opts.yes = yes
             opts.quiet = quiet
             opts.verbose = verbose
             opts.color = color

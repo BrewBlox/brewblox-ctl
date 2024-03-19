@@ -6,7 +6,7 @@ from typing import Optional
 
 import click
 
-from brewblox_ctl import click_helpers, const, utils
+from brewblox_ctl import auth_users, click_helpers, utils
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -24,10 +24,13 @@ def enable():
     """
     Enable password authentication.
     """
-    utils.setenv(const.ENV_KEY_AUTH_ENABLED, str(True))
+    config = utils.get_config()
+    if not config.auth.enabled:
+        config.auth.enabled = True
+        utils.save_config(config)
 
     if utils.confirm('Do you want to add a new user?'):
-        utils.add_user(None, None)
+        auth_users.add_user(None, None)
 
 
 @auth.command()
@@ -37,7 +40,10 @@ def disable():
 
     This will not remove existing users.
     """
-    utils.setenv(const.ENV_KEY_AUTH_ENABLED, str(False))
+    config = utils.get_config()
+    if config.auth.enabled:
+        config.auth.enabled = False
+        utils.save_config(config)
 
 
 @auth.command()
@@ -51,7 +57,7 @@ def add(username: Optional[str], password: Optional[str]):
 
     If the user already exists, it will be replaced.
     """
-    utils.add_user(username, password)
+    auth_users.add_user(username, password)
 
 
 @auth.command()
@@ -62,4 +68,4 @@ def remove(username: str):
     """
     Removes a user.
     """
-    utils.remove_user(username)
+    auth_users.remove_user(username)

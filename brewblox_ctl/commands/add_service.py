@@ -7,7 +7,7 @@ from typing import Optional
 
 import click
 
-from brewblox_ctl import click_helpers, const, sh, utils
+from brewblox_ctl import click_helpers, sh, utils
 from brewblox_ctl.discovery import (DiscoveryType, choose_device,
                                     find_device_by_host, list_devices)
 
@@ -286,17 +286,17 @@ def add_node_red(yes):
     """
     utils.check_config()
     utils.confirm_mode()
+    config = utils.get_config()
 
     name = 'node-red'
     sudo = utils.optsudo()
     host = utils.host_ip_addresses()[0]
-    port = utils.getenv(const.ENV_KEY_PORT_HTTPS)
-    config = utils.read_compose()
+    compose = utils.read_compose()
 
     if not yes:
-        check_create_overwrite(config, name)
+        check_create_overwrite(compose, name)
 
-    config['services'][name] = {
+    compose['services'][name] = {
         'image': 'ghcr.io/brewblox/node-red:${BREWBLOX_RELEASE}',
         'restart': 'unless-stopped',
         'volumes': [
@@ -313,8 +313,8 @@ def add_node_red(yes):
     if [getgid(), geteuid()] != [1000, 1000]:
         sh(f'sudo chown -R 1000:1000 ./{name}')
 
-    utils.write_compose(config)
+    utils.write_compose(compose)
     click.echo(f'Added Node-RED service `{name}`.')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
         sh(f'{sudo}docker compose up -d')
-        click.echo(f'Visit https://{host}:{port}/{name} in your browser to load the editor.')
+        click.echo(f'Visit https://{host}:{config.ports.https}/{name} in your browser to load the editor.')

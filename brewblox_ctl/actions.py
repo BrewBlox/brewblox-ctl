@@ -5,22 +5,41 @@ Shared functionality
 import json
 import os
 import re
+import socket
+from contextlib import closing
 from copy import deepcopy
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Iterable
 
+import jinja2
 import psutil
 from configobj import ConfigObj
 
 from brewblox_ctl import const, sh, utils
 
+JINJA_ENV = jinja2.Environment(loader=jinja2.PackageLoader('brewblox_ctl'),
+                               autoescape=jinja2.select_autoescape())
 
-def makecert(dir: str,
-             always: bool = False,
-             custom_domains: Iterable[str] = None,
-             release: str = None):
-    absdir = Path(dir).resolve()
+
+def generate_config_dirs():
+    utils.info('Checking data directories ...')
+    dirs = [
+        './traefik',
+        './traefik/dynamic',
+        './auth',
+        './redis',
+        './victoria',
+        './mosquitto',
+        './spark/backup',
+    ]
+    sh('mkdir -p ' + ' '.join(dirs))
+
+
+def generate_tls_cert(always: bool = False,
+                      custom_domains: Iterable[str] = None,
+                      release: str = None):
+    absdir = Path('./traefik').resolve()
     sudo = utils.optsudo()
     tag = utils.docker_tag(release)
     hostname = utils.hostname()
@@ -33,8 +52,8 @@ def makecert(dir: str,
         *(custom_domains or []),
     ]
 
-    create_cert = always or not utils.path_exists(absdir / 'brew.blox/cert.pem')
-    create_der = create_cert or not utils.path_exists(absdir / 'minica.der')
+    create_cert = always or not utils.file_exists(absdir / 'brew.blox/cert.pem')
+    create_der = create_cert or not utils.file_exists(absdir / 'minica.der')
 
     if create_cert:
         utils.info(f'Generating new certificates in {absdir} ...')
@@ -70,25 +89,63 @@ def makecert(dir: str,
     sh(f'chmod +r {absdir}/minica.pem')
 
 
-def update_system_packages():
+def generate_env():
+    config = utils.get_config()
+
+    utils.info('Generating .env file ...')
+    template = JINJA_ENV.get_template('env.j2')
+    content = template.render(config=config)
+    utils.write_file('.env', content)
+
+
+def generate_traefik_config():
+    config = utils.get_config()
+
+    utils.info('Generating static traefik config ...')
+    template = JINJA_ENV.get_template('traefik-static.yml.j2')
+    content = template.render(config=config)
+    utils.write_file('./traefik/traefik.yml', content)
+
+    utils.info('Generating dynamic traefik config ...')
+    template = JINJA_ENV.get_template('traefik-dynamic.yml.j2')
+    content = template.render(config=config)
+    utils.write_file('./traefik/dynamic/brewblox-provider.yml', content)
+
+
+def generate_compose_config():
+    config = utils.get_config()
+
+    utils.info('Generating docker-compose.shared.yml ...')
+    template = JINJA_ENV.get_template('docker-compose.shared.yml.j2')
+    content = template.render(config=config)
+    utils.write_file('./docker-compose.shared.yml', content)
+
+    # Edit compose file to synchronize its version
+    compose = utils.read_compose()
+    compose['version'] = config.compose.version
+    utils.write_compose(compose)
+
+
+def generate_udev_config():
+    rules_dir = '/etc/udev/rules.d'
+    target = f'{rules_dir}/50-particle.rules'
+    if not utils.file_exists(target) and utils.command_exists('udevadm'):
+        utils.info('Adding udev rules for Particle devices ...')
+        sh(f'sudo mkdir -p {rules_dir}')
+        sh(f'sudo cp "{const.DIR_DEPLOYED}/50-particle.rules" {target}')
+        sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
+
+
+def apt_upgrade():
     if utils.command_exists('apt-get'):
         utils.info('Updating apt packages ...')
         sh('sudo apt-get update && sudo apt-get upgrade -y')
 
 
-def add_particle_udev_rules():
-    rules_dir = '/etc/udev/rules.d'
-    target = f'{rules_dir}/50-particle.rules'
-    if not utils.path_exists(target) and utils.command_exists('udevadm'):
-        utils.info('Adding udev rules for Particle devices ...')
-        sh(f'sudo mkdir -p {rules_dir}')
-        sh(f'sudo cp {const.DIR_DEPLOYED_CONFIG}/50-particle.rules {target}')
-        sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
-
-
 def install_ctl_package(download: str = 'always'):  # always | missing | never
-    exists = utils.path_exists('./brewblox-ctl.tar.gz')
-    release = utils.getenv(const.ENV_KEY_CTL_RELEASE) or utils.getenv(const.ENV_KEY_RELEASE)
+    config = utils.get_config()
+    exists = utils.file_exists('./brewblox-ctl.tar.gz')
+    release = config.ctl_release or config.release
     if download == 'always' or download == 'missing' and not exists:
         sh(f'wget -q -O ./brewblox-ctl.tar.gz https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz')
     sh('python3 -m pip install --prefer-binary ./brewblox-ctl.tar.gz')
@@ -100,11 +157,12 @@ def uninstall_old_ctl_package():
 
 
 def deploy_ctl_wrapper():
-    sh(f'chmod +x "{const.DIR_DEPLOYED_SCRIPTS}/brewblox-ctl"')
+    wrapper = const.DIR_DEPLOYED / 'brewblox-ctl'
+    sh(f'chmod +x "{wrapper}"')
     if utils.user_home_exists():
-        sh(f'mkdir -p "$HOME/.local/bin" && cp "{const.DIR_DEPLOYED_SCRIPTS}/brewblox-ctl" "$HOME/.local/bin/"')
+        sh(f'mkdir -p "$HOME/.local/bin" && cp "{wrapper}" "$HOME/.local/bin/"')
     else:
-        sh(f'sudo cp "{const.DIR_DEPLOYED_SCRIPTS}/brewblox-ctl" /usr/local/bin/')
+        sh(f'sudo cp "{wrapper}" /usr/local/bin/')
 
 
 def check_compose_plugin():
@@ -123,17 +181,12 @@ def check_compose_plugin():
 
 
 def check_ports():
-    if utils.path_exists('./docker-compose.yml'):
+    if utils.is_compose_up():
         utils.info('Stopping services ...')
         sh(f'{utils.optsudo()}docker compose down')
 
-    ports = [
-        int(utils.getenv(const.ENV_KEY_PORT_HTTP, const.DEFAULT_PORT_HTTP)),
-        int(utils.getenv(const.ENV_KEY_PORT_HTTPS, const.DEFAULT_PORT_HTTPS)),
-        int(utils.getenv(const.ENV_KEY_PORT_MQTT, const.DEFAULT_PORT_MQTT)),
-        int(utils.getenv(const.ENV_KEY_PORT_MQTTS, const.DEFAULT_PORT_MQTTS)),
-        int(utils.getenv(const.ENV_KEY_PORT_ADMIN, const.DEFAULT_PORT_ADMIN)),
-    ]
+    config = utils.get_config()
+    ports = config.ports.model_dump().values()
 
     try:
         port_connnections = [
@@ -149,7 +202,7 @@ def check_ports():
     if port_connnections:
         port_str = ', '.join(set(str(conn.laddr.port) for conn in port_connnections))
         utils.warn(f'Port(s) {port_str} already in use.')
-        utils.warn('Run `brewblox-ctl service ports` to configure Brewblox ports.')
+        utils.warn('You can change the ports used by Brewblox in `brewblox.yml`')
         if not utils.confirm('Do you want to continue?'):
             raise SystemExit(1)
 
@@ -211,16 +264,9 @@ def edit_avahi_config():
     if config == copy:
         return
 
-    utils.show_data(conf, config.dict())
-
-    with NamedTemporaryFile('w') as tmp:
-        config.filename = None
-        lines = config.write()
-        # avahi-daemon.conf requires a 'key=value' syntax
-        tmp.write('\n'.join(lines).replace(' = ', '=') + '\n')
-        tmp.flush()
-        sh(f'sudo chmod --reference={conf} {tmp.name}')
-        sh(f'sudo cp -fp {tmp.name} {conf}')
+    # avahi-daemon.conf requires a 'key=value' syntax
+    content = '\n'.join(config.write()).replace(' = ', '=') + '\n'
+    utils.write_file_sudo(conf, content)
 
     if utils.command_exists('systemctl'):
         utils.info('Restarting avahi-daemon service ...')
@@ -229,7 +275,7 @@ def edit_avahi_config():
         utils.warn('"systemctl" command not found. Please restart your machine to enable Wifi discovery.')
 
 
-def disable_ssh_accept_env():
+def edit_sshd_config():
     """Disable the 'AcceptEnv LANG LC_*' setting in sshd_config
 
     This setting is default on the Raspberry Pi,
@@ -262,3 +308,39 @@ def disable_ssh_accept_env():
     if utils.command_exists('systemctl'):
         utils.info('Restarting SSH service ...')
         sh('sudo systemctl restart ssh')
+
+
+def file_netcat(host: str,
+                port: int,
+                path: utils.PathLike_) -> bytes:  # pragma: no cover
+    """Uploads given file to host/url.
+
+    Not all supported systems (looking at you, Synology) come with `nc` pre-installed.
+    This provides a naive netcat alternative in pure python.
+    """
+    utils.info(f'Uploading {path} to {host}:{port} ...')
+
+    if utils.get_opts().dry_run:
+        return ''
+
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        # Connect
+        s.connect((host, int(port)))
+
+        # Transmit
+        with open(path, 'rb') as f:
+            while True:
+                out_bytes = f.read(4096)
+                if not out_bytes:
+                    break
+                s.sendall(out_bytes)
+
+        # Shutdown
+        s.shutdown(socket.SHUT_WR)
+
+        # Get result
+        while True:
+            data = s.recv(4096)
+            if not data:
+                break
+            return data

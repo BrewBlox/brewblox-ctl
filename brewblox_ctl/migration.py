@@ -4,7 +4,6 @@ Manual migration steps
 
 import json
 import re
-from contextlib import suppress
 from datetime import datetime
 from tempfile import NamedTemporaryFile
 from typing import Dict, List, Optional, Tuple
@@ -12,120 +11,7 @@ from typing import Dict, List, Optional, Tuple
 import requests
 import urllib3
 
-from brewblox_ctl import actions, const, sh, utils
-
-
-def migrate_compose_split():
-    # Splitting compose configuration between docker-compose.yml and docker-compose.shared.yml
-    # Version pinning (0.2.2) will happen automatically
-    utils.info('Moving system services to docker-compose.shared.yml ...')
-    config = utils.read_compose()
-    sys_names = [
-        'mdns',
-        'eventbus',
-        'influx',
-        'datastore',
-        'history',
-        'ui',
-        'traefik',
-    ]
-    usr_config = {
-        'version': config['version'],
-        'services': {key: svc for (key, svc) in config['services'].items() if key not in sys_names}
-    }
-    utils.write_compose(usr_config)
-
-
-def migrate_compose_datastore():
-    # The couchdb datastore service is gone
-    # Older services may still rely on it
-    utils.info('Removing `depends_on` fields from docker-compose.yml ...')
-    config = utils.read_compose()
-    for svc in config['services'].values():
-        with suppress(KeyError):
-            del svc['depends_on']
-    utils.write_compose(config)
-
-    # Init dir. It will be filled during upped_migrate
-    utils.info('Creating redis/ dir ...')
-    sh('mkdir -p redis/')
-
-
-def migrate_ipv6_fix():
-    # Undo disable-ipv6
-    sh('sudo sed -i "/net.ipv6.*.disable_ipv6 = 1/d" /etc/sysctl.conf', check=False)
-    actions.fix_ipv6()
-
-
-def migrate_couchdb():
-    urllib3.disable_warnings()
-    sudo = utils.optsudo()
-    opts = utils.ctx_opts()
-    redis_url = utils.datastore_url()
-    couch_url = 'http://localhost:5984'
-
-    utils.info('Migrating datastore from CouchDB to Redis ...')
-
-    if opts.dry_run:
-        utils.info('Dry run. Skipping migration ...')
-        return
-
-    if not utils.path_exists('./couchdb/'):
-        utils.info('couchdb/ dir not found. Skipping migration ...')
-        return
-
-    utils.info('Starting a temporary CouchDB container on port 5984 ...')
-    sh(f'{sudo}docker rm -f couchdb-migrate', check=False)
-    sh(f'{sudo}docker run --rm -d'
-        ' --name couchdb-migrate'
-        ' -v "$(pwd)/couchdb/:/opt/couchdb/data/"'
-        ' -p "5984:5984"'
-        ' treehouses/couchdb:2.3.1')
-    sh(f'{const.CLI} http wait {couch_url}')
-    sh(f'{const.CLI} http wait {redis_url}/ping')
-
-    resp = requests.get(f'{couch_url}/_all_dbs')
-    resp.raise_for_status()
-    dbs = resp.json()
-
-    for db in ['brewblox-ui-store', 'brewblox-automation']:
-        if db in dbs:
-            resp = requests.get(f'{couch_url}/{db}/_all_docs',
-                                params={'include_docs': True})
-            resp.raise_for_status()
-            docs = [v['doc'] for v in resp.json()['rows']]
-            # Drop invalid names
-            docs[:] = [d for d in docs if len(d['_id'].split('__', 1)) == 2]
-            for d in docs:
-                segments = d['_id'].split('__', 1)
-                d['namespace'] = f'{db}:{segments[0]}'
-                d['id'] = segments[1]
-                del d['_rev']
-                del d['_id']
-            resp = requests.post(f'{redis_url}/mset',
-                                 json={'values': docs},
-                                 verify=False)
-            resp.raise_for_status()
-            utils.info(f'Migrated {len(docs)} entries from {db}')
-
-    if 'spark-service' in dbs:
-        resp = requests.get(f'{couch_url}/spark-service/_all_docs',
-                            params={'include_docs': True})
-        resp.raise_for_status()
-        docs = [v['doc'] for v in resp.json()['rows']]
-        for d in docs:
-            d['namespace'] = 'spark-service'
-            d['id'] = d['_id']
-            del d['_rev']
-            del d['_id']
-        resp = requests.post(f'{redis_url}/mset',
-                             json={'values': docs},
-                             verify=False)
-        resp.raise_for_status()
-        utils.info(f'Migrated {len(docs)} entries from spark-service')
-
-    sh(f'{sudo}docker stop couchdb-migrate')
-    sh('sudo mv couchdb/ couchdb-migrated-' + datetime.now().strftime('%Y%m%d'))
+from . import sh, utils
 
 
 def _influx_measurements() -> List[str]:
@@ -286,7 +172,7 @@ def migrate_influxdb(
         utils.info('Dry run. Skipping migration ...')
         return
 
-    if not utils.path_exists('./influxdb/'):
+    if not utils.file_exists('./influxdb/'):
         utils.info('influxdb/ dir not found. Skipping migration ...')
         return
 
@@ -383,3 +269,58 @@ def migrate_tilt_images():
 
     if changed:
         utils.write_compose(config)
+
+
+def migrate_env_config():
+    # brewblox.yml was introduced as centralized config file
+    # Previous config was stored in .env
+    # We want to retrieve those settings
+
+    envdict = utils.dotenv_values('.env')
+
+    def popget(key: str):
+        try:
+            return envdict.pop(key)
+        except KeyError:
+            return None
+
+    config = utils.get_config()
+
+    if value := popget('BREWBLOX_RELEASE'):
+        config.release = value
+
+    if value := popget('BREWBLOX_CTL_RELEASE'):
+        config.ctl_release = value
+
+    if value := popget('BREWBLOX_UPDATE_SYSTEM_PACKAGES'):
+        config.system.apt_upgrade = value
+
+    if value := popget('BREWBLOX_SKIP_CONFIRM'):
+        config.skip_confirm = utils.strtobool(value)
+
+    if value := popget('BREWBLOX_AUTH_ENABLED'):
+        config.auth.enabled = utils.strtobool(value)
+
+    if value := popget('BREWBLOX_DEBUG'):
+        config.debug = utils.strtobool(value)
+
+    if value := popget('BREWBLOX_PORT_HTTP'):
+        config.ports.http = int(value)
+
+    if value := popget('BREWBLOX_PORT_HTTPS'):
+        config.ports.https = int(value)
+
+    if value := popget('BREWBLOX_PORT_MQTT'):
+        config.ports.mqtt = int(value)
+
+    if value := popget('BREWBLOX_PORT_MQTTS'):
+        config.ports.mqtts = int(value)
+
+    if value := popget('BREWBLOX_PORT_ADMIN'):
+        config.ports.admin = int(value)
+
+    if value := popget('COMPOSE_PROJECT_NAME'):
+        config.compose.project = value
+
+    config.environment = envdict  # assign leftovers
+    utils.save_config(config)

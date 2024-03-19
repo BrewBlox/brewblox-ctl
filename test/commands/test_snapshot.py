@@ -30,7 +30,7 @@ def m_utils(mocker):
     m = mocker.patch(TESTED + '.utils', autospec=True)
     m.optsudo.return_value = 'SUDO '
     m.docker_tag.side_effect = lambda v: v
-    m.has_running_containers.return_value = True
+    m.is_compose_up.return_value = True
     return m
 
 
@@ -42,13 +42,13 @@ def m_sh(mocker):
 
 
 def test_save(m_utils, m_sh):
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
     invoke(snapshot.save)
     m_sh.assert_any_call(matching(r'sudo tar -C .* -czf'))
 
 
 def test_save_defaults(m_utils, m_sh):
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
 
     invoke(snapshot.save)
     cwd = Path('.').resolve().name
@@ -56,9 +56,9 @@ def test_save_defaults(m_utils, m_sh):
 
 
 def test_save_file_exists(m_utils, m_sh):
-    m_utils.path_exists.return_value = True
+    m_utils.file_exists.return_value = True
     m_utils.confirm.return_value = False
-    m_utils.has_running_containers.return_value = False
+    m_utils.is_compose_up.return_value = False
 
     invoke(snapshot.save)
     assert m_sh.call_count == 0
@@ -70,7 +70,7 @@ def test_save_file_exists(m_utils, m_sh):
 
 
 def test_save_overwrite(m_utils, m_sh):
-    m_utils.path_exists.side_effect = [
+    m_utils.file_exists.side_effect = [
         True,  # compose file in dir
         True,  # output file
     ]
@@ -78,19 +78,19 @@ def test_save_overwrite(m_utils, m_sh):
 
 
 def test_load(m_actions, m_utils, m_sh):
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
     invoke(snapshot.load)
 
 
 def test_load_defaults(m_actions, m_utils, m_sh):
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
     invoke(snapshot.load)
     cwd = Path('.').resolve().name + '/'
     m_sh.assert_any_call(matching(r'.*' + cwd))
 
 
 def test_load_empty(m_actions, m_utils, m_sh):
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
     m_utils.ctx_opts.return_value.dry_run = False
 
     # temp dir exists, but was never populated

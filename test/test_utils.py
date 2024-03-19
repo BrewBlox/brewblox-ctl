@@ -184,14 +184,14 @@ def test_remove_user(mocker):
     m_write_users.assert_called_with({})
 
 
-def test_path_exists(mocker):
+def test_file_exists(mocker):
     m_path = mocker.patch(TESTED + '.Path').return_value
     m_path.exists.side_effect = [
         True,
         False,
     ]
-    assert utils.path_exists('p1')
-    assert not utils.path_exists('p2')
+    assert utils.file_exists('p1')
+    assert not utils.file_exists('p2')
 
 
 def test_command_exists(mocked_ext):
@@ -319,14 +319,6 @@ def test_sh(mocker):
     utils.sh('invisible shenannigans', utils.ContextOpts(dry_run=True))
     assert m_secho.call_count == 1
     assert m_run.call_count == 0
-
-    m_run.reset_mock()
-    m_secho.reset_mock()
-
-    # List of commands
-    utils.sh(['do this', 'and this', 'and that'])
-    assert m_secho.call_count == 0
-    assert m_run.call_count == 3
 
     m_run.reset_mock()
     m_secho.reset_mock()

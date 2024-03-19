@@ -120,5 +120,6 @@ def kill(zombies):
         if procs:
             utils.info(f'Removing {len(procs)} zombies ...')
             sh('sudo service docker stop')
-            sh([f'sudo kill -9 {proc}' for proc in procs])
+            for proc in procs:
+                sh(f'sudo kill -9 {proc}')
             sh('sudo service docker start')

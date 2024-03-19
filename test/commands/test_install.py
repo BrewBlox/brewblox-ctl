@@ -185,7 +185,7 @@ def test_check_init_opts(m_utils):
     opts = install.InstallOptions()
 
     m_utils.confirm.return_value = True
-    m_utils.path_exists.return_value = True
+    m_utils.file_exists.return_value = True
     opts.check_init_opts()
     assert opts.init_compose is False
     assert opts.init_auth is False
@@ -195,7 +195,7 @@ def test_check_init_opts(m_utils):
     assert opts.init_eventbus is False
     assert opts.init_spark_backup is False
 
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
     opts.check_init_opts()
     assert opts.init_compose is True
     assert opts.init_auth is True

@@ -6,7 +6,7 @@ import re
 
 import click
 
-from brewblox_ctl import click_helpers, const, sh, utils
+from brewblox_ctl import click_helpers, sh, utils
 from brewblox_ctl.commands.docker import up
 
 
@@ -28,15 +28,12 @@ def restart_services(ctx: click.Context, **kwargs):
 @service.command()
 @click.option('--image',
               help='Image type filter. Leave blank to show all images.')
-@click.option('--file',
-              default='docker-compose.yml',
-              help='docker compose configuration file.')
-def show(image, file):
+def show(image):
     """Show all services of a specific type.
 
     Use the --image flag to filter."""
     utils.check_config()
-    services = utils.list_services(image, file)
+    services = utils.list_services(image)
     click.echo('\n'.join(services), nl=bool(services))
 
 
@@ -61,40 +58,6 @@ def remove(ctx, services):
         restart_services(ctx, compose_args=['--remove-orphans'])
 
 
-@service.command()
-@click.option('--http',
-              envvar=const.ENV_KEY_PORT_HTTP,
-              help='Port used for HTTP connections.')
-@click.option('--https',
-              envvar=const.ENV_KEY_PORT_HTTPS,
-              help='Port used for HTTPS connections.')
-@click.option('--mqtt',
-              envvar=const.ENV_KEY_PORT_MQTT,
-              help='Port used for MQTT connections.')
-@click.option('--mqtts',
-              envvar=const.ENV_KEY_PORT_MQTTS,
-              help='Port used for MQTTS connections.')
-@click.option('--admin',
-              envvar=const.ENV_KEY_PORT_ADMIN,
-              help='Port used for local admin connections.')
-def ports(http, https, mqtt, mqtts, admin):
-    """Update used ports"""
-    utils.check_config()
-    utils.confirm_mode()
-
-    cfg = {
-        const.ENV_KEY_PORT_HTTP: http,
-        const.ENV_KEY_PORT_HTTPS: https,
-        const.ENV_KEY_PORT_MQTT: mqtt,
-        const.ENV_KEY_PORT_MQTTS: mqtts,
-        const.ENV_KEY_PORT_ADMIN: admin,
-    }
-
-    utils.info('Writing port settings to .env ...')
-    for key, val in cfg.items():
-        utils.setenv(key, val)
-
-
 def nested_setdefault(parent, lookups):
     obj = parent
     for (key, default) in lookups:
@@ -115,35 +78,6 @@ def check_port_value(ctx, param, value):
     if not re.match(r'^(\d+:\d+|\d+)$', value):
         raise click.BadParameter('Port value must either be an integer, or formatted as int:int')
     return value
-
-
-@service.command()
-@click.option('-d', '--delete', is_flag=True,
-              help='Remove exposed port from configuration.')
-@click.argument('service', type=str, callback=utils.check_service_name)
-@click.argument('value', type=str, callback=check_port_value)
-@click.pass_context
-def expose(ctx, delete, service, value):
-    """Add exposed port to docker-compose.yml for backend service"""
-    config = utils.read_compose()
-
-    ports = nested_setdefault(config, [
-        ('services', {}),
-        (service, {}),
-        ('ports', [])
-    ])
-
-    if (value in ports) ^ delete:
-        return  # already in desired state
-
-    if delete:
-        ports.remove(value)
-    else:
-        ports.append(value)
-
-    config['services'] = clean_empty(config['services'])
-    utils.write_compose(config)
-    restart_services(ctx)
 
 
 @service.command()

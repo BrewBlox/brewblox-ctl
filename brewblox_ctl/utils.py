@@ -12,44 +12,39 @@ import shlex
 import shutil
 import socket
 import string
-from contextlib import closing
-from getpass import getpass
+from functools import lru_cache
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
 from tempfile import NamedTemporaryFile
-from types import GeneratorType
-from typing import Generator, List, Optional, Tuple, Union
+from typing import Generator, List, Union
 
 import click
 import dotenv
 import psutil
 from dotenv.main import dotenv_values
-from passlib.hash import pbkdf2_sha512
-from ruamel.yaml import YAML
+from ruamel.yaml import YAML, CommentedMap
 from ruamel.yaml.compat import StringIO
 
-from brewblox_ctl import const
+from . import const
+from .models import CtlConfig, CtlOpts
+
+PathLike_ = Union[str, os.PathLike]
 
 yaml = YAML()
 
 
-class ContextOpts:
-
-    def __init__(self,
-                 dry_run=False,
-                 quiet=False,
-                 verbose=False,
-                 skip_confirm=False,
-                 color=None):  # None -> let click decide
-        self.dry_run = dry_run
-        self.quiet = quiet
-        self.verbose = verbose
-        self.skip_confirm = skip_confirm
-        self.color = color
+@lru_cache
+def get_opts() -> CtlOpts:
+    return CtlOpts()
 
 
-def ctx_opts():
-    return click.get_current_context().find_object(ContextOpts)
+@lru_cache
+def get_config() -> CtlConfig:
+    if const.CONFIG_FILE.exists():
+        config = CtlConfig.model_validate(yaml.load(const.CONFIG_FILE))
+    else:
+        config = CtlConfig()
+    return config
 
 
 def strtobool(val: str) -> bool:
@@ -72,7 +67,7 @@ def random_string(size: int) -> str:
     return ''.join(random.choice(opts) for _ in range(size))
 
 
-def confirm(question, default=True):
+def confirm(question, default=True) -> bool:
     default_val = 'yes' if default else 'no'
     click.echo(f"{question} [Press ENTER for default value '{default_val}']")
     while True:
@@ -82,7 +77,7 @@ def confirm(question, default=True):
             click.echo("Please type 'y(es)' or 'n(o)' and press ENTER.")
 
 
-def select(question, default=''):
+def select(question, default='') -> str:
     default_prompt = f"[press ENTER for default value '{default}']" if default else ''
     answer = input(f'{question} {default_prompt}')
     return answer or default
@@ -93,8 +88,9 @@ def confirm_usb():
 
 
 def confirm_mode():  # pragma: no cover
-    opts = ctx_opts()
-    if opts.skip_confirm or opts.dry_run or opts.verbose:
+    config = get_config()
+    opts = get_opts()
+    if config.skip_confirm or opts.yes or opts.dry_run or opts.verbose:
         return
 
     ctx = click.get_current_context()
@@ -104,21 +100,21 @@ def confirm_mode():  # pragma: no cover
     y, n, v, d = [click.style(v, underline=True) for v in 'ynvd']
     suffix = f" ({y}es, {n}o, {v}erbose, {d}ry-run) [press ENTER for default value 'yes']"
 
-    retv = click.prompt('Do you want to continue?',
-                        type=click.Choice([
-                            'y',
-                            'yes',
-                            'n',
-                            'no',
-                            'v',
-                            'verbose',
-                            'd',
-                            'dry-run',
-                        ], case_sensitive=False),
-                        default='yes',
-                        show_default=False,
-                        show_choices=False,
-                        prompt_suffix=suffix)
+    retv: str = click.prompt('Do you want to continue?',
+                             type=click.Choice([
+                                 'y',
+                                 'yes',
+                                 'n',
+                                 'no',
+                                 'v',
+                                 'verbose',
+                                 'd',
+                                 'dry-run',
+                             ], case_sensitive=False),
+                             default='yes',
+                             show_default=False,
+                             show_choices=False,
+                             prompt_suffix=suffix)
 
     v = retv.lower()
     if v in ('n', 'no'):
@@ -129,61 +125,7 @@ def confirm_mode():  # pragma: no cover
         opts.verbose = True
     else:
         # Don't require additional confirmation for subcommands
-        opts.skip_confirm = True
-
-
-def read_users() -> dict:
-    content = ''
-
-    if const.PASSWD_FILE.exists():
-        content = sh(f'sudo cat "{const.PASSWD_FILE}"', capture=True) or ''
-
-    return {
-        name: hashed
-        for (name, hashed)
-        in [line.strip().split(':', 1)
-            for line in content.split('\n')
-            if ':' in line]
-    }
-
-
-def write_users(users: dict):
-    opts = ctx_opts()
-    if opts.dry_run or opts.verbose:
-        show_data(const.PASSWD_FILE, '***')
-    with NamedTemporaryFile('w') as tempf:
-        for k, v in users.items():
-            tempf.write(f'{k}:{v}\n')
-        tempf.flush()
-        sh(f'sudo cp "{tempf.name}" "{const.PASSWD_FILE}"')
-        sh(f'sudo chown root:root "{const.PASSWD_FILE}"')
-
-
-def prompt_user_info(username: Optional[str], password: Optional[str]) -> Tuple[str, str]:
-    if username is None:
-        username = click.prompt('Auth user name')
-    while not re.fullmatch(r'\w+', username):
-        warn('Names can only contain letters, numbers, - or _')
-        username = click.prompt('Auth user name')
-    if password is None:
-        password = getpass(prompt='Auth password: ')
-    return (username, password)
-
-
-def add_user(username: Optional[str], password: Optional[str]):
-    username, password = prompt_user_info(username, password)
-    users = read_users()
-    users[username] = pbkdf2_sha512.hash(password)
-    write_users(users)
-
-
-def remove_user(username: str):
-    users = read_users()
-    try:
-        del users[username]
-        write_users(users)
-    except KeyError:
-        pass
+        opts.yes = True
 
 
 def getenv(key, default=None):  # pragma: no cover
@@ -193,36 +135,29 @@ def getenv(key, default=None):  # pragma: no cover
 def setenv(key, value, dotenv_path=None):  # pragma: no cover
     if dotenv_path is None:
         dotenv_path = Path('.env').resolve()
-    opts = ctx_opts()
+    opts = get_opts()
     if opts.dry_run or opts.verbose:
         click.secho(f'{const.LOG_ENV} {key}={value}', fg='magenta', color=opts.color)
     if not opts.dry_run:
-        dotenv.set_key(dotenv_path, key, value, quote_mode='never')
+        dotenv.set_key(dotenv_path, key, str(value), quote_mode='never')
 
 
 def clearenv(key, dotenv_path=None):  # pragma: no cover
     if dotenv_path is None:
         dotenv_path = Path('.env').resolve()
-    opts = ctx_opts()
+    opts = get_opts()
     if opts.dry_run or opts.verbose:
         click.secho(f'{const.LOG_ENV} unset {key}', fg='magenta', color=opts.color)
     if not opts.dry_run:
         dotenv.unset_key(dotenv_path, key, quote_mode='never')
 
 
-def defaultenv():  # pragma: no cover
-    for key, default_val in const.ENV_FILE_DEFAULTS.items():
-        existing = getenv(key)
-        if existing is None:
-            setenv(key, default_val)
-
-
 def start_dotenv(*args):
     return sh(' '.join(['dotenv', '--quote=never', *args]))
 
 
-def path_exists(path_name):  # pragma: no cover
-    return Path(path_name).exists()
+def file_exists(path: PathLike_):  # pragma: no cover
+    return Path(path).exists()
 
 
 def command_exists(cmd):  # pragma: no cover
@@ -255,7 +190,8 @@ def has_docker_rights():  # pragma: no cover
 
 
 def is_brewblox_dir(dir: str) -> bool:  # pragma: no cover
-    return const.ENV_KEY_CFG_VERSION in dotenv_values(f'{dir}/.env')
+    return (Path(dir) / 'brewblox.yml').exists() or \
+        (const.ENV_KEY_CFG_VERSION in dotenv_values(f'{dir}/.env'))
 
 
 def is_empty_dir(dir):  # pragma: no cover
@@ -268,9 +204,10 @@ def user_home_exists() -> bool:  # pragma: no cover
     return home.name != 'root' and home.exists()
 
 
-def has_running_containers():  # pragma: no cover
+def is_compose_up():  # pragma: no cover
     sudo = optsudo()
-    return sh(f'{sudo}docker compose ps -q', capture=True).strip() != ''
+    return Path('docker-compose.yml').exists() and \
+        sh(f'{sudo}docker compose ps -q', capture=True).strip() != ''
 
 
 def cache_sudo():  # pragma: no cover
@@ -283,7 +220,7 @@ def optsudo():  # pragma: no cover
 
 
 def docker_tag(release=None):
-    release = release or getenv(const.ENV_KEY_RELEASE)
+    release = release or get_config().release
     if not release:
         raise KeyError('No Brewblox release specified. Please run this command in a Brewblox directory.')
     return release
@@ -303,30 +240,28 @@ def check_config(required=True):
         raise SystemExit(0)
 
 
-def sh(shell_cmd, opts=None, check=True, capture=False, silent=False):
-    if isinstance(shell_cmd, (GeneratorType, list, tuple)):
-        return [sh(cmd, opts, check, capture, silent) for cmd in shell_cmd]
-    else:
-        opts = opts or ctx_opts()
-        if opts.verbose or opts.dry_run:
-            click.secho(f'{const.LOG_SHELL} {shell_cmd}', fg='magenta', color=opts.color)
-        if not opts.dry_run:
-            stderr = STDOUT if check and not silent else DEVNULL
-            stdout = PIPE if capture or silent else None
-
-            result = run(shell_cmd,
-                         shell=True,
-                         check=check,
-                         universal_newlines=capture,
-                         stdout=stdout,
-                         stderr=stderr)
-            if capture:
-                return result.stdout
+def sh(cmd: str, check=True, capture=False, silent=False) -> str:
+    opts = get_opts()
+    if opts.verbose or opts.dry_run:
+        click.secho(f'{const.LOG_SHELL} {cmd}', fg='magenta', color=opts.color)
+    if opts.dry_run:
         return ''
+
+    stderr = STDOUT if check and not silent else DEVNULL
+    stdout = PIPE if capture or silent else None
+
+    result = run(cmd,
+                 shell=True,
+                 check=check,
+                 universal_newlines=capture,
+                 stdout=stdout,
+                 stderr=stderr)
+
+    return result.stdout or ''
 
 
 def sh_stream(cmd: str) -> Generator[str, None, None]:
-    opts = ctx_opts()
+    opts = get_opts()
     if opts.verbose:
         click.secho(f'{const.LOG_SHELL} {cmd}', fg='magenta', color=opts.color)
 
@@ -344,7 +279,7 @@ def sh_stream(cmd: str) -> Generator[str, None, None]:
             yield output
 
 
-def check_ok(cmd):
+def check_ok(cmd: str) -> bool:
     try:
         run(cmd, shell=True, stderr=DEVNULL, check=True)
         return True
@@ -364,24 +299,24 @@ def start_esptool(*args):
     return sh('sudo -E env "PATH=$PATH" esptool.py ' + ' '.join(args))
 
 
-def info(msg):
-    opts = ctx_opts()
+def info(msg: str):
+    opts = get_opts()
     if not opts.quiet:
         click.secho(f'{const.LOG_INFO} {msg}', fg='cyan', color=opts.color)
 
 
-def warn(msg):
-    opts = ctx_opts()
+def warn(msg: str):
+    opts = get_opts()
     click.secho(f'{const.LOG_WARN} {msg}', fg='yellow', color=opts.color)
 
 
-def error(msg):
-    opts = ctx_opts()
+def error(msg: str):
+    opts = get_opts()
     click.secho(f'{const.LOG_ERR} {msg}', fg='red', color=opts.color)
 
 
 def show_data(desc: str, data):
-    opts = ctx_opts()
+    opts = get_opts()
     if opts.dry_run or opts.verbose:
         if not isinstance(data, str):
             data = json.dumps(data, indent=2)
@@ -389,16 +324,15 @@ def show_data(desc: str, data):
         click.secho(data, fg='blue', color=opts.color)
 
 
-def host_url():
-    port = getenv(const.ENV_KEY_PORT_ADMIN, str(const.DEFAULT_PORT_ADMIN))
-    return f'http://localhost:{port}'
+def host_url() -> str:
+    return f'http://localhost:{get_config().ports.admin}'
 
 
-def history_url():
+def history_url() -> str:
     return f'{host_url()}/history/history'
 
 
-def datastore_url():
+def datastore_url() -> str:
     return f'{host_url()}/history/datastore'
 
 
@@ -432,37 +366,65 @@ def host_ip_addresses() -> List[str]:
     return addresses
 
 
-def read_file(fname):  # pragma: no cover
-    with open(fname) as f:
-        return '\n'.join(f.readlines())
+def read_file(infile: PathLike_) -> str:  # pragma: no cover
+    return Path(infile).read_text()
 
 
-def read_compose(fname='docker-compose.yml'):
-    config: dict = yaml.load(Path(fname))
-    config.setdefault('services', {})
-    return config
+def write_file(outfile: PathLike_, content: str):  # pragma: no cover
+    show_data(str(outfile), content)
+    if not get_opts().dry_run:
+        Path(outfile).write_text(content)
 
 
-def write_compose(config, fname='docker-compose.yml'):  # pragma: no cover
-    opts = ctx_opts()
+def write_file_sudo(outfile: PathLike_, content: str):  # pragma: no cover
+    show_data(str(outfile), content)
+    if not get_opts().dry_run:
+        with NamedTemporaryFile('w') as tmp:
+            tmp.write(content)
+            tmp.flush()
+            sh(f'sudo chmod --reference="{outfile}" "{tmp.name}"', check=False)
+            sh(f'sudo cp -fp "{tmp.name}" "{outfile}"')
+
+
+def read_yaml(infile: PathLike_) -> CommentedMap:  # pragma: no cover
+    return yaml.load(Path(infile))
+
+
+def write_yaml(outfile: PathLike_, data: Union[dict, CommentedMap]):  # pragma: no cover
+    opts = get_opts()
     if opts.dry_run or opts.verbose:
         stream = StringIO()
-        yaml.dump(config, stream)
-        show_data(fname, stream.getvalue())
+        yaml.dump(data, stream)
+        show_data(str(outfile), stream.getvalue())
     if not opts.dry_run:
-        yaml.dump(config, Path(fname))
+        yaml.dump(data, Path(outfile))
 
 
-def read_shared_compose(fname='docker-compose.shared.yml'):
-    return read_compose(fname)
+def read_compose() -> CommentedMap:
+    data = read_yaml(const.COMPOSE_FILE)
+    return data
 
 
-def write_shared_compose(config, fname='docker-compose.shared.yml'):  # pragma: no cover
-    write_compose(config, fname)
+def write_compose(data: Union[dict, CommentedMap]):  # pragma: no cover
+    write_yaml(const.COMPOSE_FILE, data)
 
 
-def list_services(image=None, fname='docker-compose.yml'):
-    config = read_compose(fname)
+def read_shared_compose() -> CommentedMap:
+    return read_yaml(const.COMPOSE_SHARED_FILE)
+
+
+def write_shared_compose(data: Union[dict, CommentedMap]):  # pragma: no cover
+    write_yaml(const.COMPOSE_SHARED_FILE, data)
+
+
+def save_config(config: CtlConfig):
+    data = config.model_dump(mode='json', exclude_defaults=True)
+    write_yaml(const.CONFIG_FILE, data)
+    get_config.cache_clear()
+
+
+def list_services(image=None) -> List[str]:
+    config = read_compose()
     return [
         k for k, v in config['services'].items()
         if image is None or v.get('image', '').startswith(image)
@@ -473,39 +435,3 @@ def check_service_name(ctx, param, value):
     if not re.match(r'^[a-z0-9-_]+$', value):
         raise click.BadParameter('Names can only contain lowercase letters, numbers, - or _')
     return value
-
-
-def file_netcat(host: str,
-                port: int,
-                path: Union[str, Path]) -> bytes:  # pragma: no cover
-    """Uploads given file to host/url.
-
-    Not all supported systems (looking at you, Synology) come with `nc` pre-installed.
-    This provides a naive netcat alternative in pure python.
-    """
-    info(f'Uploading {path} to {host}:{port} ...')
-
-    if ctx_opts().dry_run:
-        return ''
-
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        # Connect
-        s.connect((host, int(port)))
-
-        # Transmit
-        with open(path, 'rb') as f:
-            while True:
-                out_bytes = f.read(4096)
-                if not out_bytes:
-                    break
-                s.sendall(out_bytes)
-
-        # Shutdown
-        s.shutdown(socket.SHUT_WR)
-
-        # Get result
-        while True:
-            data = s.recv(4096)
-            if not data:
-                break
-            return data

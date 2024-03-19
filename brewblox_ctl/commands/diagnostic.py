@@ -8,12 +8,7 @@ from pathlib import Path
 
 import click
 
-from brewblox_ctl import click_helpers, const, sh, utils
-
-ENV_KEYS = [
-    const.ENV_KEY_CFG_VERSION,
-    *const.ENV_FILE_DEFAULTS.keys(),
-]
+from brewblox_ctl import actions, click_helpers, const, sh, utils
 
 
 def create():
@@ -66,8 +61,8 @@ def log(add_compose, add_system, upload):
     \b
     Steps:
         - Create ./brewblox.log file.
-        - Append Brewblox .env variables.
         - Append software version info.
+        - Append user config.
         - Append service logs.
         - Append content of docker-compose.yml (optional).
         - Append content of docker-compose.shared.yml (optional).
@@ -84,12 +79,6 @@ def log(add_compose, add_system, upload):
     create()
     append('date')
 
-    # Add .env values
-    utils.info('Writing Brewblox .env values ...')
-    header('.env')
-    for key in ENV_KEYS:
-        append(f'echo "{key}={utils.getenv(key)}"')
-
     # Add version info
     utils.info('Writing software version info ...')
     header('Versions')
@@ -97,6 +86,15 @@ def log(add_compose, add_system, upload):
     append('python3 --version')
     append(f'{sudo}docker --version')
     append(f'{sudo}docker compose version')
+
+    # Add config
+    # Exclude potentially sensitive fields
+    utils.info('Writing config ...')
+    header('Config')
+    content = utils.get_config().model_dump_json(indent=2,
+                                                 exclude={'environment'},
+                                                 exclude_defaults=True)
+    append(f"echo '{content}'")
 
     # Add active containers
     utils.info('Writing active containers ...')
@@ -153,7 +151,7 @@ def log(add_compose, add_system, upload):
 
     # Upload
     if upload:
-        click.echo(utils.file_netcat('termbin.com', 9999, Path('./brewblox.log')).decode())
+        click.echo(actions.file_netcat('termbin.com', 9999, Path('./brewblox.log')).decode())
     else:
         utils.info('Skipping upload. If you want to manually upload the log, run: ' +
                    click.style('brewblox-ctl termbin ./brewblox.log', fg='green'))
@@ -181,7 +179,7 @@ def coredump(upload):
     sh('base64 coredump.bin > coredump.b64')
 
     if upload:
-        click.echo(utils.file_netcat('termbin.com', 9999, Path('./coredump.b64')).decode())
+        click.echo(actions.file_netcat('termbin.com', 9999, Path('./coredump.b64')).decode())
     else:
         utils.info('Skipping upload. If you want to manually upload the file, run: ' +
                    click.style('brewblox-ctl termbin ./coredump.b64', fg='green'))
@@ -195,4 +193,4 @@ def termbin(file):
     Files are available for limited duration on termbin.com,
     and anyone with the link can view them.
     """
-    click.echo(utils.file_netcat('termbin.com', 9999, Path(file)).decode())
+    click.echo(actions.file_netcat('termbin.com', 9999, Path(file)).decode())

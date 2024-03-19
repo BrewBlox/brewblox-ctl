@@ -31,7 +31,7 @@ def m_sh(mocker):
 def test_makecert(m_utils, m_sh):
     m_utils.hostname.return_value = 'hostname'
     m_utils.host_ip_addresses.return_value = ['192.168.0.1']
-    m_utils.path_exists.return_value = True
+    m_utils.file_exists.return_value = True
 
     actions.makecert('./traefik')
     assert m_sh.call_count == 1
@@ -52,11 +52,11 @@ def test_update_system_packages(m_utils, m_sh):
 
 
 def test_add_particle_udev_rules(m_utils, m_sh):
-    m_utils.path_exists.return_value = True
+    m_utils.file_exists.return_value = True
     actions.add_particle_udev_rules()
     assert m_sh.call_count == 0
 
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
     actions.add_particle_udev_rules()
     assert m_sh.call_count > 0
     assert m_utils.info.call_count == 1
@@ -85,7 +85,7 @@ def test_check_ports(m_utils, m_sh, mocker):
     m_utils.getenv.side_effect = lambda k, default: default
     actions.check_ports()
 
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
     actions.check_ports()
 
     # Find a mapped port
@@ -130,7 +130,7 @@ def test_check_ports(m_utils, m_sh, mocker):
 def test_install_ctl_package(m_utils, m_sh, mocker):
     m_utils.getenv.return_value = 'release'
     m_utils.user_home_exists.return_value = True
-    m_utils.path_exists.return_value = True
+    m_utils.file_exists.return_value = True
 
     actions.install_ctl_package()
     assert m_sh.call_count == 2
@@ -140,7 +140,7 @@ def test_install_ctl_package(m_utils, m_sh, mocker):
     assert m_sh.call_count == 1
 
     m_sh.reset_mock()
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
     actions.install_ctl_package('never')
     assert m_sh.call_count == 1
 

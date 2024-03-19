@@ -126,7 +126,7 @@ def test_migrate_couchdb_dry(m_utils, m_sh):
 
 def test_migrate_couchdb_not_found(m_utils, m_sh):
     m_utils.ctx_opts.return_value.dry_run = False
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
 
     migration.migrate_couchdb()
 
@@ -253,28 +253,28 @@ def test_migrate_influxdb(m_utils, m_sh, mocker):
 
     # Dry run noop
     m_utils.ctx_opts.return_value.dry_run = True
-    m_utils.path_exists.return_value = True
+    m_utils.file_exists.return_value = True
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 0
 
     # No influx data dir found
     m_utils.ctx_opts.return_value.dry_run = False
-    m_utils.path_exists.return_value = False
+    m_utils.file_exists.return_value = False
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 0
 
     # preconditions OK, services predefined
     m_utils.ctx_opts.return_value.dry_run = False
-    m_utils.path_exists.return_value = True
+    m_utils.file_exists.return_value = True
     migration.migrate_influxdb('victoria', '1d', ['s1', 's2', 's3'])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 3
 
     # preconditions OK, services wildcard
     m_utils.ctx_opts.return_value.dry_run = False
-    m_utils.path_exists.return_value = True
+    m_utils.file_exists.return_value = True
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 1
     assert m_copy.call_count == 3 + 2
