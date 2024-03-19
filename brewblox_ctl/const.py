@@ -8,8 +8,8 @@ ARGS = sys.argv
 CLI = 'python3 -m brewblox_ctl'
 
 # The configuration version installed by brewblox-ctl
-# This will be different from the env CFG_VERSION during updates
-CFG_VERSION = '0.10.0'
+# This is written to .env during updates
+CFG_VERSION = '0.11.0'
 
 # Keys to used environment variables
 ENV_KEY_CFG_VERSION = 'BREWBLOX_CFG_VERSION'

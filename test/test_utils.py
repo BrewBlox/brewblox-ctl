@@ -55,14 +55,14 @@ def mocked_ext(mocker):
 @pytest.fixture
 def mocked_opts(mocker):
     opts = utils.ContextOpts()
-    mocker.patch(TESTED + '.ctx_opts').return_value = opts
+    mocker.patch(TESTED + '.get_opts').return_value = opts
     return opts
 
 
-def test_ctx_opts():
+def test_get_opts():
     # Will raise an error outside click context
     with pytest.raises(RuntimeError):
-        utils.ctx_opts()
+        utils.get_opts()
 
 
 def test_random_string():
@@ -132,7 +132,7 @@ def test_read_users(m_sh, mocker):
 
 
 def test_write_users(m_sh, mocker):
-    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts = mocker.patch(TESTED + '.get_opts').return_value
     m_opts.verbose = False
     m_opts.dry_run = True
 
@@ -171,7 +171,7 @@ def test_add_user(mocker):
 
 
 def test_remove_user(mocker):
-    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts = mocker.patch(TESTED + '.get_opts').return_value
     m_opts.dry_run = False
     m_read_users = mocker.patch(TESTED + '.read_users', autospec=True)
     m_read_users.side_effect = lambda: {'usr': 'passwd'}
@@ -268,7 +268,7 @@ def test_check_config(mocker, mocked_ext):
 def test_sh(mocker):
     m_run = mocker.patch(TESTED + '.run')
     m_secho = mocker.patch(TESTED + '.click.secho')
-    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts = mocker.patch(TESTED + '.get_opts').return_value
 
     m_opts.dry_run = False
     m_opts.verbose = False
@@ -347,7 +347,7 @@ def test_sh(mocker):
 
 
 def test_sh_stream(mocker):
-    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts = mocker.patch(TESTED + '.get_opts').return_value
     m_opts.verbose = False
     m_popen = mocker.patch(TESTED + '.Popen')
     m_popen.return_value.stdout.readline.side_effect = [
@@ -370,7 +370,7 @@ def test_sh_stream(mocker):
 
 
 def test_sh_stream_empty(mocker):
-    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts = mocker.patch(TESTED + '.get_opts').return_value
     m_opts.verbose = True
     m_popen = mocker.patch(TESTED + '.Popen')
     m_popen.return_value.stdout.readline.side_effect = ['']
@@ -379,7 +379,7 @@ def test_sh_stream_empty(mocker):
 
 
 def test_logs(mocker):
-    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts = mocker.patch(TESTED + '.get_opts').return_value
     m_secho = mocker.patch(TESTED + '.click.secho')
 
     m_opts.quiet = True
@@ -420,7 +420,7 @@ def test_start_esptool(mocked_ext, m_sh):
 
 
 def test_show_data(mocker):
-    m_opts = mocker.patch(TESTED + '.ctx_opts').return_value
+    m_opts = mocker.patch(TESTED + '.get_opts').return_value
     m_secho = mocker.patch(TESTED + '.click.secho')
 
     utils.show_data('desc', 'text')

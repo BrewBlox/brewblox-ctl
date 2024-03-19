@@ -91,7 +91,7 @@ def test_load_defaults(m_actions, m_utils, m_sh):
 
 def test_load_empty(m_actions, m_utils, m_sh):
     m_utils.file_exists.return_value = False
-    m_utils.ctx_opts.return_value.dry_run = False
+    m_utils.get_opts.return_value.dry_run = False
 
     # temp dir exists, but was never populated
     # listdir will return empty

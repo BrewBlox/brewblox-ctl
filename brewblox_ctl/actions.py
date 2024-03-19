@@ -89,12 +89,12 @@ def generate_tls_cert(always: bool = False,
     sh(f'chmod +r {absdir}/minica.pem')
 
 
-def generate_env():
+def generate_env(version: str):
     config = utils.get_config()
 
     utils.info('Generating .env file ...')
     template = JINJA_ENV.get_template('env.j2')
-    content = template.render(config=config)
+    content = template.render(config=config, version=version)
     utils.write_file('.env', content)
 
 
@@ -250,22 +250,23 @@ def fix_ipv6(config_file=None, restart=True):
 
 
 def edit_avahi_config():
+    config = utils.get_config()
     conf = Path('/etc/avahi/avahi-daemon.conf')
 
-    if not conf.exists():
+    if not config.avahi.enabled or not conf.exists():
         return
 
-    config = ConfigObj(str(conf), file_error=True)
-    copy = deepcopy(config)
-    config.setdefault('server', {}).setdefault('use-ipv6', 'no')
-    config.setdefault('publish', {}).setdefault('publish-aaaa-on-ipv4', 'no')
-    config.setdefault('reflector', {}).setdefault('enable-reflector', 'yes')
+    avahi_config = ConfigObj(str(conf), file_error=True)
+    copy = deepcopy(avahi_config)
+    avahi_config.setdefault('server', {}).setdefault('use-ipv6', 'no')
+    avahi_config.setdefault('publish', {}).setdefault('publish-aaaa-on-ipv4', 'no')
+    avahi_config.setdefault('reflector', {}).setdefault('enable-reflector', 'yes')
 
-    if config == copy:
+    if avahi_config == copy:
         return
 
     # avahi-daemon.conf requires a 'key=value' syntax
-    content = '\n'.join(config.write()).replace(' = ', '=') + '\n'
+    content = '\n'.join(avahi_config.write()).replace(' = ', '=') + '\n'
     utils.write_file_sudo(conf, content)
 
     if utils.command_exists('systemctl'):

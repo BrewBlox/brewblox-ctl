@@ -159,7 +159,7 @@ def migrate_influxdb(
     The exported data is either immediately imported to the new history database,
     or saved to file.
     """
-    opts = utils.ctx_opts()
+    opts = utils.get_opts()
     sudo = utils.optsudo()
     date = datetime.now().strftime('%Y%m%d_%H%M')
 
@@ -286,6 +286,9 @@ def migrate_env_config():
 
     config = utils.get_config()
 
+    if value := popget('BREWBLOX_CFG_VERSION'):
+        pass  # not inserted in config
+
     if value := popget('BREWBLOX_RELEASE'):
         config.release = value
 
@@ -293,7 +296,7 @@ def migrate_env_config():
         config.ctl_release = value
 
     if value := popget('BREWBLOX_UPDATE_SYSTEM_PACKAGES'):
-        config.system.apt_upgrade = value
+        config.system.apt_upgrade = utils.strtobool(value)
 
     if value := popget('BREWBLOX_SKIP_CONFIRM'):
         config.skip_confirm = utils.strtobool(value)
@@ -321,6 +324,9 @@ def migrate_env_config():
 
     if value := popget('COMPOSE_PROJECT_NAME'):
         config.compose.project = value
+
+    if value := popget('COMPOSE_FILE'):
+        config.compose.file = value
 
     config.environment = envdict  # assign leftovers
     utils.save_config(config)

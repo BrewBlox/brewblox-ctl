@@ -100,6 +100,7 @@ def bind_spark_backup():
 
 def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
+    actions.generate_env(version=prev_version)
     actions.generate_config_dirs()
     actions.edit_avahi_config()
     actions.generate_udev_config()

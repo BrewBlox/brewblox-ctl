@@ -117,7 +117,7 @@ def test_migrate_ipv6_fix(m_actions, m_utils, m_sh):
 
 
 def test_migrate_couchdb_dry(m_utils, m_sh):
-    m_utils.ctx_opts.return_value.dry_run = True
+    m_utils.get_opts.return_value.dry_run = True
 
     migration.migrate_couchdb()
 
@@ -125,7 +125,7 @@ def test_migrate_couchdb_dry(m_utils, m_sh):
 
 
 def test_migrate_couchdb_not_found(m_utils, m_sh):
-    m_utils.ctx_opts.return_value.dry_run = False
+    m_utils.get_opts.return_value.dry_run = False
     m_utils.file_exists.return_value = False
 
     migration.migrate_couchdb()
@@ -135,7 +135,7 @@ def test_migrate_couchdb_not_found(m_utils, m_sh):
 
 @httpretty.activate(allow_net_connect=False)
 def test_migrate_couchdb_empty(m_utils, m_sh, mocker):
-    m_utils.ctx_opts.return_value.dry_run = False
+    m_utils.get_opts.return_value.dry_run = False
     httpretty.register_uri(
         httpretty.GET,
         'http://localhost:5984/_all_dbs',
@@ -148,7 +148,7 @@ def test_migrate_couchdb_empty(m_utils, m_sh, mocker):
 
 @httpretty.activate(allow_net_connect=False)
 def test_migrate_couchdb(m_utils, m_sh, mocker):
-    m_utils.ctx_opts.return_value.dry_run = False
+    m_utils.get_opts.return_value.dry_run = False
     httpretty.register_uri(
         httpretty.GET,
         'http://localhost:5984/_all_dbs',
@@ -252,28 +252,28 @@ def test_migrate_influxdb(m_utils, m_sh, mocker):
     m_copy = mocker.patch(TESTED + '._copy_influx_measurement')
 
     # Dry run noop
-    m_utils.ctx_opts.return_value.dry_run = True
+    m_utils.get_opts.return_value.dry_run = True
     m_utils.file_exists.return_value = True
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 0
 
     # No influx data dir found
-    m_utils.ctx_opts.return_value.dry_run = False
+    m_utils.get_opts.return_value.dry_run = False
     m_utils.file_exists.return_value = False
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 0
 
     # preconditions OK, services predefined
-    m_utils.ctx_opts.return_value.dry_run = False
+    m_utils.get_opts.return_value.dry_run = False
     m_utils.file_exists.return_value = True
     migration.migrate_influxdb('victoria', '1d', ['s1', 's2', 's3'])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 3
 
     # preconditions OK, services wildcard
-    m_utils.ctx_opts.return_value.dry_run = False
+    m_utils.get_opts.return_value.dry_run = False
     m_utils.file_exists.return_value = True
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 1

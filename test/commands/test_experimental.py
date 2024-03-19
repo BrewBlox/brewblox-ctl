@@ -18,7 +18,7 @@ def m_utils(mocker):
     m.hostname.return_value = 'brewblox'
     m.optsudo.return_value = 'SUDO '
     m.random_string.return_value = 'password_string'
-    m.ctx_opts.return_value.dry_run = False
+    m.get_opts.return_value.dry_run = False
     return m
 
 
@@ -59,7 +59,7 @@ def test_enable_spark_mqtt_empty(m_sh, m_utils, m_choose):
     invoke(experimental.enable_spark_mqtt, '--cert-file=README.md')
     assert m_sh.call_count == 0
 
-    m_utils.ctx_opts.return_value.dry_run = True
+    m_utils.get_opts.return_value.dry_run = True
     invoke(experimental.enable_spark_mqtt, '--cert-file=README.md')
     assert m_sh.call_count > 0
 

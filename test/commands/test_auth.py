@@ -14,7 +14,7 @@ TESTED = auth.__name__
 @pytest.fixture
 def m_utils(mocker):
     m = mocker.patch(TESTED + '.utils', autospec=True)
-    m.ctx_opts.return_value.dry_run = False
+    m.get_opts.return_value.dry_run = False
     return m
 
 

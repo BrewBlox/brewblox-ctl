@@ -118,7 +118,7 @@ def test_invalid_flash(m_usb, m_utils, m_sh):
 def test_wifi(m_usb, m_utils, m_sh, mocker):
     mocker.patch(TESTED + '.LISTEN_MODE_WAIT_S', 0.0001)
     m_find = mocker.patch(TESTED + '.usb.core.find')
-    m_utils.ctx_opts.return_value.dry_run = False
+    m_utils.get_opts.return_value.dry_run = False
 
     m_find.reset_mock()
     m_sh.reset_mock()
@@ -141,7 +141,7 @@ def test_wifi(m_usb, m_utils, m_sh, mocker):
     assert m_find.call_count == 4
 
     # No USB calls should be made in dry runs
-    m_utils.ctx_opts.return_value.dry_run = True
+    m_utils.get_opts.return_value.dry_run = True
     m_find.reset_mock()
     m_sh.reset_mock()
     m_find.side_effect = [Mock(), None]  # particle

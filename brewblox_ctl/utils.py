@@ -12,6 +12,7 @@ import shlex
 import shutil
 import socket
 import string
+from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
@@ -210,6 +211,22 @@ def is_compose_up():  # pragma: no cover
         sh(f'{sudo}docker compose ps -q', capture=True).strip() != ''
 
 
+@contextmanager
+def downed_services():
+    """
+    Ensures services are down during context, and in the previous state afterwards.
+    """
+    sudo = optsudo()
+    running = is_compose_up()
+
+    if running:
+        sh(f'{sudo}docker compose --log-level CRITICAL down')
+        yield
+        sh(f'{sudo}docker compose up -d')
+    else:
+        yield
+
+
 def cache_sudo():  # pragma: no cover
     """Elevated privileges are cached for default 15m"""
     sh('sudo true', silent=True)
@@ -398,6 +415,12 @@ def write_yaml(outfile: PathLike_, data: Union[dict, CommentedMap]):  # pragma: 
         show_data(str(outfile), stream.getvalue())
     if not opts.dry_run:
         yaml.dump(data, Path(outfile))
+
+
+def dump_yaml(data: Union[dict, CommentedMap]) -> str:
+    stream = StringIO()
+    yaml.dump(data, stream)
+    return stream.getvalue()
 
 
 def read_compose() -> CommentedMap:

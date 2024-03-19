@@ -30,8 +30,8 @@ def run_particle_flasher(release: str, pull: bool, cmd: str):
         '--pull ' + ('always' if pull else 'missing'),
     ])
 
-    sh(f'{sudo}docker compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-firmware-flasher:{tag} {cmd}')
+    with utils.downed_services():
+        sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-firmware-flasher:{tag} {cmd}')
 
 
 def run_esp_flasher(release: str, pull: bool):
@@ -48,8 +48,8 @@ def run_esp_flasher(release: str, pull: bool):
         '--pull ' + ('always' if pull else 'missing'),
     ])
 
-    sh(f'{sudo}docker compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-devcon-spark:{tag} flash')
+    with utils.downed_services():
+        sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-devcon-spark:{tag} flash')
 
 
 def find_usb_spark() -> usb.core.Device:
@@ -109,7 +109,7 @@ def flash(release, pull):
 
 
 def particle_wifi(dev: usb.core.Device):
-    if utils.ctx_opts().dry_run:
+    if utils.get_opts().dry_run:
         utils.info('Dry run: skipping activation of Spark listening mode')
     else:
         dev.reset()

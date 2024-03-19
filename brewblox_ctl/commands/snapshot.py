@@ -39,7 +39,6 @@ def save(file, force):
     """
     utils.check_config()
     utils.confirm_mode()
-    sudo = utils.optsudo()
     dir = Path('./').resolve()
 
     if utils.file_exists(file):
@@ -49,16 +48,9 @@ def save(file, force):
         else:
             return
 
-    running = utils.is_compose_up()
-
-    if running:
-        sh(f'{sudo}docker compose stop')
-
-    sh(f'sudo tar -C {dir.parent} --exclude .venv -czf {file} {dir.name}')
-    click.echo(Path(file).resolve())
-
-    if running:
-        sh(f'{sudo}docker compose start')
+    with utils.downed_services():
+        sh(f'sudo tar -C {dir.parent} --exclude .venv -czf {file} {dir.name}')
+        click.echo(Path(file).resolve())
 
 
 @snapshot.command()
@@ -79,7 +71,7 @@ def load(file):
         utils.info(f'Extracting snapshot to {dir} directory ...')
         sh(f'tar -xzf {file} -C {tmpdir}')
         content = list(Path(tmpdir).iterdir())
-        if utils.ctx_opts().dry_run:
+        if utils.get_opts().dry_run:
             content = ['brewblox']
         if len(content) != 1:
             raise ValueError(f'Multiple files found in snapshot: {content}')
