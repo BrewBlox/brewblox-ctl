@@ -6,7 +6,7 @@ import json
 import os
 import re
 import socket
-from contextlib import closing
+from contextlib import closing, suppress
 from copy import deepcopy
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -122,20 +122,17 @@ def make_shared_compose():
 
 
 def make_compose():
-    config = utils.get_config()
-
     utils.info('Generating docker-compose.yml ...')
-    template = JINJA_ENV.get_template('docker-compose.yml.j2')
-    content = template.render(config=config)
-    utils.write_file('./docker-compose.yml', content)
+    try:
+        compose = utils.read_compose()
+        compose.setdefault('services', {})
+    except FileNotFoundError:
+        compose = {'services': {}}
 
+    with suppress(KeyError):
+        del compose['version']
 
-def sync_compose_version():
-    config = utils.get_config()
-
-    compose = utils.read_compose()
-    compose['version'] = config.compose.version
-    utils.write_compose(compose)
+    utils.write_yaml('./docker-compose.yml', compose)
 
 
 def make_udev_rules():
@@ -356,3 +353,13 @@ def file_netcat(host: str,
             if not data:
                 break
             return data
+
+
+def start_dotenv(*args):
+    return utils.sh(' '.join(['dotenv', '--quote=never', *args]))
+
+
+def start_esptool(*args):
+    if not utils.command_exists('esptool.py'):
+        utils.pip_install('esptool')
+    return sh('sudo -E env "PATH=$PATH" esptool.py ' + ' '.join(args))

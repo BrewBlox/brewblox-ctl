@@ -153,10 +153,6 @@ def clearenv(key, dotenv_path=None):  # pragma: no cover
         dotenv.unset_key(dotenv_path, key, quote_mode='never')
 
 
-def start_dotenv(*args):
-    return sh(' '.join(['dotenv', '--quote=never', *args]))
-
-
 def file_exists(path: PathLike_):  # pragma: no cover
     return Path(path).exists()
 
@@ -308,12 +304,6 @@ def pip_install(*libs):
     return sh('python3 -m pip install '
               + '--upgrade --no-cache-dir --prefer-binary '
               + ' '.join(libs))
-
-
-def start_esptool(*args):
-    if not command_exists('esptool.py'):
-        pip_install('esptool')
-    return sh('sudo -E env "PATH=$PATH" esptool.py ' + ' '.join(args))
 
 
 def info(msg: str):

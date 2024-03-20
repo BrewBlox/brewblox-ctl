@@ -4,9 +4,6 @@ from pydantic import BaseModel, Field
 
 
 class ComposeConfig(BaseModel):
-    version: str = Field(default='3.7',
-                         title='Docker Compose file syntax version',
-                         description='https://docs.docker.com/compose/compose-file/compose-versioning/#version-3')
     project: str = Field(default='brewblox',
                          title='Docker Compose project name',
                          description='If you run multiple Compose projects, they must have unique names.')

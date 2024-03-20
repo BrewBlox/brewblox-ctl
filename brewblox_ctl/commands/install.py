@@ -240,14 +240,12 @@ def install(ctx: click.Context, snapshot_file):
         utils.info('Checking for port conflicts ...')
         actions.check_ports()
 
-        # Deploy managed files
+        if opts.init_compose:
+            sh('rm -f ./docker-compose.yml')
+
         actions.make_dotenv()
         actions.make_shared_compose()
-
-        if opts.init_compose:
-            actions.make_compose()
-        else:
-            actions.sync_compose_version()
+        actions.make_compose()
 
         # Stop after we're sure we have a compose file
         if utils.is_compose_up():

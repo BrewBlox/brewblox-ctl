@@ -105,7 +105,7 @@ def downed_migrate(prev_version):
     actions.make_tls_certificates()
     actions.make_traefik_config()
     actions.make_shared_compose()
-    actions.sync_compose_version()
+    actions.make_compose()
     actions.make_udev_rules()
     actions.edit_avahi_config()
 
@@ -114,6 +114,9 @@ def downed_migrate(prev_version):
 
     if prev_version < Version('0.9.0'):
         migration.migrate_tilt_images()
+
+    if prev_version < Version('0.11.0'):
+        utils.sh('rm -f ./traefik/traefik-cert.yml')
 
     # Not related to a specific release
     bind_localtime()

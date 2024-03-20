@@ -25,7 +25,7 @@ def cli():
     """Command collector"""
 
 
-@cli.group()
+@cli.group(name='config')
 def configuration():
     """Generate and inspect managed configuration."""
 
@@ -75,7 +75,7 @@ def generate():
         actions.make_tls_certificates()
         actions.make_traefik_config()
         actions.make_shared_compose()
-        actions.sync_compose_version()
+        actions.make_compose()
         actions.make_udev_rules()
         actions.make_ctl_wrapper()
         actions.edit_avahi_config()
