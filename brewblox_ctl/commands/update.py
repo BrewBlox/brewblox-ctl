@@ -116,7 +116,7 @@ def downed_migrate(prev_version):
         migration.migrate_tilt_images()
 
     if prev_version < Version('0.11.0'):
-        utils.sh('rm -f ./traefik/traefik-cert.yml')
+        utils.sh('rm -f ./traefik/traefik-cert.yaml')
 
     # Not related to a specific release
     bind_localtime()
