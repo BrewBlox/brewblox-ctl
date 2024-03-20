@@ -233,10 +233,7 @@ def optsudo():  # pragma: no cover
 
 
 def docker_tag(release=None):
-    release = release or get_config().release
-    if not release:
-        raise KeyError('No Brewblox release specified. Please run this command in a Brewblox directory.')
-    return release
+    return release or get_config().release
 
 
 def check_config(required=True):

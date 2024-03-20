@@ -26,9 +26,9 @@ def auth():
               help='Password for the new web UI user')
 def add(username: Optional[str], password: Optional[str]):
     """
-    Adds or updates a user.
+    Add or update a user.
 
-    If the user already exists, it will be replaced.
+    If the user already exists, they will be replaced.
     """
     auth_users.add_user(username, password)
 
@@ -39,6 +39,6 @@ def add(username: Optional[str], password: Optional[str]):
               help='User name')
 def remove(username: str):
     """
-    Removes a user.
+    Remove a user.
     """
     auth_users.remove_user(username)

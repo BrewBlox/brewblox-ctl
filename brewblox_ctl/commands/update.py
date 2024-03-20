@@ -15,10 +15,6 @@ def cli():
 
 def check_version(prev_version: Version):
     """Verify that the previous version is sane and sensible"""
-    if prev_version == Version('0.0.0'):
-        utils.error('This configuration was never set up. Please run brewblox-ctl setup first')
-        raise SystemExit(1)
-
     if prev_version > Version(const.CFG_VERSION):
         utils.error('Your system is running a version newer than the selected release. ' +
                     'This may be due to switching release tracks.' +
@@ -116,7 +112,7 @@ def downed_migrate(prev_version):
         migration.migrate_tilt_images()
 
     if prev_version < Version('0.11.0'):
-        utils.sh('rm -f ./traefik/traefik-cert.yaml')
+        sh('rm -f ./traefik/traefik-cert.yaml')
 
     # Not related to a specific release
     bind_localtime()
