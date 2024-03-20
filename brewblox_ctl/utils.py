@@ -387,6 +387,10 @@ def read_file(infile: PathLike_) -> str:  # pragma: no cover
     return Path(infile).read_text()
 
 
+def read_file_sudo(infile: PathLike_) -> str:  # pragma: no cover
+    return sh(f'sudo cat "{infile}"', capture=True)
+
+
 def write_file(outfile: PathLike_, content: str):  # pragma: no cover
     show_data(str(outfile), content)
     if not get_opts().dry_run:

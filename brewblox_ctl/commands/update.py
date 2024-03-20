@@ -100,13 +100,14 @@ def bind_spark_backup():
 
 def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
-    actions.generate_env(version=prev_version)
-    actions.generate_config_dirs()
+    actions.make_dotenv(version=prev_version)
+    actions.make_config_dirs()
+    actions.make_tls_certificates()
+    actions.make_traefik_config()
+    actions.make_shared_compose()
+    actions.sync_compose_version()
+    actions.make_udev_rules()
     actions.edit_avahi_config()
-    actions.generate_udev_config()
-    actions.generate_tls_cert()
-    actions.generate_traefik_config()
-    actions.generate_compose_config()
 
     if prev_version < Version('0.8.0'):
         migration.migrate_ghcr_images()
@@ -216,9 +217,9 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
 
     if update_ctl:
         actions.uninstall_old_ctl_package()
-        actions.deploy_ctl_wrapper()
+        actions.make_ctl_wrapper()
 
-    actions.check_compose_plugin()
+    actions.install_compose_plugin()
 
     utils.info('Stopping services ...')
     sh(f'{sudo}docker compose down')
@@ -254,4 +255,4 @@ def update_ctl():
     utils.confirm_mode()
     actions.install_ctl_package()
     actions.uninstall_old_ctl_package()
-    actions.deploy_ctl_wrapper()
+    actions.make_ctl_wrapper()

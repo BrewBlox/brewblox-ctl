@@ -70,10 +70,12 @@ def generate():
 
     with utils.downed_services():
         version = utils.getenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
-        actions.generate_env(version)
-        actions.generate_config_dirs()
+        actions.make_dotenv(version)
+        actions.make_config_dirs()
+        actions.make_tls_certificates()
+        actions.make_traefik_config()
+        actions.make_shared_compose()
+        actions.sync_compose_version()
+        actions.make_udev_rules()
+        actions.make_ctl_wrapper()
         actions.edit_avahi_config()
-        actions.generate_udev_config()
-        actions.generate_tls_cert()
-        actions.generate_traefik_config()
-        actions.generate_compose_config()

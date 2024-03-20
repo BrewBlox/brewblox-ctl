@@ -22,7 +22,16 @@ JINJA_ENV = jinja2.Environment(loader=jinja2.PackageLoader('brewblox_ctl'),
                                autoescape=jinja2.select_autoescape())
 
 
-def generate_config_dirs():
+def make_dotenv(version: str):
+    config = utils.get_config()
+
+    utils.info('Generating .env file ...')
+    template = JINJA_ENV.get_template('env.j2')
+    content = template.render(config=config, version=version)
+    utils.write_file('.env', content)
+
+
+def make_config_dirs():
     utils.info('Checking data directories ...')
     dirs = [
         './traefik',
@@ -36,9 +45,9 @@ def generate_config_dirs():
     sh('mkdir -p ' + ' '.join(dirs))
 
 
-def generate_tls_cert(always: bool = False,
-                      custom_domains: Iterable[str] = None,
-                      release: str = None):
+def make_tls_certificates(always: bool = False,
+                          custom_domains: Iterable[str] = None,
+                          release: str = None):
     absdir = Path('./traefik').resolve()
     sudo = utils.optsudo()
     tag = utils.docker_tag(release)
@@ -89,16 +98,7 @@ def generate_tls_cert(always: bool = False,
     sh(f'chmod +r {absdir}/minica.pem')
 
 
-def generate_env(version: str):
-    config = utils.get_config()
-
-    utils.info('Generating .env file ...')
-    template = JINJA_ENV.get_template('env.j2')
-    content = template.render(config=config, version=version)
-    utils.write_file('.env', content)
-
-
-def generate_traefik_config():
+def make_traefik_config():
     config = utils.get_config()
 
     utils.info('Generating static traefik config ...')
@@ -112,7 +112,7 @@ def generate_traefik_config():
     utils.write_file('./traefik/dynamic/brewblox-provider.yml', content)
 
 
-def generate_compose_config():
+def make_shared_compose():
     config = utils.get_config()
 
     utils.info('Generating docker-compose.shared.yml ...')
@@ -120,13 +120,25 @@ def generate_compose_config():
     content = template.render(config=config)
     utils.write_file('./docker-compose.shared.yml', content)
 
-    # Edit compose file to synchronize its version
+
+def make_compose():
+    config = utils.get_config()
+
+    utils.info('Generating docker-compose.yml ...')
+    template = JINJA_ENV.get_template('docker-compose.yml.j2')
+    content = template.render(config=config)
+    utils.write_file('./docker-compose.yml', content)
+
+
+def sync_compose_version():
+    config = utils.get_config()
+
     compose = utils.read_compose()
     compose['version'] = config.compose.version
     utils.write_compose(compose)
 
 
-def generate_udev_config():
+def make_udev_rules():
     rules_dir = '/etc/udev/rules.d'
     target = f'{rules_dir}/50-particle.rules'
     if not utils.file_exists(target) and utils.command_exists('udevadm'):
@@ -134,6 +146,15 @@ def generate_udev_config():
         sh(f'sudo mkdir -p {rules_dir}')
         sh(f'sudo cp "{const.DIR_DEPLOYED}/50-particle.rules" {target}')
         sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
+
+
+def make_ctl_wrapper():
+    wrapper = const.DIR_DEPLOYED / 'brewblox-ctl'
+    sh(f'chmod +x "{wrapper}"')
+    if utils.user_home_exists():
+        sh(f'mkdir -p "$HOME/.local/bin" && cp "{wrapper}" "$HOME/.local/bin/"')
+    else:
+        sh(f'sudo cp "{wrapper}" /usr/local/bin/')
 
 
 def apt_upgrade():
@@ -156,16 +177,7 @@ def uninstall_old_ctl_package():
     sh('rm -rf $(python3 -m site --user-site)/brewblox_ctl*', check=False)
 
 
-def deploy_ctl_wrapper():
-    wrapper = const.DIR_DEPLOYED / 'brewblox-ctl'
-    sh(f'chmod +x "{wrapper}"')
-    if utils.user_home_exists():
-        sh(f'mkdir -p "$HOME/.local/bin" && cp "{wrapper}" "$HOME/.local/bin/"')
-    else:
-        sh(f'sudo cp "{wrapper}" /usr/local/bin/')
-
-
-def check_compose_plugin():
+def install_compose_plugin():
     if utils.check_ok(f'{utils.optsudo()}docker compose version'):
         return
     if utils.command_exists('apt-get'):
@@ -178,75 +190,6 @@ def check_compose_plugin():
         utils.warn('    https://docs.docker.com/compose/install/linux/')
         utils.warn('')
         raise SystemExit(1)
-
-
-def check_ports():
-    if utils.is_compose_up():
-        utils.info('Stopping services ...')
-        sh(f'{utils.optsudo()}docker compose down')
-
-    config = utils.get_config()
-    ports = config.ports.model_dump().values()
-
-    try:
-        port_connnections = [
-            conn
-            for conn in psutil.net_connections()
-            if conn.laddr.ip in ['::', '0.0.0.0']
-            and conn.laddr.port in ports
-        ]
-    except psutil.AccessDenied:
-        utils.warn('Unable to read network connections. You need to run `netstat` or `lsof` manually.')
-        port_connnections = []
-
-    if port_connnections:
-        port_str = ', '.join(set(str(conn.laddr.port) for conn in port_connnections))
-        utils.warn(f'Port(s) {port_str} already in use.')
-        utils.warn('You can change the ports used by Brewblox in `brewblox.yml`')
-        if not utils.confirm('Do you want to continue?'):
-            raise SystemExit(1)
-
-
-def fix_ipv6(config_file=None, restart=True):
-    utils.info('Fixing Docker IPv6 settings ...')
-
-    if utils.is_wsl():
-        utils.info('WSL environment detected. Skipping IPv6 config changes.')
-        return
-
-    # Config is either provided, or parsed from active daemon process
-    if not config_file:
-        default_config_file = '/etc/docker/daemon.json'
-        dockerd_proc = sh('ps aux | grep dockerd', capture=True)
-        proc_match = re.match(r'.*--config-file[\s=](?P<file>.*\.json).*', dockerd_proc, flags=re.MULTILINE)
-        config_file = proc_match and proc_match.group('file') or default_config_file
-
-    config_file = Path(config_file)
-    utils.info(f'Using Docker config file {config_file}')
-
-    # Read config. Create file if not exists
-    sh(f"sudo mkdir -p '{config_file.parent}'")
-    sh(f"sudo touch '{config_file}'")
-    config = sh(f"sudo cat '{config_file}'", capture=True)
-
-    if 'fixed-cidr-v6' in config:
-        utils.info('IPv6 settings are already present. Making no changes.')
-        return
-
-    # Edit and write. Do not overwrite existing values
-    config = json.loads(config or '{}')
-    config.setdefault('ipv6', False)
-    config.setdefault('fixed-cidr-v6', '2001:db8:1::/64')
-    config_str = json.dumps(config, indent=2)
-    sh(f"echo '{config_str}' | sudo tee '{config_file}' > /dev/null")
-
-    # Restart daemon
-    if restart:
-        if utils.command_exists('service'):
-            utils.info('Restarting Docker service ...')
-            sh('sudo service docker restart')
-        else:
-            utils.warn('"service" command not found. Please restart your machine to apply config changes.')
 
 
 def edit_avahi_config():
@@ -309,6 +252,74 @@ def edit_sshd_config():
     if utils.command_exists('systemctl'):
         utils.info('Restarting SSH service ...')
         sh('sudo systemctl restart ssh')
+
+
+def check_ports():
+    if utils.is_compose_up():
+        utils.info('Stopping services ...')
+        sh(f'{utils.optsudo()}docker compose down')
+
+    config = utils.get_config()
+    ports = config.ports.model_dump().values()
+
+    try:
+        port_connnections = [
+            conn
+            for conn in psutil.net_connections()
+            if conn.laddr.ip in ['::', '0.0.0.0']
+            and conn.laddr.port in ports
+        ]
+    except psutil.AccessDenied:
+        utils.warn('Unable to read network connections. You need to run `netstat` or `lsof` manually.')
+        port_connnections = []
+
+    if port_connnections:
+        port_str = ', '.join(set(str(conn.laddr.port) for conn in port_connnections))
+        utils.warn(f'Port(s) {port_str} already in use.')
+        utils.warn('You can change the ports used by Brewblox in `brewblox.yml`')
+        if not utils.confirm('Do you want to continue?'):
+            raise SystemExit(1)
+
+
+def fix_ipv6(config_file=None, restart=True):
+    utils.info('Fixing Docker IPv6 settings ...')
+
+    if utils.is_wsl():
+        utils.info('WSL environment detected. Skipping IPv6 config changes.')
+        return
+
+    # Config is either provided, or parsed from active daemon process
+    if not config_file:
+        default_config_file = '/etc/docker/daemon.json'
+        dockerd_proc = sh('ps aux | grep dockerd', capture=True)
+        proc_match = re.match(r'.*--config-file[\s=](?P<file>.*\.json).*', dockerd_proc, flags=re.MULTILINE)
+        config_file = proc_match and proc_match.group('file') or default_config_file
+
+    config_file = Path(config_file)
+    utils.info(f'Using Docker config file {config_file}')
+
+    # Read config. Create file if not exists
+    sh(f"sudo mkdir -p '{config_file.parent}'")
+    sh(f"sudo touch '{config_file}'")
+    config = utils.read_file_sudo()
+
+    if 'fixed-cidr-v6' in config:
+        utils.info('IPv6 settings are already present. Making no changes.')
+        return
+
+    # Edit and write. Do not overwrite existing values
+    config = json.loads(config or '{}')
+    config.setdefault('ipv6', False)
+    config.setdefault('fixed-cidr-v6', '2001:db8:1::/64')
+    utils.write_file_sudo(config_file, json.dumps(config, indent=2))
+
+    # Restart daemon
+    if restart:
+        if utils.command_exists('service'):
+            utils.info('Restarting Docker service ...')
+            sh('sudo service docker restart')
+        else:
+            utils.warn('"service" command not found. Please restart your machine to apply config changes.')
 
 
 def file_netcat(host: str,

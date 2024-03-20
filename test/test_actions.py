@@ -64,18 +64,18 @@ def test_add_particle_udev_rules(m_utils, m_sh):
 
 def test_check_compose_plugin(m_utils, m_sh, mocker):
     m_utils.check_ok.return_value = True
-    actions.check_compose_plugin()
+    actions.install_compose_plugin()
     assert m_sh.call_count == 0
 
     m_utils.check_ok.return_value = False
     m_utils.command_exists.return_value = True
-    actions.check_compose_plugin()
+    actions.install_compose_plugin()
     assert m_sh.call_count == 1
 
     m_utils.check_ok.return_value = False
     m_utils.command_exists.return_value = False
     with pytest.raises(SystemExit):
-        actions.check_compose_plugin()
+        actions.install_compose_plugin()
 
 
 def test_check_ports(m_utils, m_sh, mocker):
@@ -152,10 +152,10 @@ def test_uninstall_old_ctl_package(m_utils, m_sh):
 
 def test_deploy_ctl_wrapper(m_utils, m_sh):
     m_utils.user_home_exists.return_value = True
-    actions.deploy_ctl_wrapper()
+    actions.make_ctl_wrapper()
     m_sh.assert_called_with(matching('mkdir -p'))
     m_utils.user_home_exists.return_value = False
-    actions.deploy_ctl_wrapper()
+    actions.make_ctl_wrapper()
     m_sh.assert_called_with(matching('sudo cp'))
 
 

@@ -223,15 +223,13 @@ def install(ctx: click.Context, snapshot_file):
     else:
         utils.info(f"Skipped: adding {user} to 'docker' group.")
 
-    # Always apply actions
-    actions.make_env()
-    actions.check_compose_plugin()
-    actions.disable_ssh_accept_env()
-    actions.fix_ipv6(None, False)
-    actions.edit_avahi_config()
-    actions.add_particle_udev_rules()
+    # Always apply these actions
     actions.uninstall_old_ctl_package()
-    actions.deploy_ctl_wrapper()
+    actions.install_compose_plugin()
+    actions.edit_sshd_config()
+    actions.fix_ipv6(None, False)
+    actions.make_udev_rules()
+    actions.make_ctl_wrapper()
 
     # Install process splits here
     # Either load all config files from snapshot or run init
@@ -242,13 +240,19 @@ def install(ctx: click.Context, snapshot_file):
         utils.info('Checking for port conflicts ...')
         actions.check_ports()
 
+        # Deploy managed files
+        actions.make_dotenv()
+        actions.make_shared_compose()
+
         if opts.init_compose:
-            utils.info('Copying docker-compose.yml ...')
-            sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.yml ./')
+            actions.make_compose()
+        else:
+            actions.sync_compose_version()
 
         # Stop after we're sure we have a compose file
-        utils.info('Stopping services ...')
-        sh(f'{sudo}docker compose down')
+        if utils.is_compose_up():
+            utils.info('Stopping services ...')
+            sh(f'{sudo}docker compose down --remove-orphans')
 
         if opts.init_datastore:
             utils.info('Creating datastore directory ...')
@@ -264,10 +268,10 @@ def install(ctx: click.Context, snapshot_file):
 
         if opts.init_gateway:
             utils.info('Creating gateway directory ...')
-            sh('sudo rm -rf ./traefik/; mkdir ./traefik/')
+            sh('sudo rm -rf ./traefik/; mkdir ./traefik/ ./traefik/dynamic')
 
             utils.info('Creating SSL certificate ...')
-            actions.make_cert('./traefik')
+            actions.make_tls_certificates(always=True)
             actions.make_traefik_config()
 
         if opts.init_eventbus:
@@ -280,6 +284,9 @@ def install(ctx: click.Context, snapshot_file):
 
         # Init done - now set CFG version
         utils.setenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
+
+    # This depends on loaded settings
+    actions.edit_avahi_config()
 
     if opts.docker_pull:
         utils.info('Pulling docker images ...')
