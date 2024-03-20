@@ -197,7 +197,7 @@ def install(ctx: click.Context, snapshot_file):
     utils.info('Generating brewblox.yml ...')
     config.skip_confirm = opts.skip_confirm
     config.system.apt_upgrade = opts.apt_install
-    utils.save_config(config)
+    actions.make_brewblox_config(config)
 
     # Install Apt packages
     if opts.apt_install:

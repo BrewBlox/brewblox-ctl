@@ -434,12 +434,6 @@ def write_shared_compose(data: Union[dict, CommentedMap]):  # pragma: no cover
     write_yaml(const.COMPOSE_SHARED_FILE, data)
 
 
-def save_config(config: CtlConfig):
-    data = config.model_dump(mode='json', exclude_defaults=True)
-    write_yaml(const.CONFIG_FILE, data)
-    get_config.cache_clear()
-
-
 def list_services(image=None) -> List[str]:
     config = read_compose()
     return [

@@ -6,7 +6,7 @@ from typing import Optional
 
 import click
 
-from brewblox_ctl import auth_users, click_helpers, utils
+from brewblox_ctl import auth_users, click_helpers
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -17,33 +17,6 @@ def cli():
 @cli.group(cls=click_helpers.OrderedGroup)
 def auth():
     """Configure password authentication for the web UI."""
-
-
-@auth.command()
-def enable():
-    """
-    Enable password authentication.
-    """
-    config = utils.get_config()
-    if not config.auth.enabled:
-        config.auth.enabled = True
-        utils.save_config(config)
-
-    if utils.confirm('Do you want to add a new user?'):
-        auth_users.add_user(None, None)
-
-
-@auth.command()
-def disable():
-    """
-    Disable password authentication.
-
-    This will not remove existing users.
-    """
-    config = utils.get_config()
-    if config.auth.enabled:
-        config.auth.enabled = False
-        utils.save_config(config)
 
 
 @auth.command()

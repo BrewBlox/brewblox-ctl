@@ -16,7 +16,8 @@ import jinja2
 import psutil
 from configobj import ConfigObj
 
-from brewblox_ctl import const, sh, utils
+from . import const, sh, utils
+from .models import CtlConfig
 
 JINJA_ENV = jinja2.Environment(loader=jinja2.PackageLoader('brewblox_ctl'),
                                autoescape=jinja2.select_autoescape())
@@ -152,6 +153,25 @@ def make_ctl_wrapper():
         sh(f'mkdir -p "$HOME/.local/bin" && cp "{wrapper}" "$HOME/.local/bin/"')
     else:
         sh(f'sudo cp "{wrapper}" /usr/local/bin/')
+
+
+def make_brewblox_config(config: CtlConfig):
+    """
+    First-time generation of brewblox.yml.
+
+    This should only be used to create a new file.
+    Any roundtrips afterwards will reset user comments.
+    """
+    data = config.model_dump(mode='json', exclude_defaults=True)
+    config_str = utils.dump_yaml(data)
+
+    utils.info('Generating brewblox.yml ...')
+    template = JINJA_ENV.get_template('brewblox.yml.j2')
+    content = template.render(config_str=config_str)
+    utils.write_file(const.CONFIG_FILE, content)
+
+    # Reload local config
+    utils.get_config.cache_clear()
 
 
 def apt_upgrade():

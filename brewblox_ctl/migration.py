@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 import requests
 import urllib3
 
-from . import sh, utils
+from . import actions, sh, utils
 
 
 def _influx_measurements() -> List[str]:
@@ -329,4 +329,4 @@ def migrate_env_config():
         config.compose.file = value
 
     config.environment = envdict  # assign leftovers
-    utils.save_config(config)
+    actions.make_brewblox_config(config)
