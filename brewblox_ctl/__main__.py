@@ -4,6 +4,7 @@ Entrypoint for the Brewblox commands menu
 
 import sys
 from pathlib import Path
+from typing import Optional
 
 import click
 from click.exceptions import ClickException
@@ -35,6 +36,8 @@ def ensure_tty():  # pragma: no cover
 
 def main(args=sys.argv[1:]):
     try:
+        config = utils.get_config()
+
         ensure_tty()
         load_dotenv(Path('.env').resolve())
 
@@ -77,7 +80,7 @@ def main(args=sys.argv[1:]):
         @click.option('--color/--no-color',
                       default=None,
                       help='Format messages with unicode color codes.')
-        def cli(yes, dry, quiet, verbose, color):
+        def cli(yes: bool, dry: bool, quiet: bool, verbose: bool, color: Optional[bool]):
             """
             The Brewblox management tool.
 
@@ -92,7 +95,7 @@ def main(args=sys.argv[1:]):
             opts.dry_run = dry
             opts.yes = yes
             opts.quiet = quiet
-            opts.verbose = verbose
+            opts.verbose = verbose or config.debug
             opts.color = color
 
         cli(args=args, standalone_mode=False)
@@ -102,7 +105,7 @@ def main(args=sys.argv[1:]):
         escalate(ex)
 
     except Exception as ex:  # pragma: no cover
-        click.echo(str(ex), err=True)
+        click.echo(utils.strex(ex), err=True)
         escalate(ex)
 
 

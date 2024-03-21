@@ -56,6 +56,7 @@ def format_model(model: BaseModel) -> Dict[str, Any]:
 
 
 def print_formatted(data: dict, depth: int = 0):
+    opts = utils.get_opts()
     prefix = ' ' * depth
     for key, value in data.items():
         # skipped fields
@@ -65,24 +66,24 @@ def print_formatted(data: dict, depth: int = 0):
         # nested fields
         if isinstance(value, dict):
             if key == 'value':
-                click.secho(f'{prefix}{key}', fg='blue')
+                click.secho(f'{prefix}{key}', fg='blue', color=opts.color)
             else:
-                click.secho(f'{prefix}{key}', fg='cyan', bold=True)
+                click.secho(f'{prefix}{key}', fg='cyan', bold=True, color=opts.color)
             print_formatted(value, depth + 4)
             click.secho('')
 
         # special case for union types
         elif key == 'anyOf':
-            click.secho(f'{prefix}type: ', nl=False, fg='blue')
+            click.secho(f'{prefix}type: ', nl=False, fg='blue', color=opts.color)
             types = [obj.get('type') for obj in value]
             click.secho(' | '.join(types))
 
         elif key in ('title', 'description'):
-            click.secho(f'{prefix}{value}', fg='bright_black')
+            click.secho(f'{prefix}{value}', fg='bright_black', color=opts.color)
 
         # value type
         else:
-            click.secho(f'{prefix}{key}: ', nl=False, fg='blue')
+            click.secho(f'{prefix}{key}: ', nl=False, fg='blue', color=opts.color)
 
             if value is None:
                 click.secho('null')

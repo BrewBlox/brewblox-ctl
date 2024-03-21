@@ -41,11 +41,14 @@ def get_opts() -> CtlOpts:
 
 @lru_cache
 def get_config() -> CtlConfig:
-    if const.CONFIG_FILE.exists():
-        config = CtlConfig.model_validate(yaml.load(const.CONFIG_FILE))
-    else:
-        config = CtlConfig()
-    return config
+    if not const.CONFIG_FILE.exists():
+        return CtlConfig()
+
+    try:
+        return CtlConfig.model_validate(yaml.load(const.CONFIG_FILE))
+    except Exception as ex:
+        click.secho(f'Loading `{const.CONFIG_FILE}` failed with a {strex(ex)}', err=True)
+        raise SystemExit(1)
 
 
 def strtobool(val: str) -> bool:
@@ -61,6 +64,17 @@ def strtobool(val: str) -> bool:
         return False
     else:
         raise ValueError(f'invalid truth value {val}')
+
+
+def strex(ex: Exception) -> str:
+    """
+    Formats exception as `Exception(message)`
+    """
+    msg = str(ex)
+    if '\n' in msg:
+        return f'{type(ex).__name__}:\n{msg}'
+    else:
+        return f'{type(ex).__name__}({msg})'
 
 
 def random_string(size: int) -> str:
