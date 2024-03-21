@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 import requests
 import urllib3
 
-from . import actions, sh, utils
+from . import actions, utils
 
 
 def _influx_measurements() -> List[str]:
@@ -43,11 +43,11 @@ def _influx_line_count(service: str, args: str) -> Optional[int]:
     sudo = utils.optsudo()
     measurement = f'"brewblox"."downsample_1m"."{service}"'
     points_field = '"m_ Combined Influx points"'
-    json_result = sh(f'{sudo}docker exec influxdb-migrate influx '
-                     '-database brewblox '
-                     f"-execute 'SELECT count({points_field}) FROM {measurement} {args}' "
-                     '-format json',
-                     capture=True)
+    json_result = utils.sh(f'{sudo}docker exec influxdb-migrate influx '
+                           '-database brewblox '
+                           f"-execute 'SELECT count({points_field}) FROM {measurement} {args}' "
+                           '-format json',
+                           capture=True)
 
     result = json.loads(json_result)
 
@@ -82,7 +82,7 @@ def _copy_influx_measurement(
     num_lines = offset
 
     if target == 'file':
-        sh(f'mkdir -p {FILE_DIR}')
+        utils.sh(f'mkdir -p {FILE_DIR}')
 
     if total_lines is None:
         return
@@ -138,7 +138,7 @@ def _copy_influx_measurement(
             elif target == 'file':
                 idx = str(offset // FILE_BATCH_SIZE + 1).rjust(3, '0')
                 fname = f'{FILE_DIR}/{service}__{date}__{duration or "all"}__{idx}.lines'
-                sh(f'cat "{tmp.name}" >> "{fname}"')
+                utils.sh(f'cat "{tmp.name}" >> "{fname}"')
 
             else:
                 raise ValueError(f'Invalid target: {target}')
@@ -179,21 +179,21 @@ def migrate_influxdb(
     utils.info('Starting InfluxDB container ...')
 
     # Stop container in case previous migration was cancelled
-    sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
+    utils.sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
 
     # Start standalone container
     # We'll communicate using 'docker exec', so no need to publish a port
-    sh(f'{sudo}docker run '
-       '--rm -d '
-       '--name influxdb-migrate '
-       '-v "$(pwd)/influxdb:/var/lib/influxdb" '
-       'influxdb:1.8 '
-       '> /dev/null')
+    utils.sh(f'{sudo}docker run '
+             '--rm -d '
+             '--name influxdb-migrate '
+             '-v "$(pwd)/influxdb:/var/lib/influxdb" '
+             'influxdb:1.8 '
+             '> /dev/null')
 
     # Do a health check until startup is done
     inner_cmd = 'curl --output /dev/null --silent --fail http://localhost:8086/health'
     bash_cmd = f'until $({inner_cmd}); do sleep 1 ; done'
-    sh(f"{sudo}docker exec influxdb-migrate bash -c '{bash_cmd}'")
+    utils.sh(f"{sudo}docker exec influxdb-migrate bash -c '{bash_cmd}'")
 
     # Determine relevant measurement
     # Export all of them if not specified by user
@@ -208,7 +208,7 @@ def migrate_influxdb(
         _copy_influx_measurement(svc, date, duration, target, offset)
 
     # Stop migration container
-    sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
+    utils.sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
 
 
 def migrate_ghcr_images():
@@ -276,7 +276,7 @@ def migrate_env_config():
     # Previous config was stored in .env
     # We want to retrieve those settings
 
-    envdict = utils.dotenv_values('.env')
+    envdict = utils.envdict('.env')
 
     def popget(key: str):
         try:

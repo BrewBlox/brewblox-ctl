@@ -5,13 +5,14 @@ Tests brewblox_ctl.testing
 from unittest.mock import Mock
 
 import pytest
+from pytest_mock import MockerFixture
 
 from brewblox_ctl import testing
 
 TESTED = testing.__name__
 
 
-def test_invoke(mocker):
+def test_invoke(mocker: MockerFixture):
     m_result = mocker.patch(TESTED + '.CliRunner').return_value.invoke.return_value
     m_result.exception = None
     assert testing.invoke('arg1', 'arg2', other='kwarg1') == m_result

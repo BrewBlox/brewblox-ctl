@@ -8,15 +8,15 @@ from pathlib import Path
 
 import click
 
-from brewblox_ctl import actions, click_helpers, const, sh, utils
+from brewblox_ctl import actions, click_helpers, const, utils
 
 
 def create():
-    sh('echo "BREWBLOX DIAGNOSTIC DUMP" > brewblox.log')
+    utils.sh('echo "BREWBLOX DIAGNOSTIC DUMP" > brewblox.log')
 
 
 def append(s):
-    sh(s + ' >> brewblox.log 2>&1', check=False)
+    utils.sh(s + ' >> brewblox.log 2>&1', check=False)
 
 
 def header(s):
@@ -172,11 +172,11 @@ def coredump(upload):
 
     The `esptool` python package is required, and will be installed if not found.
     """
-    utils.start_esptool('--chip esp32',
-                        '--baud 115200',
-                        'read_flash 0xA10000 81920',
-                        'coredump.bin')
-    sh('base64 coredump.bin > coredump.b64')
+    actions.start_esptool('--chip esp32',
+                          '--baud 115200',
+                          'read_flash 0xA10000 81920',
+                          'coredump.bin')
+    utils.sh('base64 coredump.bin > coredump.b64')
 
     if upload:
         click.echo(actions.file_netcat('termbin.com', 9999, Path('./coredump.b64')).decode())

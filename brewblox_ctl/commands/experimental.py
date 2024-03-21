@@ -8,7 +8,7 @@ from typing import Optional
 
 import click
 
-from brewblox_ctl import click_helpers, sh, utils
+from brewblox_ctl import click_helpers, utils
 from brewblox_ctl.discovery import (DiscoveredDevice, DiscoveryType,
                                     choose_device, find_device_by_host)
 
@@ -131,16 +131,16 @@ def enable_spark_mqtt(server_host: Optional[str],
 
     # Set username/password for device
     utils.info('Adding user to MQTT eventbus ...')
-    sh(f'{sudo}docker run' +
-       ' -it --rm' +
-       f' -v {mosquitto_path}:/mosquitto/include' +
-       ' --entrypoint mosquitto_passwd' +
-       f' ghcr.io/brewblox/mosquitto:{tag}' +
-       ' -b /mosquitto/include/externals.passwd' +
-       f' {device_id} {password}')
+    utils.sh(f'{sudo}docker run' +
+             ' -it --rm' +
+             f' -v {mosquitto_path}:/mosquitto/include' +
+             ' --entrypoint mosquitto_passwd' +
+             f' ghcr.io/brewblox/mosquitto:{tag}' +
+             ' -b /mosquitto/include/externals.passwd' +
+             f' {device_id} {password}')
 
     # Reload eventbus configuration
-    sh(f'{sudo}docker compose kill -s SIGHUP eventbus', silent=True)
+    utils.sh(f'{sudo}docker compose kill -s SIGHUP eventbus', silent=True)
 
     # Send credentials to controller
     # Use cURL to make the command reproducible on different machines
@@ -158,8 +158,8 @@ def enable_spark_mqtt(server_host: Optional[str],
 
     if send_config:
         utils.info('Sending MQTT configuration to controller ...')
-        sh(send_credentials_cmd)
-        sh(send_cert_cmd)
+        utils.sh(send_credentials_cmd)
+        utils.sh(send_cert_cmd)
     else:
         utils.warn('====================================================')
         utils.warn('IMPORTANT: CONFIGURATION MUST BE APPLIED MANUALLY.')

@@ -5,7 +5,7 @@ Migration scripts
 import click
 from packaging.version import Version
 
-from brewblox_ctl import actions, click_helpers, const, migration, sh, utils
+from brewblox_ctl import actions, click_helpers, const, migration, utils
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -15,6 +15,10 @@ def cli():
 
 def check_version(prev_version: Version):
     """Verify that the previous version is sane and sensible"""
+    if prev_version == Version('0.0.0'):
+        utils.error('This configuration was never set up. Please run brewblox-ctl install first')
+        raise SystemExit(1)
+
     if prev_version > Version(const.CFG_VERSION):
         utils.error('Your system is running a version newer than the selected release. ' +
                     'This may be due to switching release tracks.' +
@@ -112,7 +116,7 @@ def downed_migrate(prev_version):
         migration.migrate_tilt_images()
 
     if prev_version < Version('0.11.0'):
-        sh('rm -f ./traefik/traefik-cert.yaml')
+        utils.sh('rm -f ./traefik/traefik-cert.yaml')
 
     # Not related to a specific release
     bind_localtime()
@@ -211,17 +215,17 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
         utils.pip_install('pip')
         actions.install_ctl_package()
         # Restart update - we just replaced the source code
-        sh(' '.join(['exec', const.CLI, *const.ARGS[1:], '--update-ctl-done']))
+        utils.sh(' '.join(['exec', const.CLI, *const.ARGS[1:], '--update-ctl-done']))
         return
 
     if update_ctl:
         actions.uninstall_old_ctl_package()
-        actions.make_ctl_wrapper()
+        actions.make_ctl_entrypoint()
 
     actions.install_compose_plugin()
 
     utils.info('Stopping services ...')
-    sh(f'{sudo}docker compose down')
+    utils.sh(f'{sudo}docker compose down')
 
     if config.system.apt_upgrade:
         actions.apt_upgrade()
@@ -231,16 +235,16 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
 
     if pull:
         utils.info('Pulling docker images ...')
-        sh(f'{sudo}docker compose pull')
+        utils.sh(f'{sudo}docker compose pull')
 
     if prune:
         utils.info('Pruning unused images ...')
-        sh(f'{sudo}docker image prune -f > /dev/null')
+        utils.sh(f'{sudo}docker image prune -f > /dev/null')
         utils.info('Pruning unused volumes ...')
-        sh(f'{sudo}docker volume prune -f > /dev/null')
+        utils.sh(f'{sudo}docker volume prune -f > /dev/null')
 
     utils.info('Starting services ...')
-    sh(f'{sudo}docker compose up -d')
+    utils.sh(f'{sudo}docker compose up -d')
 
     if migrate:
         upped_migrate(prev_version)
@@ -254,4 +258,4 @@ def update_ctl():
     utils.confirm_mode()
     actions.install_ctl_package()
     actions.uninstall_old_ctl_package()
-    actions.make_ctl_wrapper()
+    actions.make_ctl_entrypoint()

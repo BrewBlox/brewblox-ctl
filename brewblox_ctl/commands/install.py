@@ -6,9 +6,8 @@ from time import sleep
 
 import click
 
-from brewblox_ctl import actions, click_helpers, const, utils
-from brewblox_ctl.commands import snapshot
-from brewblox_ctl.utils import sh
+from .. import actions, click_helpers, const, utils
+from . import snapshot
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -203,23 +202,23 @@ def install(ctx: click.Context, snapshot_file):
     if opts.apt_install:
         utils.info('Installing apt packages ...')
         apt_deps = ' '.join(const.APT_DEPENDENCIES)
-        sh('sudo apt-get update')
-        sh('sudo apt-get upgrade -y')
-        sh(f'sudo apt-get install -y {apt_deps}')
+        utils.sh('sudo apt-get update')
+        utils.sh('sudo apt-get upgrade -y')
+        utils.sh(f'sudo apt-get install -y {apt_deps}')
     else:
         utils.info('Skipped: apt-get install.')
 
     # Install docker
     if opts.docker_install:
         utils.info('Installing docker ...')
-        sh('curl -sL get.docker.com | sh', check=False)
+        utils.sh('curl -sL get.docker.com | sh', check=False)
     else:
         utils.info('Skipped: docker install.')
 
     # Add user to 'docker' group
     if opts.docker_group_add:
         utils.info(f"Adding {user} to 'docker' group ...")
-        sh('sudo usermod -aG docker $USER')
+        utils.sh('sudo usermod -aG docker $USER')
     else:
         utils.info(f"Skipped: adding {user} to 'docker' group.")
 
@@ -229,7 +228,7 @@ def install(ctx: click.Context, snapshot_file):
     actions.edit_sshd_config()
     actions.fix_ipv6(None, False)
     actions.make_udev_rules()
-    actions.make_ctl_wrapper()
+    actions.make_ctl_entrypoint()
 
     # Install process splits here
     # Either load all config files from snapshot or run init
@@ -241,32 +240,32 @@ def install(ctx: click.Context, snapshot_file):
         actions.check_ports()
 
         if opts.init_compose:
-            sh('rm -f ./docker-compose.yml')
+            utils.sh('rm -f ./docker-compose.yml')
 
-        actions.make_dotenv()
+        actions.make_dotenv('0.0.0')
         actions.make_shared_compose()
         actions.make_compose()
 
         # Stop after we're sure we have a compose file
         if utils.is_compose_up():
             utils.info('Stopping services ...')
-            sh(f'{sudo}docker compose down --remove-orphans')
+            utils.sh(f'{sudo}docker compose down --remove-orphans')
 
         if opts.init_datastore:
             utils.info('Creating datastore directory ...')
-            sh('sudo rm -rf ./redis/; mkdir ./redis/')
+            utils.sh('sudo rm -rf ./redis/; mkdir ./redis/')
 
         if opts.init_auth:
             utils.info('Creating auth directory ...')
-            sh('sudo rm -rf ./auth/; mkdir ./auth/')
+            utils.sh('sudo rm -rf ./auth/; mkdir ./auth/')
 
         if opts.init_history:
             utils.info('Creating history directory ...')
-            sh('sudo rm -rf ./victoria/; mkdir ./victoria/')
+            utils.sh('sudo rm -rf ./victoria/; mkdir ./victoria/')
 
         if opts.init_gateway:
             utils.info('Creating gateway directory ...')
-            sh('sudo rm -rf ./traefik/; mkdir ./traefik/ ./traefik/dynamic')
+            utils.sh('sudo rm -rf ./traefik/; mkdir ./traefik/ ./traefik/dynamic')
 
             utils.info('Creating SSL certificate ...')
             actions.make_tls_certificates(always=True)
@@ -274,11 +273,11 @@ def install(ctx: click.Context, snapshot_file):
 
         if opts.init_eventbus:
             utils.info('Creating mosquitto config directory ...')
-            sh('sudo rm -rf ./mosquitto/; mkdir ./mosquitto/')
+            utils.sh('sudo rm -rf ./mosquitto/; mkdir ./mosquitto/')
 
         if opts.init_spark_backup:
             utils.info('Creating Spark backup directory ...')
-            sh('sudo rm -rf ./spark/backup/; mkdir -p ./spark/backup/')
+            utils.sh('sudo rm -rf ./spark/backup/; mkdir -p ./spark/backup/')
 
         # Init done - now set CFG version
         utils.setenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
@@ -288,7 +287,7 @@ def install(ctx: click.Context, snapshot_file):
 
     if opts.docker_pull:
         utils.info('Pulling docker images ...')
-        sh(f'{sudo}docker compose pull')
+        utils.sh(f'{sudo}docker compose pull')
 
     utils.info('All done!')
 
@@ -300,7 +299,7 @@ def install(ctx: click.Context, snapshot_file):
         else:
             utils.info('Rebooting in 10 seconds ...')
             sleep(10)
-        sh('sudo reboot')
+        utils.sh('sudo reboot')
 
 
 @cli.command()
@@ -312,7 +311,7 @@ def install(ctx: click.Context, snapshot_file):
               default=None,
               help='Brewblox release track for the minica Docker image.')
 def makecert(domain, release):
-    """Generate SSL CA and certificate
+    """Generate SSL CA and certificate.
 
     These are locally signed certificates, and will generate browser warnings
     unless installed in a trust store.
@@ -327,4 +326,4 @@ def makecert(domain, release):
         - Create cert files: traefik/brew.blox/cert.pem and traefik/brew.blox/key.pem
     """
     utils.confirm_mode()
-    actions.make_cert(True, domain, release)
+    actions.make_tls_certificates(True, domain, release)

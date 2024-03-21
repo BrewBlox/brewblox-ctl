@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+from pytest_mock import MockerFixture
 
 from brewblox_ctl import testing, utils
 from brewblox_ctl.models import CtlConfig, CtlOpts
@@ -9,14 +10,16 @@ from brewblox_ctl.models import CtlConfig, CtlOpts
 @pytest.fixture(autouse=True)
 def m_get_config(monkeypatch: pytest.MonkeyPatch):
     cfg = CtlConfig()
-    monkeypatch.setattr(utils, 'get_config', lambda: cfg)
+    m = Mock(spec=utils.get_config, return_value=cfg)
+    monkeypatch.setattr(utils, 'get_config', m)
     yield cfg
 
 
 @pytest.fixture(autouse=True)
 def m_get_opts(monkeypatch: pytest.MonkeyPatch):
     opts = CtlOpts()
-    monkeypatch.setattr(utils, 'get_opts', lambda: opts)
+    m = Mock(spec=utils.get_opts, return_value=opts)
+    monkeypatch.setattr(utils, 'get_opts', m)
     yield opts
 
 
@@ -52,6 +55,14 @@ def m_confirm_mode(monkeypatch: pytest.MonkeyPatch):
 def m_getenv(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.getenv)
     monkeypatch.setattr(utils, 'getenv', m)
+    yield m
+
+
+@pytest.fixture(autouse=True)
+def m_envdict(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.envdict)
+    m.side_effect = lambda _: {}
+    monkeypatch.setattr(utils, 'envdict', m)
     yield m
 
 
@@ -158,6 +169,14 @@ def m_is_compose_up(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
+def m_optsudo(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.optsudo)
+    m.return_value = 'SUDO '
+    monkeypatch.setattr(utils, 'optsudo', m)
+    yield m
+
+
+@pytest.fixture(autouse=True)
 def m_sh(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.sh)
     m.side_effect = testing.check_sudo
@@ -178,6 +197,30 @@ def m_check_ok(monkeypatch: pytest.MonkeyPatch):
     m.return_value = True
     monkeypatch.setattr(utils, 'check_ok', m)
     yield m
+
+
+@pytest.fixture(autouse=True)
+def m_info(mocker: MockerFixture):
+    s = mocker.spy(utils, 'info')
+    return s
+
+
+@pytest.fixture(autouse=True)
+def m_warn(mocker: MockerFixture):
+    s = mocker.spy(utils, 'warn')
+    return s
+
+
+@pytest.fixture(autouse=True)
+def m_error(mocker: MockerFixture):
+    s = mocker.spy(utils, 'error')
+    return s
+
+
+@pytest.fixture(autouse=True)
+def m_show_data(mocker: MockerFixture):
+    s = mocker.spy(utils, 'show_data')
+    return s
 
 
 @pytest.fixture(autouse=True)
@@ -288,6 +331,6 @@ def m_write_shared_compose(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture(autouse=True)
 def m_list_services(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.list_services)
-    m.side_effect = lambda: []
+    m.side_effect = lambda _: []
     monkeypatch.setattr(utils, 'list_services', m)
     yield m

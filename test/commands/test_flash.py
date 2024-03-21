@@ -5,43 +5,29 @@ Tests brewblox_ctl.commands.flash
 from unittest.mock import Mock
 
 import pytest
+from pytest_mock import MockerFixture
 
-from brewblox_ctl import const
+from brewblox_ctl import const, utils
 from brewblox_ctl.commands import flash
-from brewblox_ctl.testing import check_sudo, invoke
+from brewblox_ctl.testing import invoke
 
 TESTED = flash.__name__
 
 
 @pytest.fixture
-def m_usb(mocker):
+def m_usb(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.usb', autospec=True)
     return m
 
 
-@pytest.fixture
-def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils', autospec=True)
-    m.optsudo.return_value = 'SUDO '
-    m.docker_tag.side_effect = lambda v: v
-    return m
-
-
-@pytest.fixture
-def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh', autospec=True)
-    m.side_effect = check_sudo
-    return m
-
-
-def test_run_particle_flasher(m_utils, m_sh):
+def test_run_particle_flasher(m_sh: Mock):
     flash.run_particle_flasher('taggart', True, 'do-stuff')
-    m_sh.assert_called_with(
+    m_sh.assert_any_call(
         'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
         'ghcr.io/brewblox/brewblox-firmware-flasher:taggart do-stuff')
 
 
-def test_find_usb_spark(m_usb, m_utils, m_sh):
+def test_find_usb_spark(m_usb: Mock):
     m_usb.core.find.side_effect = [
         # too many
         ['Spark 2'],
@@ -58,10 +44,9 @@ def test_find_usb_spark(m_usb, m_utils, m_sh):
     ]
 
     assert flash.find_usb_spark() == 'Spark 4'
-    assert m_utils.confirm_usb.call_count == 2
 
 
-def test_photon_flash(m_usb, m_utils, m_sh):
+def test_photon_flash(m_usb: Mock, m_sh: Mock):
     m_dev = Mock()
     m_dev.idProduct = const.PID_PHOTON
     m_usb.core.find.side_effect = [
@@ -70,12 +55,12 @@ def test_photon_flash(m_usb, m_utils, m_sh):
         [m_dev]
     ]
     invoke(flash.flash, '--release develop --pull')
-    m_sh.assert_called_with(
+    m_sh.assert_any_call(
         'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
         'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash')
 
 
-def test_p1_flash(m_usb, m_utils, m_sh):
+def test_p1_flash(m_usb: Mock, m_sh: Mock):
     m_dev = Mock()
     m_dev.idProduct = const.PID_P1
     m_usb.core.find.side_effect = [
@@ -84,12 +69,12 @@ def test_p1_flash(m_usb, m_utils, m_sh):
         [m_dev]
     ]
     invoke(flash.flash, '--release develop --pull')
-    m_sh.assert_called_with(
+    m_sh.assert_any_call(
         'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
         'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash')
 
 
-def test_esp_flash(m_usb, m_utils, m_sh):
+def test_esp_flash(m_usb: Mock, m_sh: Mock):
     m_dev = Mock()
     m_dev.idProduct = const.PID_ESP32
     m_usb.core.find.side_effect = [
@@ -98,13 +83,13 @@ def test_esp_flash(m_usb, m_utils, m_sh):
         [m_dev]
     ]
     invoke(flash.flash, '--release develop --pull')
-    m_sh.assert_called_with(
+    m_sh.assert_any_call(
         'SUDO docker run -it --rm --privileged ' +
         '-v /dev:/dev -w /app/firmware --entrypoint bash --pull always ' +
         'ghcr.io/brewblox/brewblox-devcon-spark:develop flash')
 
 
-def test_invalid_flash(m_usb, m_utils, m_sh):
+def test_invalid_flash(m_usb: Mock):
     m_dev = Mock()
     m_dev.idProduct = 123
     m_usb.core.find.side_effect = [
@@ -115,10 +100,12 @@ def test_invalid_flash(m_usb, m_utils, m_sh):
     invoke(flash.flash, _err=True)
 
 
-def test_wifi(m_usb, m_utils, m_sh, mocker):
+def test_wifi(m_sh: Mock, mocker: MockerFixture):
     mocker.patch(TESTED + '.LISTEN_MODE_WAIT_S', 0.0001)
     m_find = mocker.patch(TESTED + '.usb.core.find')
-    m_utils.get_opts.return_value.dry_run = False
+    m_get_string = mocker.patch(TESTED + '.usb.util.get_string', autospec=True)
+    m_get_string.return_value = 'XXXXXX'
+    utils.get_opts().dry_run = False
 
     m_find.reset_mock()
     m_sh.reset_mock()
@@ -141,7 +128,7 @@ def test_wifi(m_usb, m_utils, m_sh, mocker):
     assert m_find.call_count == 4
 
     # No USB calls should be made in dry runs
-    m_utils.get_opts.return_value.dry_run = True
+    utils.get_opts().dry_run = True
     m_find.reset_mock()
     m_sh.reset_mock()
     m_find.side_effect = [Mock(), None]  # particle
@@ -150,9 +137,9 @@ def test_wifi(m_usb, m_utils, m_sh, mocker):
     assert m_find.return_value.call_count == 0
 
 
-def test_particle(m_utils, m_sh):
+def test_particle(m_sh: Mock):
     invoke(flash.particle, '--release develop --pull -c testey')
-    assert m_sh.call_count == 2
-    m_sh.assert_called_with(
+    assert m_sh.call_count == 3
+    m_sh.assert_any_call(
         'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
         'ghcr.io/brewblox/brewblox-firmware-flasher:develop testey')

@@ -7,7 +7,7 @@ from typing import Optional
 
 import click
 
-from brewblox_ctl import click_helpers, sh, utils
+from brewblox_ctl import click_helpers, utils
 from brewblox_ctl.discovery import (DiscoveryType, choose_device,
                                     find_device_by_host, list_devices)
 
@@ -165,13 +165,13 @@ def add_spark(name: str,
             'source': mount_dir,
             'target': '/app/simulator'
         })
-        sh(f'mkdir -m 777 -p {mount_dir}')
+        utils.sh(f'mkdir -m 777 -p {mount_dir}')
 
     utils.write_compose(compose)
     click.echo(f'Added Spark service `{name}`.')
     click.echo('It will automatically show up in the UI.\n')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker compose up -d')
+        utils.sh(f'{sudo}docker compose up -d')
 
 
 @cli.command()
@@ -219,13 +219,13 @@ def add_tilt(yes):
         ],
     }
 
-    sh(f'mkdir -p ./{name}')
+    utils.sh(f'mkdir -p ./{name}')
 
     utils.write_compose(compose)
     click.echo(f'Added Tilt service `{name}`.')
     click.echo('It will automatically show up in the UI.\n')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker compose up -d')
+        utils.sh(f'{sudo}docker compose up -d')
 
 
 @cli.command()
@@ -273,7 +273,7 @@ def add_plaato(name, token, yes):
     click.echo(f'Added Plaato service `{name}`.')
     click.echo('This service publishes history data, but does not have a UI component.')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker compose up -d')
+        utils.sh(f'{sudo}docker compose up -d')
 
 
 @cli.command()
@@ -309,12 +309,12 @@ def add_node_red(yes):
         ]
     }
 
-    sh(f'mkdir -p ./{name}')
+    utils.sh(f'mkdir -p ./{name}')
     if [getgid(), geteuid()] != [1000, 1000]:
-        sh(f'sudo chown -R 1000:1000 ./{name}')
+        utils.sh(f'sudo chown -R 1000:1000 ./{name}')
 
     utils.write_compose(compose)
     click.echo(f'Added Node-RED service `{name}`.')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker compose up -d')
+        utils.sh(f'{sudo}docker compose up -d')
         click.echo(f'Visit https://{host}:{config.ports.https}/{name} in your browser to load the editor.')

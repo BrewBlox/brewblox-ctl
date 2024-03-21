@@ -32,8 +32,8 @@ class PortConfig(BaseModel):
 
 
 class AvahiConfig(BaseModel):
-    enabled: bool = Field(default=True,
-                          title='Enable/disable editing host Avahi configuration')
+    managed: bool = Field(default=True,
+                          title='Enable/disable brewblox-ctl changing the host Avahi configuration')
     reflection: bool = Field(default=True,
                              title='Enable/disable mDNS reflection in host Avahi configuration')
 

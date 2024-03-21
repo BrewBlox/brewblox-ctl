@@ -2,7 +2,10 @@
 Tests brewblox_ctl.commands.add_service
 """
 
+from unittest.mock import Mock
+
 import pytest
+from pytest_mock import MockerFixture
 
 from brewblox_ctl.commands import add_service
 from brewblox_ctl.discovery import DiscoveredDevice, DiscoveryType
@@ -12,21 +15,27 @@ TESTED = add_service.__name__
 
 
 @pytest.fixture(autouse=True)
-def m_getgid(mocker):
+def m_getgid(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.getgid')
     m.return_value = 1000
     return m
 
 
 @pytest.fixture(autouse=True)
-def m_geteuid(mocker):
+def m_geteuid(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.geteuid')
     m.return_value = 1000
     return m
 
 
-@pytest.fixture
-def m_choose(mocker):
+@pytest.fixture(autouse=True)
+def m_list_devices(mocker: MockerFixture) -> Mock:
+    m = mocker.patch(TESTED + '.list_devices', autospec=True)
+    return m
+
+
+@pytest.fixture(autouse=True)
+def m_choose(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.choose_device', autospec=True)
     m.side_effect = lambda _1, _2: DiscoveredDevice(
         discovery='mDNS',
@@ -37,8 +46,8 @@ def m_choose(mocker):
     return m
 
 
-@pytest.fixture
-def m_find_by_host(mocker):
+@pytest.fixture(autouse=True)
+def m_find_by_host(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.find_device_by_host', autospec=True)
     m.side_effect = lambda _1: DiscoveredDevice(
         discovery='mDNS',
@@ -49,19 +58,17 @@ def m_find_by_host(mocker):
     return m
 
 
-def test_discover_spark(m_read_compose, mocker):
-    m_discover = mocker.patch(TESTED + '.list_devices', autospec=True)
-
+def test_discover_spark(m_read_compose: Mock, m_list_devices: Mock):
     m_read_compose.return_value = {'services': {}}
     invoke(add_service.discover_spark)
-    m_discover.assert_called_with(DiscoveryType.all, {'services': {}})
+    m_list_devices.assert_called_with(DiscoveryType.all, {'services': {}})
 
     m_read_compose.side_effect = FileNotFoundError
     invoke(add_service.discover_spark)
-    m_discover.assert_called_with(DiscoveryType.all, None)
+    m_list_devices.assert_called_with(DiscoveryType.all, None)
 
 
-def test_add_spark(m_sh, mocker, m_choose, m_find_by_host, m_read_compose, m_confirm):
+def test_add_spark(m_choose: Mock, m_read_compose: Mock, m_confirm: Mock):
     m_read_compose.side_effect = lambda: {'services': {}}
     m_confirm.return_value = True
 
@@ -77,7 +84,7 @@ def test_add_spark(m_sh, mocker, m_choose, m_find_by_host, m_read_compose, m_con
     invoke(add_service.add_spark, '--name testey --simulation')
 
 
-def test_add_spark_yes(m_sh, mocker, m_choose, m_read_compose, m_confirm):
+def test_add_spark_yes(m_read_compose: Mock, m_confirm: Mock):
     m_confirm.return_value = False
 
     m_read_compose.side_effect = lambda: {'services': {}}
@@ -89,7 +96,7 @@ def test_add_spark_yes(m_sh, mocker, m_choose, m_read_compose, m_confirm):
     invoke(add_service.add_spark, '--name testey --yes')
 
 
-def test_spark_overwrite(m_sh, m_choose, mocker, m_read_compose, m_confirm):
+def test_spark_overwrite(m_read_compose: Mock):
     m_read_compose.side_effect = lambda: {
         'services': {
             'testey': {
@@ -100,7 +107,7 @@ def test_spark_overwrite(m_sh, m_choose, mocker, m_read_compose, m_confirm):
     invoke(add_service.add_spark, '--name new-testey')
 
 
-def test_add_tilt(m_sh, mocker, m_read_compose, m_confirm):
+def test_add_tilt(m_sh: Mock, m_read_compose: Mock, m_confirm: Mock):
     m_read_compose.side_effect = lambda: {'services': {}}
     m_confirm.return_value = True
     invoke(add_service.add_tilt)
@@ -117,7 +124,7 @@ def test_add_tilt(m_sh, mocker, m_read_compose, m_confirm):
     assert m_sh.call_count == 0
 
 
-def test_add_tilt_yes(m_sh, mocker, m_choose, m_read_compose, m_confirm):
+def test_add_tilt_yes(m_read_compose: Mock, m_confirm: Mock):
     m_confirm.return_value = False
     m_read_compose.side_effect = lambda: {'services': {'tilt': {}}}
 
@@ -125,7 +132,7 @@ def test_add_tilt_yes(m_sh, mocker, m_choose, m_read_compose, m_confirm):
     invoke(add_service.add_tilt, '--yes')
 
 
-def test_add_plaato(m_sh, mocker, m_read_compose, m_confirm):
+def test_add_plaato(m_sh: Mock, m_read_compose: Mock, m_confirm: Mock):
     m_read_compose.side_effect = lambda: {'services': {}}
 
     invoke(add_service.add_plaato, '--name testey --token x')
@@ -138,7 +145,7 @@ def test_add_plaato(m_sh, mocker, m_read_compose, m_confirm):
     assert m_sh.call_count == 0
 
 
-def test_add_plaato_yes(m_sh, mocker, m_choose, m_read_compose, m_confirm):
+def test_add_plaato_yes(m_read_compose: Mock, m_confirm: Mock):
     m_confirm.return_value = False
     m_read_compose.side_effect = lambda: {'services': {'testey': {}}}
 
@@ -146,7 +153,7 @@ def test_add_plaato_yes(m_sh, mocker, m_choose, m_read_compose, m_confirm):
     invoke(add_service.add_plaato, '--name testey --token x --yes')
 
 
-def test_add_node_red(m_sh, mocker, m_read_compose, m_confirm):
+def test_add_node_red(m_sh: Mock, m_read_compose: Mock, m_confirm: Mock):
     m_read_compose.side_effect = lambda: {'services': {}}
     m_confirm.return_value = True
     invoke(add_service.add_node_red)
@@ -158,7 +165,7 @@ def test_add_node_red(m_sh, mocker, m_read_compose, m_confirm):
     assert m_sh.call_count == 0
 
 
-def test_add_node_red_other_uid(m_sh, mocker, m_geteuid, m_read_compose, m_confirm):
+def test_add_node_red_other_uid(m_sh: Mock, m_geteuid: Mock, m_read_compose: Mock, m_confirm: Mock):
     m_geteuid.return_value = 1001
     m_confirm.return_value = True
     m_read_compose.side_effect = lambda: {'services': {}}
@@ -166,7 +173,7 @@ def test_add_node_red_other_uid(m_sh, mocker, m_geteuid, m_read_compose, m_confi
     assert m_sh.call_count == 3
 
 
-def test_add_node_red_yes(m_sh, mocker, m_choose, m_read_compose, m_confirm):
+def test_add_node_red_yes(m_read_compose: Mock, m_confirm: Mock):
     m_confirm.return_value = False
     m_read_compose.side_effect = lambda: {'services': {'node-red': {}}}
     invoke(add_service.add_node_red, _err=True)

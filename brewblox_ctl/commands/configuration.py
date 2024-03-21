@@ -55,20 +55,68 @@ def format_model(model: BaseModel) -> Dict[str, Any]:
     return props
 
 
+def print_formatted(data: dict, depth: int = 0):
+    prefix = ' ' * depth
+    for key, value in data.items():
+        # skipped fields
+        if key in ('additionalProperties',):
+            continue
+
+        # nested fields
+        if isinstance(value, dict):
+            if key == 'value':
+                click.secho(f'{prefix}{key}', fg='blue')
+            else:
+                click.secho(f'{prefix}{key}', fg='cyan', bold=True)
+            print_formatted(value, depth + 4)
+            click.secho('')
+
+        # special case for union types
+        elif key == 'anyOf':
+            click.secho(f'{prefix}type: ', nl=False, fg='blue')
+            types = [obj.get('type') for obj in value]
+            click.secho(' | '.join(types))
+
+        elif key in ('title', 'description'):
+            click.secho(f'{prefix}{value}', fg='bright_black')
+
+        # value type
+        else:
+            click.secho(f'{prefix}{key}: ', nl=False, fg='blue')
+
+            if value is None:
+                click.secho('null')
+            elif key in ('value', 'default') and isinstance(value, str):
+                click.secho(f'"{value}"')
+            else:
+                click.secho(f'{value}')
+
+
 @configuration.command()
 def inspect():
+    """
+    Print all available settings for brewblox.yml.
+    """
     utils.check_config()
 
     config = utils.get_config()
-    click.secho(utils.dump_yaml(format_model(config)))
+    data = format_model(config)
+    print_formatted(data)
+    # click.secho(utils.dump_yaml(format_model(config)))
 
 
 @configuration.command()
-def generate():
+def apply():
+    """
+    Use brewblox.yml to generate configuration files.
+    """
     utils.check_config()
     utils.confirm_mode()
 
     with utils.downed_services():
+        if not utils.file_exists(const.CONFIG_FILE):
+            actions.make_brewblox_config(utils.get_config())
+
         version = utils.getenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
         actions.make_dotenv(version)
         actions.make_config_dirs()
@@ -77,5 +125,5 @@ def generate():
         actions.make_shared_compose()
         actions.make_compose()
         actions.make_udev_rules()
-        actions.make_ctl_wrapper()
+        actions.make_ctl_entrypoint()
         actions.edit_avahi_config()

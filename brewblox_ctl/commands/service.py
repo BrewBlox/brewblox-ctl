@@ -2,12 +2,10 @@
 User service management
 """
 
-import re
-
 import click
 
-from brewblox_ctl import click_helpers, sh, utils
-from brewblox_ctl.commands.docker import up
+from .. import click_helpers, utils
+from .docker import up
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -58,33 +56,11 @@ def remove(ctx, services):
         restart_services(ctx, compose_args=['--remove-orphans'])
 
 
-def nested_setdefault(parent, lookups):
-    obj = parent
-    for (key, default) in lookups:
-        obj.setdefault(key, default)
-        obj = obj[key]
-    return obj
-
-
-def clean_empty(d):
-    if isinstance(d, list):
-        return [v for v in (clean_empty(v) for v in d) if v]
-    if isinstance(d, dict):
-        return {k: v for k, v in ((k, clean_empty(v)) for k, v in d.items()) if v}
-    return d
-
-
-def check_port_value(ctx, param, value):
-    if not re.match(r'^(\d+:\d+|\d+)$', value):
-        raise click.BadParameter('Port value must either be an integer, or formatted as int:int')
-    return value
-
-
 @service.command()
 @click.argument('services', type=str, nargs=-1)
 @click.pass_context
 def pull(ctx, services):
     """Pull one or more services without doing a full update."""
     sudo = utils.optsudo()
-    sh(f'{sudo}docker compose pull ' + ' '.join(services))
+    utils.sh(f'{sudo}docker compose pull ' + ' '.join(services))
     restart_services(ctx)

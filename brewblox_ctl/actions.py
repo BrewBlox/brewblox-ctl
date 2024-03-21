@@ -9,14 +9,13 @@ import socket
 from contextlib import closing, suppress
 from copy import deepcopy
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import Iterable
 
 import jinja2
 import psutil
 from configobj import ConfigObj
 
-from . import const, sh, utils
+from . import const, utils
 from .models import CtlConfig
 
 JINJA_ENV = jinja2.Environment(loader=jinja2.PackageLoader('brewblox_ctl'),
@@ -43,7 +42,7 @@ def make_config_dirs():
         './mosquitto',
         './spark/backup',
     ]
-    sh('mkdir -p ' + ' '.join(dirs))
+    utils.sh('mkdir -p ' + ' '.join(dirs))
 
 
 def make_tls_certificates(always: bool = False,
@@ -67,9 +66,9 @@ def make_tls_certificates(always: bool = False,
 
     if create_cert:
         utils.info(f'Generating new certificates in {absdir} ...')
-        sh(f'mkdir -p "{absdir}"')
-        sh(f'sudo rm -rf "{absdir}/brew.blox"')
-        sh(' '.join([
+        utils.sh(f'mkdir -p "{absdir}"')
+        utils.sh(f'sudo rm -rf "{absdir}/brew.blox"')
+        utils.sh(' '.join([
             f'{sudo}docker',
             'run',
             '--rm',
@@ -82,7 +81,7 @@ def make_tls_certificates(always: bool = False,
         ]))
 
     if create_der:
-        sh(' '.join([
+        utils.sh(' '.join([
             f'{sudo}docker',
             'run',
             '--rm',
@@ -96,7 +95,7 @@ def make_tls_certificates(always: bool = False,
             '-outform DER',
         ]))
 
-    sh(f'chmod +r {absdir}/minica.pem')
+    utils.sh(f'chmod +r {absdir}/minica.pem')
 
 
 def make_traefik_config():
@@ -133,7 +132,7 @@ def make_compose():
     with suppress(KeyError):
         del compose['version']
 
-    utils.write_yaml('./docker-compose.yml', compose)
+    utils.write_compose(compose)
 
 
 def make_udev_rules():
@@ -141,18 +140,18 @@ def make_udev_rules():
     target = f'{rules_dir}/50-particle.rules'
     if not utils.file_exists(target) and utils.command_exists('udevadm'):
         utils.info('Adding udev rules for Particle devices ...')
-        sh(f'sudo mkdir -p {rules_dir}')
-        sh(f'sudo cp "{const.DIR_DEPLOYED}/50-particle.rules" {target}')
-        sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
+        utils.sh(f'sudo mkdir -p {rules_dir}')
+        utils.sh(f'sudo cp "{const.DIR_DEPLOYED}/50-particle.rules" {target}')
+        utils.sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
 
 
-def make_ctl_wrapper():
-    wrapper = const.DIR_DEPLOYED / 'brewblox-ctl'
-    sh(f'chmod +x "{wrapper}"')
+def make_ctl_entrypoint():
+    fpath = const.DIR_DEPLOYED / 'brewblox-ctl'
+    utils.sh(f'chmod +x "{fpath}"')
     if utils.user_home_exists():
-        sh(f'mkdir -p "$HOME/.local/bin" && cp "{wrapper}" "$HOME/.local/bin/"')
+        utils.sh(f'mkdir -p "$HOME/.local/bin" && cp "{fpath}" "$HOME/.local/bin/"')
     else:
-        sh(f'sudo cp "{wrapper}" /usr/local/bin/')
+        utils.sh(f'sudo cp "{fpath}" /usr/local/bin/')
 
 
 def make_brewblox_config(config: CtlConfig):
@@ -177,7 +176,7 @@ def make_brewblox_config(config: CtlConfig):
 def apt_upgrade():
     if utils.command_exists('apt-get'):
         utils.info('Updating apt packages ...')
-        sh('sudo apt-get update && sudo apt-get upgrade -y')
+        utils.sh('sudo apt-get update && sudo apt-get upgrade -y')
 
 
 def install_ctl_package(download: str = 'always'):  # always | missing | never
@@ -185,13 +184,14 @@ def install_ctl_package(download: str = 'always'):  # always | missing | never
     exists = utils.file_exists('./brewblox-ctl.tar.gz')
     release = config.ctl_release or config.release
     if download == 'always' or download == 'missing' and not exists:
-        sh(f'wget -q -O ./brewblox-ctl.tar.gz https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz')
-    sh('python3 -m pip install --prefer-binary ./brewblox-ctl.tar.gz')
+        url = f'https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz'
+        utils.sh(f'wget -q -O ./brewblox-ctl.tar.gz {url}')
+    utils.sh('python3 -m pip install --prefer-binary ./brewblox-ctl.tar.gz')
 
 
 def uninstall_old_ctl_package():
-    sh('rm -rf ./brewblox_ctl_lib/', check=False)
-    sh('rm -rf $(python3 -m site --user-site)/brewblox_ctl*', check=False)
+    utils.sh('rm -rf ./brewblox_ctl_lib/', check=False)
+    utils.sh('rm -rf $(python3 -m site --user-site)/brewblox_ctl*', check=False)
 
 
 def install_compose_plugin():
@@ -199,7 +199,7 @@ def install_compose_plugin():
         return
     if utils.command_exists('apt-get'):
         utils.info('Installing Docker Compose plugin ...')
-        sh('sudo apt-get update && sudo apt-get install -y docker-compose-plugin')
+        utils.sh('sudo apt-get update && sudo apt-get install -y docker-compose-plugin')
     else:
         utils.warn('The Docker Compose plugin is not installed, and apt is not available.')
         utils.warn('You need to install the Docker Compose plugin manually.')
@@ -211,12 +211,12 @@ def install_compose_plugin():
 
 def edit_avahi_config():
     config = utils.get_config()
-    conf = Path('/etc/avahi/avahi-daemon.conf')
+    fpath = Path('/etc/avahi/avahi-daemon.conf')
 
-    if not config.avahi.enabled or not conf.exists():
+    if not config.avahi.managed or not utils.file_exists(fpath):
         return
 
-    avahi_config = ConfigObj(str(conf), file_error=True)
+    avahi_config = ConfigObj(str(fpath), file_error=True)
     copy = deepcopy(avahi_config)
     avahi_config.setdefault('server', {}).setdefault('use-ipv6', 'no')
     avahi_config.setdefault('publish', {}).setdefault('publish-aaaa-on-ipv4', 'no')
@@ -227,11 +227,11 @@ def edit_avahi_config():
 
     # avahi-daemon.conf requires a 'key=value' syntax
     content = '\n'.join(avahi_config.write()).replace(' = ', '=') + '\n'
-    utils.write_file_sudo(conf, content)
+    utils.write_file_sudo(fpath, content)
 
     if utils.command_exists('systemctl'):
         utils.info('Restarting avahi-daemon service ...')
-        sh('sudo systemctl restart avahi-daemon')
+        utils.sh('sudo systemctl restart avahi-daemon')
     else:
         utils.warn('"systemctl" command not found. Please restart your machine to enable Wifi discovery.')
 
@@ -245,11 +245,11 @@ def edit_sshd_config():
     Given that the Pi by default only includes the en_GB locale,
     the chances of being sent a unsupported locale are very real.
     """
-    file = Path('/etc/ssh/sshd_config')
-    if not file.exists():
+    fpath = Path('/etc/ssh/sshd_config')
+    if not utils.file_exists(fpath):
         return
 
-    content = file.read_text()
+    content = utils.read_file(fpath)
     updated = re.sub(r'^AcceptEnv LANG LC',
                      '#AcceptEnv LANG LC',
                      content,
@@ -258,23 +258,18 @@ def edit_sshd_config():
     if content == updated:
         return
 
-    with NamedTemporaryFile('w') as tmp:
-        tmp.write(updated)
-        tmp.flush()
-        utils.info('Updating SSHD config to disable AcceptEnv ...')
-        utils.show_data('/etc/ssh/sshd_config', updated)
-        sh(f'sudo chmod --reference={file} {tmp.name}')
-        sh(f'sudo cp -fp {tmp.name} {file}')
+    utils.info('Updating SSHD config to disable AcceptEnv ...')
+    utils.write_file_sudo(fpath, updated)
 
     if utils.command_exists('systemctl'):
         utils.info('Restarting SSH service ...')
-        sh('sudo systemctl restart ssh')
+        utils.sh('sudo systemctl restart ssh')
 
 
 def check_ports():
     if utils.is_compose_up():
         utils.info('Stopping services ...')
-        sh(f'{utils.optsudo()}docker compose down')
+        utils.sh(f'{utils.optsudo()}docker compose down')
 
     config = utils.get_config()
     ports = config.ports.model_dump().values()
@@ -308,7 +303,7 @@ def fix_ipv6(config_file=None, restart=True):
     # Config is either provided, or parsed from active daemon process
     if not config_file:
         default_config_file = '/etc/docker/daemon.json'
-        dockerd_proc = sh('ps aux | grep dockerd', capture=True)
+        dockerd_proc = utils.sh('ps aux | grep dockerd', capture=True)
         proc_match = re.match(r'.*--config-file[\s=](?P<file>.*\.json).*', dockerd_proc, flags=re.MULTILINE)
         config_file = proc_match and proc_match.group('file') or default_config_file
 
@@ -316,8 +311,8 @@ def fix_ipv6(config_file=None, restart=True):
     utils.info(f'Using Docker config file {config_file}')
 
     # Read config. Create file if not exists
-    sh(f"sudo mkdir -p '{config_file.parent}'")
-    sh(f"sudo touch '{config_file}'")
+    utils.sh(f"sudo mkdir -p '{config_file.parent}'")
+    utils.sh(f"sudo touch '{config_file}'")
     config = utils.read_file_sudo()
 
     if 'fixed-cidr-v6' in config:
@@ -334,7 +329,7 @@ def fix_ipv6(config_file=None, restart=True):
     if restart:
         if utils.command_exists('service'):
             utils.info('Restarting Docker service ...')
-            sh('sudo service docker restart')
+            utils.sh('sudo service docker restart')
         else:
             utils.warn('"service" command not found. Please restart your machine to apply config changes.')
 
@@ -382,4 +377,4 @@ def start_dotenv(*args):
 def start_esptool(*args):
     if not utils.command_exists('esptool.py'):
         utils.pip_install('esptool')
-    return sh('sudo -E env "PATH=$PATH" esptool.py ' + ' '.join(args))
+    return utils.sh('sudo -E env "PATH=$PATH" esptool.py ' + ' '.join(args))

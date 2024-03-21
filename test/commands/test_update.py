@@ -2,38 +2,42 @@
 Tests brewblox_ctl.commands.update
 """
 
+from unittest.mock import Mock
+
 import pytest
 from packaging.version import Version
+from pytest_mock import MockerFixture
 
-from brewblox_ctl import const
+from brewblox_ctl import const, utils
 from brewblox_ctl.commands import update
-from brewblox_ctl.testing import check_sudo, invoke
+from brewblox_ctl.testing import invoke
 
 TESTED = update.__name__
 
-STORE_URL = 'https://localhost/history/datastore'
+STORE_URL = 'https://localhost:9600/history/datastore'
 
 
 class DummyError(Exception):
     pass
 
 
-@pytest.fixture
-def m_actions(mocker):
+@pytest.fixture(autouse=True)
+def m_actions(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.actions', autospec=True)
     return m
 
 
-@pytest.fixture
-def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils', autospec=True)
-    m.optsudo.return_value = 'SUDO '
-    m.getenv.return_value = '/usr/local/bin:/home/pi/.local/bin'
-    m.prompt_user_info.return_value = ('username', 'password')
-    m.datastore_url.return_value = STORE_URL
-    m.user_home_exists.return_value = False  # Tested explicitly
-    m.read_compose.side_effect = lambda: {
-        'version': '3.7',
+@pytest.fixture(autouse=True)
+def m_migration(mocker: MockerFixture):
+    m = mocker.patch(TESTED + '.migration', autospec=True)
+    return m
+
+
+@pytest.fixture(autouse=True)
+def m_utils(m_read_compose: Mock, m_read_shared_compose: Mock, m_getenv: Mock, m_user_home_exists: Mock):
+    m_getenv.return_value = '/usr/local/bin:/home/pi/.local/bin'
+    m_user_home_exists.return_value = False  # Tested explicitly
+    m_read_compose.side_effect = lambda: {
         'services': {
             'spark-one': {
                 'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
@@ -46,26 +50,19 @@ def m_utils(mocker):
                 'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
             }
         }}
-    return m
+    m_read_shared_compose.side_effect = lambda: {'services': {}}
 
 
-@pytest.fixture
-def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh', autospec=True)
-    m.side_effect = check_sudo
-    return m
-
-
-def test_update_ctl(m_actions, m_utils, m_sh):
+def test_update_ctl(m_actions: Mock, m_sh: Mock):
     invoke(update.update_ctl)
     m_actions.install_ctl_package.assert_called_once_with()
     m_actions.uninstall_old_ctl_package.assert_called_once_with()
-    m_actions.deploy_ctl_wrapper.assert_called_once_with()
+    m_actions.make_ctl_entrypoint.assert_called_once_with()
     m_sh.assert_not_called()
 
 
-def test_update(m_actions, m_utils, m_sh, mocker):
-    mocker.patch(TESTED + '.migration')
+def test_update(m_file_exists: Mock, m_getenv: Mock, m_migration: Mock):
+    config = utils.get_config()
 
     invoke(update.update, '--from-version 0.0.1', input='\n')
     invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune')
@@ -75,13 +72,18 @@ def test_update(m_actions, m_utils, m_sh, mocker):
     invoke(update.update, '--from-version 9001.0.0 --prune', _err=True)
     invoke(update.update,
            '--from-version 0.0.1 --no-pull --no-update-ctl' +
-           ' --no-migrate --no-prune --no-update-system-packages')
+           ' --no-migrate --no-prune')
 
-    m_utils.getenv.return_value = None
+    m_getenv.return_value = None
     invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune')
 
+    config.system.apt_upgrade = False
+    m_file_exists.return_value = False
+    invoke(update.update, '--from-version 0.0.1 --no-update-ctl')
+    assert m_migration.migrate_env_config.call_count == 1
 
-def test_check_version(m_utils, mocker):
+
+def test_check_version(mocker: MockerFixture):
     mocker.patch(TESTED + '.const.CFG_VERSION', '1.2.3')
     mocker.patch(TESTED + '.SystemExit', DummyError)
 
@@ -94,8 +96,8 @@ def test_check_version(m_utils, mocker):
         update.check_version(Version('1.3.0'))
 
 
-def test_bind_localtime(m_utils):
-    m_utils.read_compose.side_effect = lambda: {
+def test_bind_localtime(m_read_compose: Mock, m_write_compose: Mock):
+    m_read_compose.side_effect = lambda: {
         'version': '3.7',
         'services': {
             'spark-one': {
@@ -121,7 +123,7 @@ def test_bind_localtime(m_utils):
         }}
 
     update.bind_localtime()
-    m_utils.write_compose.assert_called_once_with({
+    m_write_compose.assert_called_once_with({
         'version': '3.7',
         'services': {
             'spark-one': {
@@ -161,8 +163,8 @@ def test_bind_localtime(m_utils):
         }})
 
 
-def test_bind_spark_backup(m_utils):
-    m_utils.read_compose.side_effect = lambda: {
+def test_bind_spark_backup(m_read_compose: Mock, m_write_compose: Mock):
+    m_read_compose.side_effect = lambda: {
         'version': '3.7',
         'services': {
             'spark-one': {
@@ -196,7 +198,7 @@ def test_bind_spark_backup(m_utils):
         }}
 
     update.bind_spark_backup()
-    m_utils.write_compose.assert_called_once_with({
+    m_write_compose.assert_called_once_with({
         'version': '3.7',
         'services': {
             'spark-one': {
@@ -242,8 +244,8 @@ def test_bind_spark_backup(m_utils):
         }})
 
 
-def test_bind_noop(m_utils):
-    m_utils.read_shared_compose.side_effect = lambda: {
+def test_bind_noop(m_read_shared_compose: Mock, m_read_compose: Mock, m_write_compose: Mock):
+    m_read_shared_compose.side_effect = lambda: {
         'version': '3.7',
         'services': {
             'redis': {
@@ -251,7 +253,7 @@ def test_bind_noop(m_utils):
             },
         }
     }
-    m_utils.read_compose.side_effect = lambda: {
+    m_read_compose.side_effect = lambda: {
         'version': '3.7',
         'services': {
             'redis': {
@@ -262,4 +264,4 @@ def test_bind_noop(m_utils):
 
     update.bind_localtime()
     update.bind_spark_backup()
-    m_utils.write_compose.assert_not_called()
+    m_write_compose.assert_not_called()

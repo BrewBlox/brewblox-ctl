@@ -2,29 +2,16 @@
 Tests brewblox_ctl.commands.docker
 """
 
-import pytest
+
+from unittest.mock import Mock
 
 from brewblox_ctl.commands import docker
-from brewblox_ctl.testing import check_sudo, invoke
+from brewblox_ctl.testing import invoke
 
 TESTED = docker.__name__
 
 
-@pytest.fixture
-def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils', autospec=True)
-    m.optsudo.return_value = 'SUDO '
-    return m
-
-
-@pytest.fixture
-def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh', autospec=True)
-    m.side_effect = check_sudo
-    return m
-
-
-def test_up(m_utils, m_sh):
+def test_up(m_sh: Mock):
     invoke(docker.up, '--quiet svc')
     m_sh.assert_called_once_with('SUDO docker compose up -d --quiet svc')
 
@@ -33,24 +20,24 @@ def test_up(m_utils, m_sh):
     m_sh.assert_called_once_with('SUDO docker compose up -d --quiet svc')
 
 
-def test_down(m_utils, m_sh):
+def test_down(m_sh: Mock):
     invoke(docker.down, '--quiet')
     m_sh.assert_called_once_with('SUDO docker compose down --quiet')
 
 
-def test_restart(m_utils, m_sh):
+def test_restart(m_sh: Mock):
     invoke(docker.restart, '--quiet svc')
     m_sh.assert_called_once_with('SUDO docker compose up -d --force-recreate --quiet svc')
 
 
-def test_follow(m_utils, m_sh):
+def test_follow(m_sh: Mock):
     invoke(docker.follow, 'spark-one spark-two')
     m_sh.assert_called_with('SUDO docker compose logs --follow spark-one spark-two')
     invoke(docker.follow)
     m_sh.assert_called_with('SUDO docker compose logs --follow ')
 
 
-def test_kill(m_utils, m_sh):
+def test_kill(m_sh: Mock, m_command_exists: Mock):
     invoke(docker.kill)
     m_sh.assert_called_once_with('SUDO docker rm --force $(SUDO docker ps -aq)', check=False)
 
@@ -69,9 +56,9 @@ def test_kill(m_utils, m_sh):
     ])
 
     invoke(docker.kill, '--zombies')
-    assert m_sh.call_count == 5
+    assert m_sh.call_count == 6
 
     m_sh.reset_mock()
-    m_utils.command_exists.return_value = False
+    m_command_exists.return_value = False
     invoke(docker.kill, '--zombies')
     assert m_sh.call_count == 1

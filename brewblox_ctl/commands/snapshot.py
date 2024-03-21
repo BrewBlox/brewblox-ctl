@@ -8,7 +8,6 @@ from tempfile import TemporaryDirectory
 import click
 
 from brewblox_ctl import actions, click_helpers, utils
-from brewblox_ctl.utils import sh
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -44,12 +43,12 @@ def save(file, force):
     if utils.file_exists(file):
         if force or utils.confirm(f'`{file}` already exists. ' +
                                   'Do you want to overwrite it?'):
-            sh(f'rm -f {file}')
+            utils.sh(f'rm -f {file}')
         else:
             return
 
     with utils.downed_services():
-        sh(f'sudo tar -C {dir.parent} --exclude .venv -czf {file} {dir.name}')
+        utils.sh(f'sudo tar -C {dir.parent} --exclude .venv -czf {file} {dir.name}')
         click.echo(Path(file).resolve())
 
 
@@ -69,16 +68,16 @@ def load(file):
 
     with TemporaryDirectory() as tmpdir:
         utils.info(f'Extracting snapshot to {dir} directory ...')
-        sh(f'tar -xzf {file} -C {tmpdir}')
+        utils.sh(f'tar -xzf {file} -C {tmpdir}')
         content = list(Path(tmpdir).iterdir())
         if utils.get_opts().dry_run:
             content = ['brewblox']
         if len(content) != 1:
             raise ValueError(f'Multiple files found in snapshot: {content}')
-        sh('sudo rm -rf ./*')
+        utils.sh('sudo rm -rf ./*')
         # We need to explicitly include dotfiles in the mv glob
         src = content[0]
-        sh(f'mv {src}/.[!.]* {src}/* {dir}/')
+        utils.sh(f'mv {src}/.[!.]* {src}/* {dir}/')
         utils.get_config.cache_clear()
 
     actions.install_ctl_package(download='missing')

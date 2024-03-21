@@ -1,6 +1,5 @@
 import re
 from getpass import getpass
-from tempfile import NamedTemporaryFile
 from typing import Optional, Tuple
 
 import click
@@ -12,8 +11,8 @@ from . import const, utils
 def read_users() -> dict:
     content = ''
 
-    if const.PASSWD_FILE.exists():
-        content = utils.sh(f'sudo cat "{const.PASSWD_FILE}"', capture=True) or ''
+    if utils.file_exists(const.PASSWD_FILE):
+        content = utils.read_file_sudo(const.PASSWD_FILE)
 
     return {
         name: hashed
@@ -25,15 +24,9 @@ def read_users() -> dict:
 
 
 def write_users(users: dict):
-    opts = utils.get_opts()
-    if opts.dry_run or opts.verbose:
-        utils.show_data(const.PASSWD_FILE, '***')
-    with NamedTemporaryFile('w') as tempf:
-        for k, v in users.items():
-            tempf.write(f'{k}:{v}\n')
-        tempf.flush()
-        utils.sh(f'sudo cp "{tempf.name}" "{const.PASSWD_FILE}"')
-        utils.sh(f'sudo chown root:root "{const.PASSWD_FILE}"')
+    content = ''.join([f'{k}:{v}\n' for k, v in users.items()])
+    utils.write_file_sudo(const.PASSWD_FILE, content, secret=True)
+    utils.sh(f'sudo chown root:root "{const.PASSWD_FILE}"')
 
 
 def prompt_user_info(username: Optional[str], password: Optional[str]) -> Tuple[str, str]:

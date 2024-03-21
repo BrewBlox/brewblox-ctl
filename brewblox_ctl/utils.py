@@ -17,7 +17,7 @@ from functools import lru_cache
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
 from tempfile import NamedTemporaryFile
-from typing import Generator, List, Union
+from typing import Dict, Generator, List, Union
 
 import click
 import dotenv
@@ -88,7 +88,7 @@ def confirm_usb():
     input('Please connect a single Spark over USB, and press ENTER')
 
 
-def confirm_mode():  # pragma: no cover
+def confirm_mode():
     config = get_config()
     opts = get_opts()
     if config.skip_confirm or opts.yes or opts.dry_run or opts.verbose:
@@ -129,11 +129,15 @@ def confirm_mode():  # pragma: no cover
         opts.yes = True
 
 
-def getenv(key, default=None):  # pragma: no cover
+def getenv(key, default=None):
     return os.getenv(key, default)
 
 
-def setenv(key, value, dotenv_path=None):  # pragma: no cover
+def envdict(dotenv_path=None) -> Dict[str, Union[str, None]]:
+    return dotenv.dotenv_values(dotenv_path=dotenv_path)
+
+
+def setenv(key, value, dotenv_path=None):
     if dotenv_path is None:
         dotenv_path = Path('.env').resolve()
     opts = get_opts()
@@ -143,7 +147,7 @@ def setenv(key, value, dotenv_path=None):  # pragma: no cover
         dotenv.set_key(dotenv_path, key, str(value), quote_mode='never')
 
 
-def clearenv(key, dotenv_path=None):  # pragma: no cover
+def clearenv(key, dotenv_path=None):
     if dotenv_path is None:
         dotenv_path = Path('.env').resolve()
     opts = get_opts()
@@ -153,11 +157,11 @@ def clearenv(key, dotenv_path=None):  # pragma: no cover
         dotenv.unset_key(dotenv_path, key, quote_mode='never')
 
 
-def file_exists(path: PathLike_):  # pragma: no cover
+def file_exists(path: PathLike_):
     return Path(path).exists()
 
 
-def command_exists(cmd):  # pragma: no cover
+def command_exists(cmd):
     return bool(shutil.which(cmd))
 
 
@@ -171,37 +175,37 @@ def is_wsl() -> bool:
                          flags=re.IGNORECASE))
 
 
-def is_root() -> bool:  # pragma: no cover
+def is_root() -> bool:
     return os.geteuid() == 0
 
 
-def is_docker_user() -> bool:  # pragma: no cover
+def is_docker_user() -> bool:
     return 'docker' in [grp.getgrgid(g).gr_name for g in os.getgroups()]
 
 
-def has_docker_rights():  # pragma: no cover
+def has_docker_rights():
     # Can current user run docker commands without sudo?
     # The shell must be reloaded after adding a user to the 'docker' group,
     # so a strict group membership check is not sufficient
     return 'permission denied' not in sh('docker version 2>&1', capture=True, check=False)
 
 
-def is_brewblox_dir(dir: str) -> bool:  # pragma: no cover
+def is_brewblox_dir(dir: str) -> bool:
     return (Path(dir) / 'brewblox.yml').exists() or \
         (const.ENV_KEY_CFG_VERSION in dotenv_values(f'{dir}/.env'))
 
 
-def is_empty_dir(dir):  # pragma: no cover
+def is_empty_dir(dir):
     path = Path(dir)
     return path.is_dir() and not next(path.iterdir(), None)
 
 
-def user_home_exists() -> bool:  # pragma: no cover
+def user_home_exists() -> bool:
     home = Path.home()
     return home.name != 'root' and home.exists()
 
 
-def is_compose_up():  # pragma: no cover
+def is_compose_up():
     sudo = optsudo()
     return Path('docker-compose.yml').exists() and \
         sh(f'{sudo}docker compose ps -q', capture=True).strip() != ''
@@ -223,12 +227,12 @@ def downed_services():
         yield
 
 
-def cache_sudo():  # pragma: no cover
+def cache_sudo():
     """Elevated privileges are cached for default 15m"""
     sh('sudo true', silent=True)
 
 
-def optsudo():  # pragma: no cover
+def optsudo():
     return '' if has_docker_rights() else 'sudo -E env "PATH=$PATH" '
 
 
@@ -272,8 +276,10 @@ def sh(cmd: str, check=True, capture=False, silent=False) -> str:
 
 def sh_stream(cmd: str) -> Generator[str, None, None]:
     opts = get_opts()
-    if opts.verbose:
+    if opts.verbose or opts.dry_run:
         click.secho(f'{const.LOG_SHELL} {cmd}', fg='magenta', color=opts.color)
+    if opts.dry_run:
+        return
 
     process = Popen(
         shlex.split(cmd),
@@ -340,11 +346,11 @@ def datastore_url() -> str:
     return f'{host_url()}/history/datastore'
 
 
-def hostname() -> str:  # pragma: no cover
+def hostname() -> str:
     return socket.gethostname()
 
 
-def host_lan_ip() -> str:  # pragma: no cover
+def host_lan_ip() -> str:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.settimeout(0)
     try:
@@ -370,22 +376,22 @@ def host_ip_addresses() -> List[str]:
     return addresses
 
 
-def read_file(infile: PathLike_) -> str:  # pragma: no cover
+def read_file(infile: PathLike_) -> str:
     return Path(infile).read_text()
 
 
-def read_file_sudo(infile: PathLike_) -> str:  # pragma: no cover
+def read_file_sudo(infile: PathLike_) -> str:
     return sh(f'sudo cat "{infile}"', capture=True)
 
 
-def write_file(outfile: PathLike_, content: str):  # pragma: no cover
-    show_data(str(outfile), content)
+def write_file(outfile: PathLike_, content: str, secret=False):
+    show_data(str(outfile), '***' if secret else content)
     if not get_opts().dry_run:
         Path(outfile).write_text(content)
 
 
-def write_file_sudo(outfile: PathLike_, content: str):  # pragma: no cover
-    show_data(str(outfile), content)
+def write_file_sudo(outfile: PathLike_, content: str, secret=False):
+    show_data(str(outfile), '***' if secret else content)
     if not get_opts().dry_run:
         with NamedTemporaryFile('w') as tmp:
             tmp.write(content)
@@ -394,11 +400,11 @@ def write_file_sudo(outfile: PathLike_, content: str):  # pragma: no cover
             sh(f'sudo cp -fp "{tmp.name}" "{outfile}"')
 
 
-def read_yaml(infile: PathLike_) -> CommentedMap:  # pragma: no cover
+def read_yaml(infile: PathLike_) -> CommentedMap:
     return yaml.load(Path(infile))
 
 
-def write_yaml(outfile: PathLike_, data: Union[dict, CommentedMap]):  # pragma: no cover
+def write_yaml(outfile: PathLike_, data: Union[dict, CommentedMap]):
     opts = get_opts()
     if opts.dry_run or opts.verbose:
         stream = StringIO()
@@ -419,7 +425,7 @@ def read_compose() -> CommentedMap:
     return data
 
 
-def write_compose(data: Union[dict, CommentedMap]):  # pragma: no cover
+def write_compose(data: Union[dict, CommentedMap]):
     write_yaml(const.COMPOSE_FILE, data)
 
 
@@ -427,7 +433,7 @@ def read_shared_compose() -> CommentedMap:
     return read_yaml(const.COMPOSE_SHARED_FILE)
 
 
-def write_shared_compose(data: Union[dict, CommentedMap]):  # pragma: no cover
+def write_shared_compose(data: Union[dict, CommentedMap]):
     write_yaml(const.COMPOSE_SHARED_FILE, data)
 
 
