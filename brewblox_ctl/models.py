@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -7,9 +7,9 @@ class ComposeConfig(BaseModel):
     project: str = Field(default='brewblox',
                          title='Docker Compose project name',
                          description='If you run multiple Compose projects, they must have unique names.')
-    file: str = Field(default='docker-compose.shared.yml:docker-compose.yml',
-                      title='A `:`-separated list of files used by Compose to generate configuration. ' +
-                      'If multiple files are found, they are merged.')
+    files: List[str] = Field(default=['docker-compose.shared.yml', 'docker-compose.yml'],
+                             title='A list of files used by Compose to generate configuration. ' +
+                             'If multiple files are found, they are merged.')
 
 
 class PortConfig(BaseModel):
@@ -22,7 +22,7 @@ class PortConfig(BaseModel):
                        description='HTTPS is HTTP + TLS encryption.')
     mqtt: int = Field(default=1883,
                       title='External MQTT port',
-                      description='History data is published over MQTT')
+                      description='History data is published over MQTT.')
     mqtts: int = Field(default=8883,
                        title='External MQTTS port',
                        description='MQTTS is MQTT + TLS encryption.')
@@ -45,13 +45,13 @@ class SystemConfig(BaseModel):
 
 class AuthConfig(BaseModel):
     enabled: bool = Field(default=False,
-                          title='Enable/disable the Authentication service',
-                          description='When enabled, users need to login before using the UI.')
+                          title='Enable/disable UI authentication',
+                          description='When enabled, users need to login when using the UI.')
 
 
 class TraefikConfig(BaseModel):
     tls: bool = Field(default=True,
-                      title='Enable/disable TLS termination for the HTTPS/MQTTS ports',
+                      title='Enable/disable TLS termination for the HTTPS port',
                       description='This can be disabled when TLS termination is handled by another proxy.')
     static_config_file: str = Field(default='/config/traefik.yml',
                                     title='Path to the static Traefik configuration file',
@@ -71,18 +71,17 @@ class VictoriaConfig(BaseModel):
     search_latency: str = Field(default='10s',
                                 title='Max duration before inserted history data is returned by queries',
                                 description='Newly inserted data points must be indexed before they can be queried. '
-                                'Every {search_latency}, all newly inserted points are indexed.' +
-                                'This does not change the timestamp for inserted data.')
+                                'Every {search_latency}, all newly inserted points are indexed.')
 
 
 class CtlConfig(BaseModel):
     release: str = Field(default='edge',
-                         title='Brewblox release track',
-                         description='This determines download tags for Docker and brewblox-ctl')
+                         title='Brewblox release tag',
+                         description='This determines the software version used for services and firmware.')
     ctl_release: Optional[str] = Field(default=None,
-                                       title='brewblox-ctl release track',
-                                       description='The release track for brewblox-ctl itself. ' +
-                                       'If not set, `release` is used.')
+                                       title='brewblox-ctl release tag',
+                                       description='The release tag for brewblox-ctl itself. ' +
+                                       'If not set, the value of `release` is used.')
     skip_confirm: bool = Field(default=False,
                                title='Automatically skip confirmation prompts',
                                description='brewblox-ctl prompts whenever a command makes a persistent change, '
@@ -90,9 +89,10 @@ class CtlConfig(BaseModel):
     debug: bool = Field(default=False,
                         title='Run brewblox-ctl in debug mode',
                         description='Show stack traces on error, and print additional information in commands.')
-    environment: Dict[str, str] = Field(default_factory=dict,
+    environment: Dict[str, str] = Field(default={},
                                         title='Custom environment settings',
-                                        description='They will be inserted in the .env file')
+                                        description='They will be inserted in the .env file. ' +
+                                        'You can reference them in your docker-compose.yml configuration.')
 
     # Nested configuration
     ports: PortConfig = Field(default_factory=PortConfig)

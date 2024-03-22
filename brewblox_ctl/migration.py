@@ -326,7 +326,7 @@ def migrate_env_config():
         config.compose.project = value
 
     if value := popget('COMPOSE_FILE'):
-        config.compose.file = value
+        config.compose.files = value.split(':')
 
     config.environment = envdict  # assign leftovers
     actions.make_brewblox_config(config)

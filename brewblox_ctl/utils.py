@@ -231,7 +231,10 @@ def downed_services():
     Ensures services are down during context, and in the previous state afterwards.
     """
     sudo = optsudo()
-    running = is_compose_up()
+    try:
+        running = is_compose_up()
+    except Exception:
+        running = False
 
     if running:
         sh(f'{sudo}docker compose --log-level CRITICAL down')
@@ -278,14 +281,19 @@ def sh(cmd: str, check=True, capture=False, silent=False) -> str:
     stderr = STDOUT if check and not silent else DEVNULL
     stdout = PIPE if capture or silent else None
 
-    result = run(cmd,
-                 shell=True,
-                 check=check,
-                 universal_newlines=capture,
-                 stdout=stdout,
-                 stderr=stderr)
+    result = None
+    try:
+        result = run(cmd,
+                     shell=True,
+                     check=check,
+                     universal_newlines=capture,
+                     stdout=stdout,
+                     stderr=stderr)
 
-    return result.stdout or ''
+        return result.stdout or ''
+    except CalledProcessError as ex:
+        error(ex.stdout or '')
+        raise ex
 
 
 def sh_stream(cmd: str) -> Generator[str, None, None]:

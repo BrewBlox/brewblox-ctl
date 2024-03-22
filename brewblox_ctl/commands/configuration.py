@@ -55,20 +55,28 @@ def format_model(model: BaseModel) -> Dict[str, Any]:
     return props
 
 
+def maybe_quote(v) -> str:
+    return f'"{v}"' if isinstance(v, str) else f'{v}'
+
+
 def print_formatted(data: dict, depth: int = 0):
     opts = utils.get_opts()
     prefix = ' ' * depth
+    if not data:
+        click.secho(prefix + '*empty*')
+
     for key, value in data.items():
         # skipped fields
-        if key in ('additionalProperties',):
+        if key in ('additionalProperties', 'items'):
             continue
 
         # nested fields
         if isinstance(value, dict):
-            if key == 'value':
-                click.secho(f'{prefix}{key}', fg='blue', color=opts.color)
+            if key in ('value', 'default'):
+                click.secho(f'{prefix}{key}:', fg='blue', color=opts.color)
             else:
                 click.secho(f'{prefix}{key}', fg='cyan', bold=True, color=opts.color)
+
             print_formatted(value, depth + 4)
             click.secho('')
 
@@ -81,14 +89,20 @@ def print_formatted(data: dict, depth: int = 0):
         elif key in ('title', 'description'):
             click.secho(f'{prefix}{value}', fg='bright_black', color=opts.color)
 
+        elif key == 'type' and value == 'array':
+            item_type = data['items']['type']
+            click.secho(f'{prefix}{key}: list of {item_type}', fg='blue', color=opts.color)
+
         # value type
         else:
             click.secho(f'{prefix}{key}: ', nl=False, fg='blue', color=opts.color)
 
             if value is None:
                 click.secho('null')
-            elif key in ('value', 'default') and isinstance(value, str):
-                click.secho(f'"{value}"')
+            elif isinstance(value, list):
+                click.secho('\n' + '\n'.join([f'{prefix}  - {maybe_quote(v)}' for v in value]))
+            elif key in ('value', 'default'):
+                click.secho(maybe_quote(value))
             else:
                 click.secho(f'{value}')
 
