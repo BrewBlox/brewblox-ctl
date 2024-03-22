@@ -8,7 +8,6 @@ import re
 import click
 
 from brewblox_ctl import click_helpers, utils
-from brewblox_ctl.utils import sh
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -29,7 +28,7 @@ def up(detach, compose_args):
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh(f'{sudo}docker compose up -d ' + ' '.join(list(compose_args)))
+    utils.sh(f'{sudo}docker compose up -d ' + ' '.join(list(compose_args)))
 
 
 @cli.command(context_settings=dict(
@@ -44,7 +43,7 @@ def down(compose_args):
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh(f'{sudo}docker compose down ' + ' '.join(list(compose_args)))
+    utils.sh(f'{sudo}docker compose down ' + ' '.join(list(compose_args)))
 
 
 @cli.command(context_settings=dict(
@@ -62,7 +61,7 @@ def restart(compose_args):
     utils.check_config()
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh(f'{sudo}docker compose up -d --force-recreate ' + ' '.join(list(compose_args)))
+    utils.sh(f'{sudo}docker compose up -d --force-recreate ' + ' '.join(list(compose_args)))
 
 
 @cli.command()
@@ -86,7 +85,7 @@ def follow(services):
     """
     utils.check_config()
     sudo = utils.optsudo()
-    sh(f'{sudo}docker compose logs --follow ' + ' '.join(services))
+    utils.sh(f'{sudo}docker compose logs --follow ' + ' '.join(services))
 
 
 @cli.command()
@@ -102,7 +101,7 @@ def kill(zombies):
     """
     utils.confirm_mode()
     sudo = utils.optsudo()
-    sh(f'{sudo}docker rm --force $({sudo}docker ps -aq)', check=False)
+    utils.sh(f'{sudo}docker rm --force $({sudo}docker ps -aq)', check=False)
 
     if zombies:
         # We can't use psutil for this, as we need root rights to get pids
@@ -115,10 +114,11 @@ def kill(zombies):
 
         procs = re.findall(
             r'(\d+)/docker-proxy',
-            sh('sudo netstat -pna', capture=True))
+            utils.sh('sudo netstat -pna', capture=True))
 
         if procs:
             utils.info(f'Removing {len(procs)} zombies ...')
-            sh('sudo service docker stop')
-            sh([f'sudo kill -9 {proc}' for proc in procs])
-            sh('sudo service docker start')
+            utils.sh('sudo service docker stop')
+            for proc in procs:
+                utils.sh(f'sudo kill -9 {proc}')
+            utils.sh('sudo service docker start')

@@ -4,7 +4,6 @@ Manual migration steps
 
 import json
 import re
-from contextlib import suppress
 from datetime import datetime
 from tempfile import NamedTemporaryFile
 from typing import Dict, List, Optional, Tuple
@@ -12,120 +11,7 @@ from typing import Dict, List, Optional, Tuple
 import requests
 import urllib3
 
-from brewblox_ctl import actions, const, sh, utils
-
-
-def migrate_compose_split():
-    # Splitting compose configuration between docker-compose.yml and docker-compose.shared.yml
-    # Version pinning (0.2.2) will happen automatically
-    utils.info('Moving system services to docker-compose.shared.yml ...')
-    config = utils.read_compose()
-    sys_names = [
-        'mdns',
-        'eventbus',
-        'influx',
-        'datastore',
-        'history',
-        'ui',
-        'traefik',
-    ]
-    usr_config = {
-        'version': config['version'],
-        'services': {key: svc for (key, svc) in config['services'].items() if key not in sys_names}
-    }
-    utils.write_compose(usr_config)
-
-
-def migrate_compose_datastore():
-    # The couchdb datastore service is gone
-    # Older services may still rely on it
-    utils.info('Removing `depends_on` fields from docker-compose.yml ...')
-    config = utils.read_compose()
-    for svc in config['services'].values():
-        with suppress(KeyError):
-            del svc['depends_on']
-    utils.write_compose(config)
-
-    # Init dir. It will be filled during upped_migrate
-    utils.info('Creating redis/ dir ...')
-    sh('mkdir -p redis/')
-
-
-def migrate_ipv6_fix():
-    # Undo disable-ipv6
-    sh('sudo sed -i "/net.ipv6.*.disable_ipv6 = 1/d" /etc/sysctl.conf', check=False)
-    actions.fix_ipv6()
-
-
-def migrate_couchdb():
-    urllib3.disable_warnings()
-    sudo = utils.optsudo()
-    opts = utils.ctx_opts()
-    redis_url = utils.datastore_url()
-    couch_url = 'http://localhost:5984'
-
-    utils.info('Migrating datastore from CouchDB to Redis ...')
-
-    if opts.dry_run:
-        utils.info('Dry run. Skipping migration ...')
-        return
-
-    if not utils.path_exists('./couchdb/'):
-        utils.info('couchdb/ dir not found. Skipping migration ...')
-        return
-
-    utils.info('Starting a temporary CouchDB container on port 5984 ...')
-    sh(f'{sudo}docker rm -f couchdb-migrate', check=False)
-    sh(f'{sudo}docker run --rm -d'
-        ' --name couchdb-migrate'
-        ' -v "$(pwd)/couchdb/:/opt/couchdb/data/"'
-        ' -p "5984:5984"'
-        ' treehouses/couchdb:2.3.1')
-    sh(f'{const.CLI} http wait {couch_url}')
-    sh(f'{const.CLI} http wait {redis_url}/ping')
-
-    resp = requests.get(f'{couch_url}/_all_dbs')
-    resp.raise_for_status()
-    dbs = resp.json()
-
-    for db in ['brewblox-ui-store', 'brewblox-automation']:
-        if db in dbs:
-            resp = requests.get(f'{couch_url}/{db}/_all_docs',
-                                params={'include_docs': True})
-            resp.raise_for_status()
-            docs = [v['doc'] for v in resp.json()['rows']]
-            # Drop invalid names
-            docs[:] = [d for d in docs if len(d['_id'].split('__', 1)) == 2]
-            for d in docs:
-                segments = d['_id'].split('__', 1)
-                d['namespace'] = f'{db}:{segments[0]}'
-                d['id'] = segments[1]
-                del d['_rev']
-                del d['_id']
-            resp = requests.post(f'{redis_url}/mset',
-                                 json={'values': docs},
-                                 verify=False)
-            resp.raise_for_status()
-            utils.info(f'Migrated {len(docs)} entries from {db}')
-
-    if 'spark-service' in dbs:
-        resp = requests.get(f'{couch_url}/spark-service/_all_docs',
-                            params={'include_docs': True})
-        resp.raise_for_status()
-        docs = [v['doc'] for v in resp.json()['rows']]
-        for d in docs:
-            d['namespace'] = 'spark-service'
-            d['id'] = d['_id']
-            del d['_rev']
-            del d['_id']
-        resp = requests.post(f'{redis_url}/mset',
-                             json={'values': docs},
-                             verify=False)
-        resp.raise_for_status()
-        utils.info(f'Migrated {len(docs)} entries from spark-service')
-
-    sh(f'{sudo}docker stop couchdb-migrate')
-    sh('sudo mv couchdb/ couchdb-migrated-' + datetime.now().strftime('%Y%m%d'))
+from . import actions, utils
 
 
 def _influx_measurements() -> List[str]:
@@ -157,11 +43,11 @@ def _influx_line_count(service: str, args: str) -> Optional[int]:
     sudo = utils.optsudo()
     measurement = f'"brewblox"."downsample_1m"."{service}"'
     points_field = '"m_ Combined Influx points"'
-    json_result = sh(f'{sudo}docker exec influxdb-migrate influx '
-                     '-database brewblox '
-                     f"-execute 'SELECT count({points_field}) FROM {measurement} {args}' "
-                     '-format json',
-                     capture=True)
+    json_result = utils.sh(f'{sudo}docker exec influxdb-migrate influx '
+                           '-database brewblox '
+                           f"-execute 'SELECT count({points_field}) FROM {measurement} {args}' "
+                           '-format json',
+                           capture=True)
 
     result = json.loads(json_result)
 
@@ -196,7 +82,7 @@ def _copy_influx_measurement(
     num_lines = offset
 
     if target == 'file':
-        sh(f'mkdir -p {FILE_DIR}')
+        utils.sh(f'mkdir -p {FILE_DIR}')
 
     if total_lines is None:
         return
@@ -252,7 +138,7 @@ def _copy_influx_measurement(
             elif target == 'file':
                 idx = str(offset // FILE_BATCH_SIZE + 1).rjust(3, '0')
                 fname = f'{FILE_DIR}/{service}__{date}__{duration or "all"}__{idx}.lines'
-                sh(f'cat "{tmp.name}" >> "{fname}"')
+                utils.sh(f'cat "{tmp.name}" >> "{fname}"')
 
             else:
                 raise ValueError(f'Invalid target: {target}')
@@ -273,7 +159,7 @@ def migrate_influxdb(
     The exported data is either immediately imported to the new history database,
     or saved to file.
     """
-    opts = utils.ctx_opts()
+    opts = utils.get_opts()
     sudo = utils.optsudo()
     date = datetime.now().strftime('%Y%m%d_%H%M')
 
@@ -286,28 +172,28 @@ def migrate_influxdb(
         utils.info('Dry run. Skipping migration ...')
         return
 
-    if not utils.path_exists('./influxdb/'):
+    if not utils.file_exists('./influxdb/'):
         utils.info('influxdb/ dir not found. Skipping migration ...')
         return
 
     utils.info('Starting InfluxDB container ...')
 
     # Stop container in case previous migration was cancelled
-    sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
+    utils.sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
 
     # Start standalone container
     # We'll communicate using 'docker exec', so no need to publish a port
-    sh(f'{sudo}docker run '
-       '--rm -d '
-       '--name influxdb-migrate '
-       '-v "$(pwd)/influxdb:/var/lib/influxdb" '
-       'influxdb:1.8 '
-       '> /dev/null')
+    utils.sh(f'{sudo}docker run '
+             '--rm -d '
+             '--name influxdb-migrate '
+             '-v "$(pwd)/influxdb:/var/lib/influxdb" '
+             'influxdb:1.8 '
+             '> /dev/null')
 
     # Do a health check until startup is done
     inner_cmd = 'curl --output /dev/null --silent --fail http://localhost:8086/health'
     bash_cmd = f'until $({inner_cmd}); do sleep 1 ; done'
-    sh(f"{sudo}docker exec influxdb-migrate bash -c '{bash_cmd}'")
+    utils.sh(f"{sudo}docker exec influxdb-migrate bash -c '{bash_cmd}'")
 
     # Determine relevant measurement
     # Export all of them if not specified by user
@@ -322,7 +208,7 @@ def migrate_influxdb(
         _copy_influx_measurement(svc, date, duration, target, offset)
 
     # Stop migration container
-    sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
+    utils.sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
 
 
 def migrate_ghcr_images():
@@ -383,3 +269,64 @@ def migrate_tilt_images():
 
     if changed:
         utils.write_compose(config)
+
+
+def migrate_env_config():
+    # brewblox.yml was introduced as centralized config file
+    # Previous config was stored in .env
+    # We want to retrieve those settings
+
+    envdict = utils.envdict('.env')
+
+    def popget(key: str):
+        try:
+            return envdict.pop(key)
+        except KeyError:
+            return None
+
+    config = utils.get_config()
+
+    if value := popget('BREWBLOX_CFG_VERSION'):
+        pass  # not inserted in config
+
+    if value := popget('BREWBLOX_RELEASE'):
+        config.release = value
+
+    if value := popget('BREWBLOX_CTL_RELEASE'):
+        config.ctl_release = value
+
+    if value := popget('BREWBLOX_UPDATE_SYSTEM_PACKAGES'):
+        config.system.apt_upgrade = utils.strtobool(value)
+
+    if value := popget('BREWBLOX_SKIP_CONFIRM'):
+        config.skip_confirm = utils.strtobool(value)
+
+    if value := popget('BREWBLOX_AUTH_ENABLED'):
+        config.auth.enabled = utils.strtobool(value)
+
+    if value := popget('BREWBLOX_DEBUG'):
+        config.debug = utils.strtobool(value)
+
+    if value := popget('BREWBLOX_PORT_HTTP'):
+        config.ports.http = int(value)
+
+    if value := popget('BREWBLOX_PORT_HTTPS'):
+        config.ports.https = int(value)
+
+    if value := popget('BREWBLOX_PORT_MQTT'):
+        config.ports.mqtt = int(value)
+
+    if value := popget('BREWBLOX_PORT_MQTTS'):
+        config.ports.mqtts = int(value)
+
+    if value := popget('BREWBLOX_PORT_ADMIN'):
+        config.ports.admin = int(value)
+
+    if value := popget('COMPOSE_PROJECT_NAME'):
+        config.compose.project = value
+
+    if value := popget('COMPOSE_FILE'):
+        config.compose.files = value.split(':')
+
+    config.environment = envdict  # assign leftovers
+    actions.make_brewblox_config(config)

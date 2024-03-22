@@ -3,8 +3,8 @@ Database manipulation commands
 """
 
 import click
-from brewblox_ctl import click_helpers
-from brewblox_ctl import migration, utils
+
+from brewblox_ctl import click_helpers, migration, utils
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -15,26 +15,6 @@ def cli():
 @cli.group()
 def database():
     """Database migration commands."""
-
-
-@database.command()
-def from_couchdb():
-    """Migrate configuration data from CouchDB to Redis.
-
-    In the 2020/09/22 release (config version 0.6.0)
-    Redis replaced CouchDB as configuration database.
-
-    This command copies the configuration data from CouchDB to Redis.
-
-    \b
-    Steps:
-        - Create CouchdDB container.
-        - Fetch data from CouchDB.
-        - Write data to Redis.
-    """
-    utils.check_config()
-    utils.confirm_mode()
-    migration.migrate_couchdb()
 
 
 @database.command()

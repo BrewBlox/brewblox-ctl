@@ -6,11 +6,12 @@ from socket import inet_aton
 from unittest.mock import Mock
 
 import pytest
+from pytest_mock import MockerFixture
 from zeroconf import ServiceInfo, ServiceStateChange
 
 from brewblox_ctl import const, discovery
 from brewblox_ctl.discovery import DiscoveredDevice, DiscoveryType
-from brewblox_ctl.testing import check_sudo, matching
+from brewblox_ctl.testing import matching
 
 TESTED = discovery.__name__
 
@@ -34,8 +35,8 @@ class ServiceBrowserMock():
                         state_change=ServiceStateChange.Removed)
 
 
-@pytest.fixture
-def m_conf(mocker):
+@pytest.fixture(autouse=True)
+def m_conf(mocker: MockerFixture):
 
     def get_service_info(service_type, name):
         dns_type = discovery.BREWBLOX_DNS_TYPE
@@ -84,45 +85,20 @@ def m_conf(mocker):
     return m
 
 
-@pytest.fixture
-def m_browser(mocker):
+@pytest.fixture(autouse=True)
+def m_browser(mocker: MockerFixture):
     mocker.patch(TESTED + '.DISCOVER_TIMEOUT_S', 0.01)
     return mocker.patch(TESTED + '.ServiceBrowser', ServiceBrowserMock)
 
 
-@pytest.fixture
-def m_usb(mocker):
+@pytest.fixture(autouse=True)
+def m_usb(mocker: MockerFixture):
     m_dev = Mock()
     m_dev.idProduct = const.PID_P1
 
     m = mocker.patch(TESTED + '.usb', autospec=True)
     m.core.find.return_value = [m_dev]
     m.util.get_string.return_value = '4F0052000551353432383931'
-    return m
-
-
-@pytest.fixture
-def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils')
-    m.optsudo.return_value = 'SUDO '
-    return m
-
-
-@pytest.fixture
-def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh')
-    m.side_effect = check_sudo
-    return m
-
-
-@pytest.fixture
-def m_find(mocker):
-    m = mocker.patch(TESTED + '.find_device')
-    m.side_effect = lambda _1, _2: {
-        'id': '280038000847343337373738',
-        'host': '192.168.0.55',
-        'port': 8332
-    }
     return m
 
 
@@ -174,7 +150,7 @@ def test_match_id_services():
     }
 
 
-def test_discover_usb(m_usb):
+def test_discover_usb():
     expected = DiscoveredDevice(
         discovery='USB',
         model='Spark 3',
@@ -187,7 +163,7 @@ def test_discover_usb(m_usb):
     assert next(gen, None) is None
 
 
-def test_discover_mdns(m_browser, m_conf):
+def test_discover_mdns():
     gen = discovery.discover_mdns()
     assert next(gen, None) == DiscoveredDevice(
         discovery='mDNS',
@@ -202,7 +178,7 @@ def test_discover_mdns(m_browser, m_conf):
     assert next(gen, None) is None
 
 
-def test_discover_device(m_utils, m_browser, m_conf, m_usb):
+def test_discover_device():
     usb_devs = [v for v in discovery.discover_device(DiscoveryType.usb)]
     assert len(usb_devs) == 2
     assert usb_devs[0].device_id == '4f0052000551353432383931'
@@ -215,14 +191,14 @@ def test_discover_device(m_utils, m_browser, m_conf, m_usb):
     assert all_devs == usb_devs + wifi_devs
 
 
-def test_list_devices(m_utils, m_browser, m_conf, m_usb, mocker):
+def test_list_devices(mocker: MockerFixture):
     m_echo = mocker.patch(discovery.tabular.__name__ + '.click.echo')
     discovery.list_devices(DiscoveryType.all, None)
     assert m_echo.call_count == 6  # headers, spacers, 2 lan, 2 usb
     m_echo.assert_called_with(matching(r'mDNS\s+Spark 4\s+id2\s+'))
 
 
-def test_choose_device(m_utils, m_browser, m_conf, m_usb, mocker):
+def test_choose_device(m_usb: Mock, mocker: MockerFixture):
     m_prompt = mocker.patch(TESTED + '.click.prompt')
     m_prompt.return_value = 1
 
@@ -235,7 +211,7 @@ def test_choose_device(m_utils, m_browser, m_conf, m_usb, mocker):
     assert discovery.choose_device(DiscoveryType.mqtt, None).device_id == 'id2'
 
 
-def test_find_device_by_host(m_utils, m_browser, m_conf, m_usb, mocker):
+def test_find_device_by_host(mocker: MockerFixture):
     m_get = mocker.patch(TESTED + '.requests.get', autospec=True)
 
     m_get.return_value.text = '!BREWBLOX,fw_version,proto_version,fw_date,proto_date,sys_version,esp32,00,00,id2'

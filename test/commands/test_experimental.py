@@ -2,35 +2,21 @@
 Tests brewblox_ctl.commands.experimental
 """
 
-import pytest
+from unittest.mock import Mock
 
+import pytest
+from pytest_mock import MockerFixture
+
+from brewblox_ctl import utils
 from brewblox_ctl.commands import experimental
 from brewblox_ctl.discovery import DiscoveredDevice
-from brewblox_ctl.testing import check_sudo, invoke
+from brewblox_ctl.testing import invoke
 
 TESTED = experimental.__name__
 
 
 @pytest.fixture
-def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils', autospec=True)
-    m.docker_tag.return_value = 'docker-tag'
-    m.hostname.return_value = 'brewblox'
-    m.optsudo.return_value = 'SUDO '
-    m.random_string.return_value = 'password_string'
-    m.ctx_opts.return_value.dry_run = False
-    return m
-
-
-@pytest.fixture
-def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh', autospec=True)
-    m.side_effect = check_sudo
-    return m
-
-
-@pytest.fixture
-def m_choose(mocker):
+def m_choose(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.choose_device', autospec=True)
     m.side_effect = lambda _1, _2: DiscoveredDevice(
         discovery='mDNS',
@@ -42,7 +28,7 @@ def m_choose(mocker):
 
 
 @pytest.fixture
-def m_find(mocker):
+def m_find(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.find_device_by_host', autospec=True)
     m.side_effect = lambda host: DiscoveredDevice(
         discovery='mDNS',
@@ -53,18 +39,18 @@ def m_find(mocker):
     return m
 
 
-def test_enable_spark_mqtt_empty(m_sh, m_utils, m_choose):
+def test_enable_spark_mqtt_empty(m_choose: Mock, m_sh: Mock):
     m_choose.side_effect = lambda _1, _2: None
 
     invoke(experimental.enable_spark_mqtt, '--cert-file=README.md')
     assert m_sh.call_count == 0
 
-    m_utils.ctx_opts.return_value.dry_run = True
+    utils.get_opts().dry_run = True
     invoke(experimental.enable_spark_mqtt, '--cert-file=README.md')
     assert m_sh.call_count > 0
 
 
-def test_enable_spark_mqtt(m_sh, m_utils, m_choose, m_find):
+def test_enable_spark_mqtt(m_choose: Mock, m_find: Mock, m_sh: Mock):
     invoke(experimental.enable_spark_mqtt, '--cert-file=README.md')
     invoke(experimental.enable_spark_mqtt, '--cert-file=README.md --server-host=192.168.0.1 --server-port=8888')
     invoke(experimental.enable_spark_mqtt, '--cert-file=README.md --device-host=192.168.0.1')
