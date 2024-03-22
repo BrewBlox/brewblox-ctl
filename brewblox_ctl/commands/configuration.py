@@ -115,9 +115,7 @@ def inspect():
     utils.check_config()
 
     config = utils.get_config()
-    data = format_model(config)
-    print_formatted(data)
-    # click.secho(utils.dump_yaml(format_model(config)))
+    print_formatted(format_model(config))
 
 
 @configuration.command()

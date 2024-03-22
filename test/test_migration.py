@@ -332,7 +332,11 @@ def test_migrate_env_config(m_envdict: Mock):
     assert config.ports.mqtts == 8884
     assert config.ports.admin == 9601
     assert config.compose.project == 'brewblox2'
-    assert config.compose.file == 'docker-compose.shared.yml:docker-compose.yml:are-you-sure.yml'
+    assert config.compose.files == [
+        'docker-compose.shared.yml',
+        'docker-compose.yml',
+        'are-you-sure.yml',
+    ]
     assert config.environment == {
         'USERNAME': 'henk',
         'PASSWORD': 'secret',

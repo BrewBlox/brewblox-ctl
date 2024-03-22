@@ -231,13 +231,17 @@ def downed_services():
     Ensures services are down during context, and in the previous state afterwards.
     """
     sudo = optsudo()
+
     try:
         running = is_compose_up()
-    except Exception:
+    except CalledProcessError as ex:
+        warn('Failed to check service state. Services will not be stopped.')
+        warn(strex(ex))
+        warn(ex.stdout)
         running = False
 
     if running:
-        sh(f'{sudo}docker compose --log-level CRITICAL down')
+        sh(f'{sudo}docker compose down')
         yield
         sh(f'{sudo}docker compose up -d')
     else:
@@ -281,19 +285,14 @@ def sh(cmd: str, check=True, capture=False, silent=False) -> str:
     stderr = STDOUT if check and not silent else DEVNULL
     stdout = PIPE if capture or silent else None
 
-    result = None
-    try:
-        result = run(cmd,
-                     shell=True,
-                     check=check,
-                     universal_newlines=capture,
-                     stdout=stdout,
-                     stderr=stderr)
+    result = run(cmd,
+                 shell=True,
+                 check=check,
+                 universal_newlines=capture,
+                 stdout=stdout,
+                 stderr=stderr)
 
-        return result.stdout or ''
-    except CalledProcessError as ex:
-        error(ex.stdout or '')
-        raise ex
+    return result.stdout or ''
 
 
 def sh_stream(cmd: str) -> Generator[str, None, None]:
@@ -353,7 +352,7 @@ def show_data(desc: str, data):
         if not isinstance(data, str):
             data = json.dumps(data, indent=2)
         click.secho(f'{const.LOG_CONFIG} {desc}', fg='magenta', color=opts.color)
-        click.secho(data, fg='blue', color=opts.color)
+        click.secho(data)
 
 
 def host_url() -> str:

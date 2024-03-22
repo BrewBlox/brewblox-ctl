@@ -4,6 +4,7 @@ Entrypoint for the Brewblox commands menu
 
 import sys
 from pathlib import Path
+from subprocess import CalledProcessError
 from typing import Optional
 
 import click
@@ -104,8 +105,13 @@ def main(args=sys.argv[1:]):
         ex.show()
         escalate(ex)
 
+    except CalledProcessError as ex:  # pragma: no cover
+        utils.error(utils.strex(ex))
+        utils.error(ex.stdout or '')
+        escalate(ex)
+
     except Exception as ex:  # pragma: no cover
-        click.echo(utils.strex(ex), err=True)
+        utils.error(utils.strex(ex))
         escalate(ex)
 
 
