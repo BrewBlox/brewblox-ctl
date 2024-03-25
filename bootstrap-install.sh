@@ -30,7 +30,7 @@ command_exists() {
 # Args:
 # - target directory
 is_brewblox_dir() {
-    [[ -f "$1/brewblox.yml" ]]
+    [[ -f "$1/.env" ]] && grep -q "BREWBLOX_RELEASE" "$1/.env"
     return
 }
 
@@ -56,8 +56,8 @@ install() {
     # - Value for previous install
     # - Default
     if [ -z "${BREWBLOX_RELEASE:-}" ]; then
-        if is_brewblox_dir "${BREWBLOX_DIR}" && grep -q "release:" "${BREWBLOX_DIR}/brewblox.yml"; then
-            BREWBLOX_RELEASE=$(grep "release:" "${BREWBLOX_DIR}/brewblox.yml" | cut -d ':' -f2 | xargs)
+        if is_brewblox_dir "${BREWBLOX_DIR}"; then
+            BREWBLOX_RELEASE=$(grep BREWBLOX_RELEASE "${BREWBLOX_DIR}/.env" | cut -d '=' -f2)
         else
             BREWBLOX_RELEASE="edge"
         fi
