@@ -313,7 +313,7 @@ def fix_ipv6(config_file=None, restart=True):
     # Read config. Create file if not exists
     utils.sh(f"sudo mkdir -p '{config_file.parent}'")
     utils.sh(f"sudo touch '{config_file}'")
-    config = utils.read_file_sudo()
+    config = utils.read_file_sudo(config_file)
 
     if 'fixed-cidr-v6' in config:
         utils.info('IPv6 settings are already present. Making no changes.')
