@@ -7,7 +7,7 @@ from typing import Optional
 
 import click
 
-from brewblox_ctl import click_helpers, const, sh, utils
+from brewblox_ctl import click_helpers, utils
 from brewblox_ctl.discovery import (DiscoveryType, choose_device,
                                     find_device_by_host, list_devices)
 
@@ -52,11 +52,11 @@ def discover_spark(discovery_type):
     is dependent on the configuration of your router and avahi-daemon.
     """
     try:
-        config = utils.read_compose()
+        compose = utils.read_compose()
     except FileNotFoundError:
-        config = None
+        compose = None
 
-    list_devices(DiscoveryType[discovery_type], config)
+    list_devices(DiscoveryType[discovery_type], compose)
 
 
 @cli.command()
@@ -106,17 +106,17 @@ def add_spark(name: str,
     utils.confirm_mode()
 
     sudo = utils.optsudo()
-    config: dict = utils.read_compose()
+    compose: dict = utils.read_compose()
     discovery_type: DiscoveryType = DiscoveryType[discovery_type]
 
     if not yes:
-        check_create_overwrite(config, name)
+        check_create_overwrite(compose, name)
 
     if discover_now and not simulation and not device_id:
         if device_host:
             dev = find_device_by_host(device_host)
         else:
-            dev = choose_device(discovery_type, config)
+            dev = choose_device(discovery_type, compose)
 
         if dev:
             device_id = dev.device_id
@@ -143,7 +143,7 @@ def add_spark(name: str,
     push_env('device_host', device_host)
     push_env('simulation', simulation)
 
-    config['services'][name] = {
+    compose['services'][name] = {
         'image': f'ghcr.io/brewblox/brewblox-devcon-spark:{utils.docker_tag(release)}',
         'privileged': True,
         'restart': 'unless-stopped',
@@ -160,18 +160,18 @@ def add_spark(name: str,
 
     if simulation:
         mount_dir = f'./simulator__{name}'
-        config['services'][name]['volumes'].append({
+        compose['services'][name]['volumes'].append({
             'type': 'bind',
             'source': mount_dir,
             'target': '/app/simulator'
         })
-        sh(f'mkdir -m 777 -p {mount_dir}')
+        utils.sh(f'mkdir -m 777 -p {mount_dir}')
 
-    utils.write_compose(config)
+    utils.write_compose(compose)
     click.echo(f'Added Spark service `{name}`.')
     click.echo('It will automatically show up in the UI.\n')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker compose up -d')
+        utils.sh(f'{sudo}docker compose up -d')
 
 
 @cli.command()
@@ -192,12 +192,12 @@ def add_tilt(yes):
 
     name = 'tilt'
     sudo = utils.optsudo()
-    config = utils.read_compose()
+    compose = utils.read_compose()
 
     if not yes:
-        check_create_overwrite(config, name)
+        check_create_overwrite(compose, name)
 
-    config['services'][name] = {
+    compose['services'][name] = {
         'image': 'ghcr.io/brewblox/brewblox-tilt:${BREWBLOX_RELEASE}',
         'restart': 'unless-stopped',
         'privileged': True,
@@ -219,13 +219,13 @@ def add_tilt(yes):
         ],
     }
 
-    sh(f'mkdir -p ./{name}')
+    utils.sh(f'mkdir -p ./{name}')
 
-    utils.write_compose(config)
+    utils.write_compose(compose)
     click.echo(f'Added Tilt service `{name}`.')
     click.echo('It will automatically show up in the UI.\n')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker compose up -d')
+        utils.sh(f'{sudo}docker compose up -d')
 
 
 @cli.command()
@@ -254,12 +254,12 @@ def add_plaato(name, token, yes):
     utils.confirm_mode()
 
     sudo = utils.optsudo()
-    config = utils.read_compose()
+    compose = utils.read_compose()
 
     if not yes:
-        check_create_overwrite(config, name)
+        check_create_overwrite(compose, name)
 
-    config['services'][name] = {
+    compose['services'][name] = {
         'image': 'ghcr.io/brewblox/brewblox-plaato:${BREWBLOX_RELEASE}',
         'restart': 'unless-stopped',
         'environment': {
@@ -269,11 +269,11 @@ def add_plaato(name, token, yes):
         'volumes': [localtime_volume()]
     }
 
-    utils.write_compose(config)
+    utils.write_compose(compose)
     click.echo(f'Added Plaato service `{name}`.')
     click.echo('This service publishes history data, but does not have a UI component.')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker compose up -d')
+        utils.sh(f'{sudo}docker compose up -d')
 
 
 @cli.command()
@@ -286,17 +286,17 @@ def add_node_red(yes):
     """
     utils.check_config()
     utils.confirm_mode()
+    config = utils.get_config()
 
     name = 'node-red'
     sudo = utils.optsudo()
     host = utils.host_ip_addresses()[0]
-    port = utils.getenv(const.ENV_KEY_PORT_HTTPS)
-    config = utils.read_compose()
+    compose = utils.read_compose()
 
     if not yes:
-        check_create_overwrite(config, name)
+        check_create_overwrite(compose, name)
 
-    config['services'][name] = {
+    compose['services'][name] = {
         'image': 'ghcr.io/brewblox/node-red:${BREWBLOX_RELEASE}',
         'restart': 'unless-stopped',
         'volumes': [
@@ -309,12 +309,12 @@ def add_node_red(yes):
         ]
     }
 
-    sh(f'mkdir -p ./{name}')
+    utils.sh(f'mkdir -p ./{name}')
     if [getgid(), geteuid()] != [1000, 1000]:
-        sh(f'sudo chown -R 1000:1000 ./{name}')
+        utils.sh(f'sudo chown -R 1000:1000 ./{name}')
 
-    utils.write_compose(config)
+    utils.write_compose(compose)
     click.echo(f'Added Node-RED service `{name}`.')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        sh(f'{sudo}docker compose up -d')
-        click.echo(f'Visit https://{host}:{port}/{name} in your browser to load the editor.')
+        utils.sh(f'{sudo}docker compose up -d')
+        click.echo(f'Visit https://{host}:{config.ports.https}/{name} in your browser to load the editor.')

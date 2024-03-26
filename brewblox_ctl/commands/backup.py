@@ -18,7 +18,7 @@ import urllib3
 from dotenv import load_dotenv
 from ruamel.yaml import YAML
 
-from brewblox_ctl import click_helpers, const, sh, utils
+from brewblox_ctl import click_helpers, const, utils
 from brewblox_ctl.commands import http
 
 
@@ -139,7 +139,7 @@ def mset(data):
         utils.show_data('datastore', data)
         json.dump(data, tmp)
         tmp.flush()
-        sh(f'{const.CLI} http post --quiet {utils.datastore_url()}/mset -f {tmp.name}')
+        utils.sh(f'{const.CLI} http post --quiet {utils.datastore_url()}/mset -f {tmp.name}')
 
 
 @backup.command()
@@ -225,7 +225,7 @@ def load(archive,
             utils.show_data('.env', data)
             tmp.write(data)
             tmp.flush()
-            sh(f'cp -f {tmp.name} .env')
+            utils.sh(f'cp -f {tmp.name} .env')
 
         utils.info('Reading .env values')
         load_dotenv(Path('.env').resolve())
@@ -240,18 +240,18 @@ def load(archive,
                 with suppress(KeyError):
                     del svc['depends_on']
             utils.write_compose(config)
-            sh(f'{sudo}docker compose up -d')
+            utils.sh(f'{sudo}docker compose up -d')
         else:
             utils.info('docker-compose.yml file not found in backup archive')
 
     if load_datastore:
         if redis_file in available or couchdb_files:
             utils.info('Waiting for the datastore ...')
-            sh(f'{const.CLI} http wait {store_url}/ping')
+            utils.sh(f'{const.CLI} http wait {store_url}/ping')
             # Wipe UI/Automation, but leave Spark files
             mdelete_cmd = '{} http post {}/mdelete --quiet -d \'{{"namespace":"{}", "filter":"*"}}\''
-            sh(mdelete_cmd.format(const.CLI, store_url, 'brewblox-ui-store'))
-            sh(mdelete_cmd.format(const.CLI, store_url, 'brewblox-automation'))
+            utils.sh(mdelete_cmd.format(const.CLI, store_url, 'brewblox-ui-store'))
+            utils.sh(mdelete_cmd.format(const.CLI, store_url, 'brewblox-automation'))
         else:
             utils.info('No datastore files found in backup archive')
 
@@ -306,8 +306,8 @@ def load(archive,
                 utils.show_data(spark, data)
                 json.dump(data, tmp)
                 tmp.flush()
-                sh(f'{const.CLI} http post {host_url}/{spark}/blocks/backup/load -f {tmp.name}')
-                sh(f'{sudo}docker compose restart {spark}')
+                utils.sh(f'{const.CLI} http post {host_url}/{spark}/blocks/backup/load -f {tmp.name}')
+                utils.sh(f'{sudo}docker compose restart {spark}')
 
     if load_node_red and node_red_files:
         sudo = ''
@@ -316,10 +316,10 @@ def load(archive,
 
         with TemporaryDirectory() as tmpdir:
             zipf.extractall(tmpdir, members=node_red_files)
-            sh('mkdir -p ./node-red')
-            sh(f'{sudo}chown 1000:1000 ./node-red/')
-            sh(f'{sudo}chown -R 1000:1000 {tmpdir}')
-            sh(f'{sudo}cp -rfp {tmpdir}/node-red/* ./node-red/')
+            utils.sh('mkdir -p ./node-red')
+            utils.sh(f'{sudo}chown 1000:1000 ./node-red/')
+            utils.sh(f'{sudo}chown -R 1000:1000 {tmpdir}')
+            utils.sh(f'{sudo}cp -rfp {tmpdir}/node-red/* ./node-red/')
 
     if load_mosquitto and mosquitto_files:
         zipf.extractall(members=mosquitto_files)
@@ -331,6 +331,6 @@ def load(archive,
 
     if update:
         utils.info('Updating brewblox ...')
-        sh(f'{const.CLI} update')
+        utils.sh(f'{const.CLI} update')
 
     utils.info('Done!')

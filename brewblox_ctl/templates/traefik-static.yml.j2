@@ -1,0 +1,41 @@
+# DO NOT EDIT: THIS FILE WILL BE RESET DURING UPDATES
+#
+# This file contains static configuration for the Traefik proxy.
+# It is generated using the brewblox.yml settings.
+#
+# If you need to replace it with custom configuration,
+# you can set a custom value for `traefik.static_config_file` in brewblox.yml.
+#
+# For more information, see: https://doc.traefik.io/traefik/getting-started/configuration-overview/#the-static-configuration
+
+api:
+  dashboard: true
+providers:
+  docker:
+    constraints: "LabelRegex(`com.docker.compose.project`, `{{ config.compose.project }}`)"
+    defaultRule: 'PathPrefix(`/{% raw %}{{ index .Labels "com.docker.compose.service" }}{% endraw %}`)'
+  file:
+    directory: {{ config.traefik.dynamic_config_dir }}
+entryPoints:
+  websecure:
+    address: :{{ config.ports.https }}
+    http:
+      tls: {{ config.traefik.tls }}
+      middlewares:
+        - cors@file
+        - auth@file
+  web:
+    address: :{{ config.ports.http }}
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+  admin:
+    address: :{{ config.ports.admin }}
+    http:
+      middlewares:
+        - cors@file
+  mqtt:
+    address: :{{ config.ports.mqtt }}/tcp
+  mqtts:
+    address: :{{ config.ports.mqtts }}/tcp

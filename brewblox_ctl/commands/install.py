@@ -6,9 +6,8 @@ from time import sleep
 
 import click
 
-from brewblox_ctl import actions, click_helpers, const, utils
-from brewblox_ctl.commands import snapshot
-from brewblox_ctl.utils import sh
+from .. import actions, click_helpers, const, utils
+from . import snapshot
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -36,6 +35,12 @@ class InstallOptions:
         self.init_history: bool = True
         self.init_gateway: bool = True
         self.init_eventbus: bool = True
+
+    def check_compatibility(self):
+        if utils.is_armv6() \
+            and not utils.confirm('ARMv6 detected. The Raspberry Pi Zero and 1 are not supported. ' +
+                                  'Do you want to continue?', default=False):
+            raise SystemExit(0)
 
     def check_confirm_opts(self):
         self.use_defaults = False
@@ -100,31 +105,31 @@ class InstallOptions:
         self.init_eventbus = True
         self.init_spark_backup = True
 
-        if utils.path_exists('./docker-compose.yml'):
+        if utils.file_exists('./docker-compose.yml'):
             self.init_compose = not utils.confirm('This directory already contains a docker-compose.yml file. ' +
                                                   'Do you want to keep it?')
 
-        if utils.path_exists('./auth/'):
+        if utils.file_exists('./auth/'):
             self.init_auth = not utils.confirm('This directory already contains user authentication files. '
                                                'Do you want to keep them?')
 
-        if utils.path_exists('./redis/'):
+        if utils.file_exists('./redis/'):
             self.init_datastore = not utils.confirm('This directory already contains Redis datastore files. ' +
                                                     'Do you want to keep them?')
 
-        if utils.path_exists('./victoria/'):
+        if utils.file_exists('./victoria/'):
             self.init_history = not utils.confirm('This directory already contains Victoria history files. ' +
                                                   'Do you want to keep them?')
 
-        if utils.path_exists('./traefik/'):
+        if utils.file_exists('./traefik/'):
             self.init_gateway = not utils.confirm('This directory already contains Traefik gateway files. ' +
                                                   'Do you want to keep them?')
 
-        if utils.path_exists('./mosquitto/'):
+        if utils.file_exists('./mosquitto/'):
             self.init_eventbus = not utils.confirm('This directory already contains Mosquitto config files. ' +
                                                    'Do you want to keep them?')
 
-        if utils.path_exists('./spark/backup/'):
+        if utils.file_exists('./spark/backup/'):
             self.init_spark_backup = not utils.confirm('This directory already contains Spark backup files. ' +
                                                        'Do you want to keep them?')
 
@@ -174,9 +179,11 @@ def install(ctx: click.Context, snapshot_file):
         - Reboot if needed.
     """
     utils.confirm_mode()
+    config = utils.get_config()
     user = utils.getenv('USER')
     opts = InstallOptions()
 
+    opts.check_compatibility()
     opts.check_confirm_opts()
     opts.check_system_opts()
     opts.check_docker_opts()
@@ -185,48 +192,43 @@ def install(ctx: click.Context, snapshot_file):
     if not snapshot_file:
         opts.check_init_opts()
 
+    # Save preferences to brewblox.yml
+    utils.info('Generating brewblox.yml ...')
+    config.skip_confirm = opts.skip_confirm
+    config.system.apt_upgrade = opts.apt_install
+    actions.make_brewblox_config(config)
+
     # Install Apt packages
     if opts.apt_install:
         utils.info('Installing apt packages ...')
         apt_deps = ' '.join(const.APT_DEPENDENCIES)
-        sh([
-            'sudo apt-get update',
-            'sudo apt-get upgrade -y',
-            f'sudo apt-get install -y {apt_deps}',
-        ])
+        utils.sh('sudo apt-get update')
+        utils.sh('sudo apt-get upgrade -y')
+        utils.sh(f'sudo apt-get install -y {apt_deps}')
     else:
         utils.info('Skipped: apt-get install.')
 
     # Install docker
     if opts.docker_install:
         utils.info('Installing docker ...')
-        sh('curl -sL get.docker.com | sh', check=False)
+        utils.sh('curl -sL get.docker.com | sh', check=False)
     else:
         utils.info('Skipped: docker install.')
 
     # Add user to 'docker' group
     if opts.docker_group_add:
-        utils.info(f"Adding {user} to 'docker' group...")
-        sh('sudo usermod -aG docker $USER')
+        utils.info(f"Adding {user} to 'docker' group ...")
+        utils.sh('sudo usermod -aG docker $USER')
     else:
         utils.info(f"Skipped: adding {user} to 'docker' group.")
 
-    # Always apply actions
-    actions.check_compose_plugin()
-    actions.disable_ssh_accept_env()
-    actions.fix_ipv6(None, False)
-    actions.edit_avahi_config()
-    actions.add_particle_udev_rules()
+    # Always apply these actions
     actions.uninstall_old_ctl_package()
-    actions.deploy_ctl_wrapper()
-
-    # Set variables in .env file
-    # Set version number to 0.0.0 until snapshot load / init is done
-    utils.info('Setting .env values ...')
-    utils.setenv(const.ENV_KEY_CFG_VERSION, '0.0.0')
-    utils.setenv(const.ENV_KEY_SKIP_CONFIRM, str(opts.skip_confirm))
-    utils.setenv(const.ENV_KEY_UPDATE_SYSTEM_PACKAGES, str(opts.apt_install))
-    utils.defaultenv()
+    actions.install_compose_plugin()
+    actions.edit_sshd_config()
+    actions.fix_ipv6(None, False)
+    actions.make_udev_rules()
+    actions.make_ctl_entrypoint()
 
     # Install process splits here
     # Either load all config files from snapshot or run init
@@ -234,58 +236,58 @@ def install(ctx: click.Context, snapshot_file):
     if snapshot_file:
         ctx.invoke(snapshot.load, file=snapshot_file)
     else:
-        release = utils.getenv('BREWBLOX_RELEASE')
-
         utils.info('Checking for port conflicts ...')
         actions.check_ports()
 
-        utils.info('Copying docker-compose.shared.yml ...')
-        sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.shared.yml ./')
-
         if opts.init_compose:
-            utils.info('Copying docker-compose.yml ...')
-            sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/docker-compose.yml ./')
+            utils.sh('rm -f ./docker-compose.yml')
+
+        actions.make_dotenv('0.0.0')
+        actions.make_shared_compose()
+        actions.make_compose()
 
         # Stop after we're sure we have a compose file
-        utils.info('Stopping services ...')
-        sh(f'{sudo}docker compose down')
+        if utils.is_compose_up():
+            utils.info('Stopping services ...')
+            utils.sh(f'{sudo}docker compose down --remove-orphans')
 
         if opts.init_datastore:
             utils.info('Creating datastore directory ...')
-            sh('sudo rm -rf ./redis/; mkdir ./redis/')
+            utils.sh('sudo rm -rf ./redis/; mkdir ./redis/')
 
         if opts.init_auth:
             utils.info('Creating auth directory ...')
-            sh('sudo rm -rf ./auth/; mkdir ./auth/')
+            utils.sh('sudo rm -rf ./auth/; mkdir ./auth/')
 
         if opts.init_history:
             utils.info('Creating history directory ...')
-            sh('sudo rm -rf ./victoria/; mkdir ./victoria/')
+            utils.sh('sudo rm -rf ./victoria/; mkdir ./victoria/')
 
         if opts.init_gateway:
             utils.info('Creating gateway directory ...')
-            sh('sudo rm -rf ./traefik/; mkdir ./traefik/')
+            utils.sh('sudo rm -rf ./traefik/; mkdir ./traefik/ ./traefik/dynamic')
 
             utils.info('Creating SSL certificate ...')
-            actions.makecert('./traefik', None, release)
+            actions.make_tls_certificates(always=True)
+            actions.make_traefik_config()
 
         if opts.init_eventbus:
             utils.info('Creating mosquitto config directory ...')
-            sh('sudo rm -rf ./mosquitto/; mkdir ./mosquitto/')
+            utils.sh('sudo rm -rf ./mosquitto/; mkdir ./mosquitto/')
 
         if opts.init_spark_backup:
             utils.info('Creating Spark backup directory ...')
-            sh('sudo rm -rf ./spark/backup/; mkdir -p ./spark/backup/')
-
-        # Always copy cert config to traefik dir
-        sh(f'cp -f {const.DIR_DEPLOYED_CONFIG}/traefik-cert.yaml ./traefik/')
+            utils.sh('sudo rm -rf ./spark/backup/; mkdir -p ./spark/backup/')
 
         # Init done - now set CFG version
         utils.setenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
 
+    # This depends on loaded settings
+    actions.edit_avahi_config()
+
     if opts.docker_pull:
         utils.info('Pulling docker images ...')
-        sh(f'{sudo}docker compose pull')
+        utils.sh(f'{sudo}docker compose pull')
 
     utils.info('All done!')
 
@@ -297,13 +299,10 @@ def install(ctx: click.Context, snapshot_file):
         else:
             utils.info('Rebooting in 10 seconds ...')
             sleep(10)
-        sh('sudo reboot')
+        utils.sh('sudo reboot')
 
 
 @cli.command()
-@click.option('--dir',
-              default='./traefik',
-              help='Target directory for generated certs.')
 @click.option('--domain',
               multiple=True,
               help='Additional alternative domain name for the generated cert. ' +
@@ -311,8 +310,8 @@ def install(ctx: click.Context, snapshot_file):
 @click.option('--release',
               default=None,
               help='Brewblox release track for the minica Docker image.')
-def makecert(dir, domain, release):
-    """Generate SSL CA and certificate
+def makecert(domain, release):
+    """Generate SSL CA and certificate.
 
     These are locally signed certificates, and will generate browser warnings
     unless installed in a trust store.
@@ -323,8 +322,8 @@ def makecert(dir, domain, release):
     \b
     Steps:
         - Create directory if it does not exist.
-        - Create CA files: {dir}/minica.pem and {dir}/minica-key.pem.
-        - Create cert files: {dir}/brew.blox/cert.pem and {dir}/brew.blox/key.pem
+        - Create CA files: traefik/minica.pem and traefik/minica-key.pem.
+        - Create cert files: traefik/brew.blox/cert.pem and traefik/brew.blox/key.pem
     """
     utils.confirm_mode()
-    actions.makecert(dir, True, domain, release)
+    actions.make_tls_certificates(True, domain, release)

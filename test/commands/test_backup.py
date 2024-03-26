@@ -5,37 +5,38 @@ Tests brewblox_ctl.commands.backup
 import json
 import zipfile
 from pathlib import Path
-from unittest.mock import call
+from unittest.mock import Mock, call
 
 import httpretty
 import pytest
 import yaml
+from pytest_mock import MockerFixture
 from requests import HTTPError
 
 from brewblox_ctl.commands import backup
-from brewblox_ctl.testing import check_sudo, invoke, matching
+from brewblox_ctl.testing import invoke, matching
 
 TESTED = backup.__name__
-HOST_URL = 'https://localhost'
+HOST_URL = 'https://localhost:9600'
 STORE_URL = HOST_URL + '/history/datastore'
 
 
 @pytest.fixture(autouse=True)
-def m_getgid(mocker):
+def m_getgid(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.getgid')
     m.return_value = 1000
     return m
 
 
 @pytest.fixture(autouse=True)
-def m_getuid(mocker):
+def m_getuid(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.getuid')
     m.return_value = 1000
     return m
 
 
 @pytest.fixture(autouse=True)
-def m_glob(mocker):
+def m_glob(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.glob', autospec=True)
     m.return_value = [
         'node-red/settings.js',
@@ -46,26 +47,8 @@ def m_glob(mocker):
 
 
 @pytest.fixture(autouse=True)
-def m_load_dotenv(mocker):
+def m_load_dotenv(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.load_dotenv', autospec=True)
-    return m
-
-
-@pytest.fixture
-def m_utils(mocker):
-    mocker.patch(TESTED + '.http.utils.info')  # Used by http.wait
-    m = mocker.patch(TESTED + '.utils', spec=backup.utils)
-    m.optsudo.return_value = 'SUDO '
-    m.host_url.return_value = HOST_URL
-    m.datastore_url.return_value = STORE_URL
-    m.info = print
-    return m
-
-
-@pytest.fixture
-def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh', spec=backup.sh)
-    m.side_effect = check_sudo
     return m
 
 
@@ -126,8 +109,8 @@ def blocks_data():
 
 
 @pytest.fixture
-def m_zipf(mocker):
-    m = mocker.patch(TESTED + '.zipfile.ZipFile').return_value
+def m_zipf(mocker: MockerFixture):
+    m: Mock = mocker.patch(TESTED + '.zipfile.ZipFile').return_value
     m.namelist.return_value = zipf_names()
     m.read.side_effect = zipf_read()
     return m
@@ -173,8 +156,8 @@ def set_responses():
 
 
 @pytest.fixture
-def f_read_compose(m_utils):
-    m_utils.read_compose.return_value = {
+def f_read_compose(m_read_compose: Mock):
+    m_read_compose.return_value = {
         'services': {
             'spark-one': {
                 'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
@@ -186,7 +169,7 @@ def f_read_compose(m_utils):
 
 
 @httpretty.activate(allow_net_connect=False)
-def test_save_backup(mocker, m_utils, f_read_compose):
+def test_save_backup(mocker: MockerFixture, f_read_compose):
     set_responses()
     m_mkdir = mocker.patch(TESTED + '.mkdir')
     m_zipfile = mocker.patch(TESTED + '.zipfile.ZipFile')
@@ -206,7 +189,7 @@ def test_save_backup(mocker, m_utils, f_read_compose):
 
 
 @httpretty.activate(allow_net_connect=False)
-def test_save_backup_no_compose(mocker, m_zipf, m_utils, f_read_compose):
+def test_save_backup_no_compose(mocker: MockerFixture, m_zipf: Mock, f_read_compose):
     set_responses()
     mocker.patch(TESTED + '.mkdir')
     invoke(backup.save, '--no-save-compose')
@@ -214,7 +197,7 @@ def test_save_backup_no_compose(mocker, m_zipf, m_utils, f_read_compose):
 
 
 @httpretty.activate(allow_net_connect=False)
-def test_save_backup_spark_err(mocker, m_zipf, m_utils, f_read_compose):
+def test_save_backup_spark_err(mocker: MockerFixture, m_zipf, f_read_compose):
     set_responses()
     mocker.patch(TESTED + '.mkdir')
     m_zipfile = mocker.patch(TESTED + '.zipfile.ZipFile')
@@ -237,7 +220,7 @@ def test_save_backup_spark_err(mocker, m_zipf, m_utils, f_read_compose):
 
 
 @httpretty.activate(allow_net_connect=False)
-def test_save_backup_ignore_spark_err(mocker, m_zipf, m_utils, f_read_compose):
+def test_save_backup_ignore_spark_err(mocker: MockerFixture, m_zipf, f_read_compose):
     set_responses()
     mocker.patch(TESTED + '.mkdir')
     m_zipfile = mocker.patch(TESTED + '.zipfile.ZipFile')
@@ -259,21 +242,21 @@ def test_save_backup_ignore_spark_err(mocker, m_zipf, m_utils, f_read_compose):
     assert len(httpretty.latest_requests()) == 3
 
 
-def test_load_backup_empty(m_utils, m_sh, m_zipf):
+def test_load_backup_empty(m_sh: Mock, m_zipf):
     m_zipf.namelist.return_value = []
 
     invoke(backup.load, 'fname')
     assert m_sh.call_count == 1  # Only the update
 
 
-def test_load_backup(m_utils, m_sh, mocker, m_zipf):
+def test_load_backup(mocker: MockerFixture, m_zipf):
     m_tmp = mocker.patch(TESTED + '.NamedTemporaryFile', wraps=backup.NamedTemporaryFile)
     invoke(backup.load, 'fname')
     assert m_zipf.read.call_count == 7
     assert m_tmp.call_count == 6
 
 
-def test_load_backup_none(m_utils, m_sh, m_zipf):
+def test_load_backup_none(m_sh, m_zipf):
     invoke(backup.load, ' '.join([
         'fname',
         '--no-load-compose',
@@ -288,7 +271,7 @@ def test_load_backup_none(m_utils, m_sh, m_zipf):
     assert m_sh.call_count == 1
 
 
-def test_load_backup_missing(m_utils, m_sh, m_zipf, mocker):
+def test_load_backup_missing(mocker: MockerFixture, m_zipf):
     m_tmp = mocker.patch(TESTED + '.NamedTemporaryFile', wraps=backup.NamedTemporaryFile)
     m_zipf.namelist.return_value = zipf_names()[2:]
     m_zipf.read.side_effect = zipf_read()[2:]
@@ -297,7 +280,7 @@ def test_load_backup_missing(m_utils, m_sh, m_zipf, mocker):
     assert m_tmp.call_count == 5
 
 
-def test_load_backup_other_uid(m_utils, m_sh, mocker, m_zipf, m_getuid):
+def test_load_backup_other_uid(mocker: MockerFixture, m_sh, m_zipf, m_getuid):
     m_getuid.return_value = 1001
     mocker.patch(TESTED + '.NamedTemporaryFile', wraps=backup.NamedTemporaryFile)
     invoke(backup.load, 'fname')

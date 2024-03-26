@@ -8,7 +8,7 @@ from time import sleep
 import click
 import usb
 
-from brewblox_ctl import click_helpers, const, sh, utils
+from brewblox_ctl import click_helpers, const, utils
 
 LISTEN_MODE_WAIT_S = 1
 
@@ -30,8 +30,8 @@ def run_particle_flasher(release: str, pull: bool, cmd: str):
         '--pull ' + ('always' if pull else 'missing'),
     ])
 
-    sh(f'{sudo}docker compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-firmware-flasher:{tag} {cmd}')
+    with utils.downed_services():
+        utils.sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-firmware-flasher:{tag} {cmd}')
 
 
 def run_esp_flasher(release: str, pull: bool):
@@ -48,8 +48,8 @@ def run_esp_flasher(release: str, pull: bool):
         '--pull ' + ('always' if pull else 'missing'),
     ])
 
-    sh(f'{sudo}docker compose --log-level CRITICAL down', check=False)
-    sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-devcon-spark:{tag} flash')
+    with utils.downed_services():
+        utils.sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-devcon-spark:{tag} flash')
 
 
 def find_usb_spark() -> usb.core.Device:
@@ -109,7 +109,7 @@ def flash(release, pull):
 
 
 def particle_wifi(dev: usb.core.Device):
-    if utils.ctx_opts().dry_run:
+    if utils.get_opts().dry_run:
         utils.info('Dry run: skipping activation of Spark listening mode')
     else:
         dev.reset()
@@ -147,7 +147,7 @@ def particle_wifi(dev: usb.core.Device):
     utils.info('Press w to start Wifi configuration.')
     utils.info('Press Ctrl + ] to cancel.')
     utils.info('The Spark must be restarted after canceling.')
-    sh(f'pyserial-miniterm -q {path.resolve()} 2>/dev/null')
+    utils.sh(f'pyserial-miniterm -q {path.resolve()} 2>/dev/null')
 
 
 def esp_wifi():
@@ -188,13 +188,11 @@ def wifi():
     utils.confirm_mode()
 
     while True:
-        particle_dev = usb.core.find(idVendor=const.VID_PARTICLE)
-        if particle_dev:
-            particle_wifi(particle_dev)
+        if dev := usb.core.find(idVendor=const.VID_PARTICLE):
+            particle_wifi(dev)
             break
 
-        esp_dev = usb.core.find(idVendor=const.VID_ESPRESSIF, idProduct=const.PID_ESP32)
-        if esp_dev:
+        if usb.core.find(idVendor=const.VID_ESPRESSIF, idProduct=const.PID_ESP32):
             esp_wifi()
             break
 

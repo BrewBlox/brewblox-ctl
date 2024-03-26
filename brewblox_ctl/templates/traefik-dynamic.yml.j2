@@ -1,0 +1,51 @@
+# DO NOT EDIT: THIS FILE WILL BE RESET DURING UPDATES
+#
+# This file contains dynamic configuration for the Traefik proxy.
+# If you need to add or extend the dynamic configuration,
+# You can add another .yml file in the same directory.
+#
+# For more information, see: https://doc.traefik.io/traefik/providers/file/
+
+http:
+  routers:
+    api:
+      rule: PathPrefix(`/api`) || PathPrefix(`/dashboard`)
+      service: api@internal
+  middlewares:
+    prefix-strip:
+      stripPrefixRegex:
+        regex:
+          - "/[^/]+"
+    auth:
+      forwardAuth:
+        address: http://auth:5000/auth/verify
+    cors:
+      headers:
+        accessControlAllowCredentials: true
+        accessControlAllowOriginListRegex:
+          - .*
+        accessControlAllowMethods:
+          - CONNECT
+          - HEAD
+          - GET
+          - DELETE
+          - OPTIONS
+          - PATCH
+          - POST
+          - PUT
+          - TRACE
+        accessControlAllowHeaders:
+          - Origin
+          - X-Requested-With
+          - Content-Type
+          - Accept
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /config/brew.blox/cert.pem
+        keyFile: /config/brew.blox/key.pem
+
+serversTransport:
+  rootCAs:
+    - /config/minica.pem

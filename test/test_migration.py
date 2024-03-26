@@ -2,14 +2,14 @@
 Tests brewblox_ctl.migration
 """
 
-import json
 from functools import partial
+from unittest.mock import Mock
 
 import httpretty
 import pytest
+from pytest_mock import MockerFixture
 
-from brewblox_ctl import migration
-from brewblox_ctl.testing import check_sudo
+from brewblox_ctl import migration, utils
 
 TESTED = migration.__name__
 
@@ -37,19 +37,15 @@ def csv_data_stream(opts, cmd):
 
 
 @pytest.fixture
-def m_actions(mocker):
+def m_actions(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.actions', autospec=True)
     return m
 
 
 @pytest.fixture
-def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils', autospec=True)
-    m.optsudo.return_value = 'SUDO '
-    m.getenv.return_value = '/usr/local/bin'
-    m.datastore_url.return_value = STORE_URL
-    m.read_compose.side_effect = lambda: {
-        'version': '3.7',
+def m_utils(m_getenv: Mock, m_read_compose: Mock):
+    m_getenv.return_value = '/usr/local/bin'
+    m_read_compose.side_effect = lambda: {
         'services': {
             'spark-one': {
                 'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
@@ -62,135 +58,15 @@ def m_utils(mocker):
                 'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
             }
         }}
-    return m
 
 
-@pytest.fixture
-def m_sh(mocker):
-    m = mocker.patch(TESTED + '.sh', autospec=True)
-    m.side_effect = check_sudo
-    return m
-
-
-def test_migrate_compose_split(m_utils):
-    m_utils.read_compose.side_effect = lambda: {
-        'version': '3.7',
-        'services': {
-            'my-service': {},
-            'eventbus': {}
-        }}
-
-    migration.migrate_compose_split()
-
-    m_utils.write_compose.assert_called_once_with({
-        'version': '3.7',
-        'services': {
-            'my-service': {},
-        },
-    })
-
-
-def test_migrate_compose_datastore(m_utils, m_sh):
-    migration.migrate_compose_datastore()
-
-    m_utils.write_compose.assert_called_once_with({
-        'version': '3.7',
-        'services': {
-            'spark-one': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
-            },
-            'plaato': {
-                'image': 'brewblox/brewblox-plaato:rpi-edge',
-            },
-            'automation': {
-                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
-            }
-        }})
-    m_sh.assert_called_once_with('mkdir -p redis/')
-
-
-def test_migrate_ipv6_fix(m_actions, m_utils, m_sh):
-    migration.migrate_ipv6_fix()
-
-    assert m_sh.call_count == 1
-    assert m_actions.fix_ipv6.call_count == 1
-
-
-def test_migrate_couchdb_dry(m_utils, m_sh):
-    m_utils.ctx_opts.return_value.dry_run = True
-
-    migration.migrate_couchdb()
-
-    assert m_sh.call_count == 0
-
-
-def test_migrate_couchdb_not_found(m_utils, m_sh):
-    m_utils.ctx_opts.return_value.dry_run = False
-    m_utils.path_exists.return_value = False
-
-    migration.migrate_couchdb()
-
-    assert m_sh.call_count == 0
-
-
-@httpretty.activate(allow_net_connect=False)
-def test_migrate_couchdb_empty(m_utils, m_sh, mocker):
-    m_utils.ctx_opts.return_value.dry_run = False
-    httpretty.register_uri(
-        httpretty.GET,
-        'http://localhost:5984/_all_dbs',
-        body=json.dumps(['unused']),  # no known databases found -> nothing migrated
-        adding_headers={'ContentType': 'application/json'},
-    )
-    migration.migrate_couchdb()
-    assert len(httpretty.latest_requests()) == 1
-
-
-@httpretty.activate(allow_net_connect=False)
-def test_migrate_couchdb(m_utils, m_sh, mocker):
-    m_utils.ctx_opts.return_value.dry_run = False
-    httpretty.register_uri(
-        httpretty.GET,
-        'http://localhost:5984/_all_dbs',
-        body=json.dumps(['brewblox-ui-store', 'spark-service']),
-        adding_headers={'ContentType': 'application/json'},
-    )
-    httpretty.register_uri(
-        httpretty.GET,
-        'http://localhost:5984/brewblox-ui-store/_all_docs',
-        body=json.dumps({'rows': [
-            {'doc': {'_id': 'module__obj', '_rev': '1234', 'k': 'v'}},
-            {'doc': {'_id': 'invalid', '_rev': '1234', 'k': 'v'}},
-        ]}),
-        adding_headers={'ContentType': 'application/json'},
-    )
-    httpretty.register_uri(
-        httpretty.GET,
-        'http://localhost:5984/spark-service/_all_docs',
-        body=json.dumps({'rows': [
-            {'doc': {'_id': 'spaced__id', '_rev': '1234', 'k': 'v'}},
-            {'doc': {'_id': 'valid', '_rev': '1234', 'k': 'v'}},
-        ]}),
-        adding_headers={'ContentType': 'application/json'},
-    )
-    httpretty.register_uri(
-        httpretty.POST,
-        STORE_URL + '/mset',
-        body='{"values":[]}',
-        adding_headers={'ContentType': 'application/json'},
-    )
-
-    migration.migrate_couchdb()
-    assert len(httpretty.latest_requests()) == 5
-
-
-def test_influx_measurements(m_utils):
-    m_utils.sh_stream.side_effect = csv_measurement_stream
+def test_influx_measurements(m_sh_stream: Mock):
+    m_sh_stream.side_effect = csv_measurement_stream
 
     assert migration._influx_measurements() == ['s1', 's2']
 
 
-def test_influx_line_count(m_utils, m_sh):
+def test_influx_line_count(m_sh: Mock):
     m_sh.return_value = \
         '{"results":[{"series":[{"name":"spark-one","columns":["time","count"],"values":[[0,825518]]}]}]}'
     assert migration._influx_line_count('spark-one', '') == 825518
@@ -199,8 +75,8 @@ def test_influx_line_count(m_utils, m_sh):
     assert migration._influx_line_count('spark-one', '') is None
 
 
-def test_copy_influx_measurement_file(m_utils, m_sh, mocker):
-    m_utils.sh_stream.side_effect = partial(csv_data_stream, {})
+def test_copy_influx_measurement_file(mocker: MockerFixture, m_sh: Mock, m_sh_stream: Mock):
+    m_sh_stream.side_effect = partial(csv_data_stream, {})
     mocker.patch(TESTED + '.NamedTemporaryFile', wraps=migration.NamedTemporaryFile)
     mocker.patch(TESTED + '._influx_line_count', return_value=1000)
 
@@ -209,15 +85,14 @@ def test_copy_influx_measurement_file(m_utils, m_sh, mocker):
 
 
 @httpretty.activate(allow_net_connect=False)
-def test_copy_influx_measurement_victoria(m_utils, m_sh, mocker):
-    m_utils.host_url.return_value = 'https://localhost'
-    m_utils.sh_stream.side_effect = partial(csv_data_stream, {})
+def test_copy_influx_measurement_victoria(mocker: MockerFixture, m_sh: Mock, m_sh_stream: Mock):
+    m_sh_stream.side_effect = partial(csv_data_stream, {})
     mocker.patch(TESTED + '.NamedTemporaryFile', wraps=migration.NamedTemporaryFile)
     mocker.patch(TESTED + '._influx_line_count', return_value=1000)
 
     httpretty.register_uri(
         httpretty.GET,
-        'https://localhost/victoria/write',
+        'http://localhost:9600/victoria/write',
     )
 
     migration._copy_influx_measurement('sparkey', 'today', '1d', 'victoria')
@@ -225,11 +100,11 @@ def test_copy_influx_measurement_victoria(m_utils, m_sh, mocker):
     assert m_sh.call_count == 0
 
 
-def test_copy_influx_measurement_empty(m_utils, m_sh, mocker):
+def test_copy_influx_measurement_empty(mocker: MockerFixture, m_sh_stream: Mock):
     def empty(cmd):
         yield ''
         return
-    m_utils.sh_stream.side_effect = empty
+    m_sh_stream.side_effect = empty
     m_tmp = mocker.patch(TESTED + '.NamedTemporaryFile', wraps=migration.NamedTemporaryFile)
     mocker.patch(TESTED + '._influx_line_count', return_value=None)
 
@@ -237,8 +112,8 @@ def test_copy_influx_measurement_empty(m_utils, m_sh, mocker):
     assert m_tmp.call_count == 0
 
 
-def test_copy_influx_measurement_error(m_utils, m_sh, mocker):
-    m_utils.sh_stream.side_effect = partial(csv_data_stream, {})
+def test_copy_influx_measurement_error(mocker: MockerFixture, m_sh_stream: Mock):
+    m_sh_stream.side_effect = partial(csv_data_stream, {})
     mocker.patch(TESTED + '.NamedTemporaryFile', wraps=migration.NamedTemporaryFile)
     mocker.patch(TESTED + '._influx_line_count', return_value=1000)
 
@@ -246,42 +121,43 @@ def test_copy_influx_measurement_error(m_utils, m_sh, mocker):
         migration._copy_influx_measurement('sparkey', 'today', '1d', 'space magic')
 
 
-def test_migrate_influxdb(m_utils, m_sh, mocker):
+def test_migrate_influxdb(mocker: MockerFixture, m_file_exists: Mock):
+    opts = utils.get_opts()
     m_meas = mocker.patch(TESTED + '._influx_measurements')
     m_meas.return_value = ['s1', 's2']
     m_copy = mocker.patch(TESTED + '._copy_influx_measurement')
 
     # Dry run noop
-    m_utils.ctx_opts.return_value.dry_run = True
-    m_utils.path_exists.return_value = True
+    opts.dry_run = True
+    m_file_exists.return_value = True
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 0
 
     # No influx data dir found
-    m_utils.ctx_opts.return_value.dry_run = False
-    m_utils.path_exists.return_value = False
+    opts.dry_run = False
+    m_file_exists.return_value = False
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 0
 
     # preconditions OK, services predefined
-    m_utils.ctx_opts.return_value.dry_run = False
-    m_utils.path_exists.return_value = True
+    opts.dry_run = False
+    m_file_exists.return_value = True
     migration.migrate_influxdb('victoria', '1d', ['s1', 's2', 's3'])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 3
 
     # preconditions OK, services wildcard
-    m_utils.ctx_opts.return_value.dry_run = False
-    m_utils.path_exists.return_value = True
+    opts.dry_run = False
+    m_file_exists.return_value = True
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 1
     assert m_copy.call_count == 3 + 2
 
 
-def test_migrate_ghcr_images(m_utils):
-    m_utils.read_compose.side_effect = lambda: {
+def test_migrate_ghcr_images(m_read_compose: Mock, m_write_compose: Mock):
+    m_read_compose.side_effect = lambda: {
         'version': '3.7',
         'services': {
             'spark-one': {
@@ -310,7 +186,7 @@ def test_migrate_ghcr_images(m_utils):
             },
         }}
     migration.migrate_ghcr_images()
-    m_utils.write_compose.assert_called_once_with({
+    m_write_compose.assert_called_once_with({
         'version': '3.7',
         'services': {
             'spark-one': {
@@ -340,8 +216,8 @@ def test_migrate_ghcr_images(m_utils):
         }})
 
 
-def test_migrate_tilt_images(m_utils):
-    m_utils.read_compose.side_effect = lambda: {
+def test_migrate_tilt_images(m_read_compose: Mock, m_write_compose: Mock):
+    m_read_compose.side_effect = lambda: {
         'version': '3.7',
         'services': {
             'spark-one': {
@@ -372,7 +248,7 @@ def test_migrate_tilt_images(m_utils):
             },
         }}
     migration.migrate_tilt_images()
-    m_utils.write_compose.assert_called_once_with({
+    m_write_compose.assert_called_once_with({
         'version': '3.7',
         'services': {
             'spark-one': {
@@ -408,8 +284,61 @@ def test_migrate_tilt_images(m_utils):
         }})
 
     # No-op if no tilt services
-    m_utils.read_compose.side_effect = lambda: {
+    m_read_compose.side_effect = lambda: {
         'version': '3.7',
         'services': {}}
     migration.migrate_tilt_images()
-    assert m_utils.write_compose.call_count == 1
+    assert m_write_compose.call_count == 1
+
+
+def test_migrate_env_config(m_envdict: Mock):
+    config = utils.get_config()
+
+    # empty
+    migration.migrate_env_config()
+    assert not config.environment
+
+    # full
+    m_envdict.side_effect = lambda _: {
+        'BREWBLOX_CFG_VERSION': '0.1.2',
+        'BREWBLOX_RELEASE': 'fancypants',
+        'BREWBLOX_CTL_RELEASE': 'veryfancypants',
+        'BREWBLOX_UPDATE_SYSTEM_PACKAGES': 'False',
+        'BREWBLOX_SKIP_CONFIRM': 'False',
+        'BREWBLOX_AUTH_ENABLED': 'true',
+        'BREWBLOX_DEBUG': 'true',
+        'BREWBLOX_PORT_HTTP': '81',
+        'BREWBLOX_PORT_HTTPS': '444',
+        'BREWBLOX_PORT_MQTT': '1884',
+        'BREWBLOX_PORT_MQTTS': '8884',
+        'BREWBLOX_PORT_ADMIN': '9601',
+        'COMPOSE_PROJECT_NAME': 'brewblox2',
+        'COMPOSE_FILE': 'docker-compose.shared.yml:docker-compose.yml:are-you-sure.yml',
+        'USERNAME': 'henk',
+        'PASSWORD': 'secret',
+        'special': 'true',
+    }
+    migration.migrate_env_config()
+
+    assert config.release == 'fancypants'
+    assert config.ctl_release == 'veryfancypants'
+    assert config.system.apt_upgrade is False
+    assert config.skip_confirm is False
+    assert config.auth.enabled is True
+    assert config.debug is True
+    assert config.ports.http == 81
+    assert config.ports.https == 444
+    assert config.ports.mqtt == 1884
+    assert config.ports.mqtts == 8884
+    assert config.ports.admin == 9601
+    assert config.compose.project == 'brewblox2'
+    assert config.compose.files == [
+        'docker-compose.shared.yml',
+        'docker-compose.yml',
+        'are-you-sure.yml',
+    ]
+    assert config.environment == {
+        'USERNAME': 'henk',
+        'PASSWORD': 'secret',
+        'special': 'true',
+    }

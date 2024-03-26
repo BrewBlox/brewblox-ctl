@@ -4,7 +4,7 @@ Shortcuts to external tools stored in virtualenv
 
 import click
 
-from brewblox_ctl import click_helpers, utils
+from brewblox_ctl import actions, click_helpers
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -24,7 +24,7 @@ def esptool(cmd):
 
     This requires the Spark to be connected over USB.
     """
-    utils.start_esptool(*cmd)
+    actions.start_esptool(*cmd)
 
 
 @cli.command(
@@ -40,4 +40,4 @@ def dotenv(cmd):
     This is a command-line shortcut for manually editing
     the .env file.
     """
-    utils.start_dotenv(*cmd)
+    actions.start_dotenv(*cmd)

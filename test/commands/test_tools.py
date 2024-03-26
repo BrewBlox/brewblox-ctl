@@ -1,6 +1,8 @@
 """
 Tests brewblox_ctl.commands.tools
 """
+from unittest.mock import Mock
+
 import pytest
 
 from brewblox_ctl.commands import tools
@@ -10,24 +12,22 @@ TESTED = tools.__name__
 
 
 @pytest.fixture
-def m_utils(mocker):
-    m = mocker.patch(TESTED + '.utils', autospec=True)
-    m.optsudo.return_value = 'SUDO '
-    m.docker_tag.side_effect = lambda v: v
+def m_actions(mocker):
+    m = mocker.patch(TESTED + '.actions', autospec=True)
     return m
 
 
-def test_esptool(m_utils):
+def test_esptool(m_actions: Mock):
     invoke(tools.esptool, 'write_flash coredump.bin')
-    m_utils.start_esptool.assert_called_with('write_flash', 'coredump.bin')
+    m_actions.start_esptool.assert_called_with('write_flash', 'coredump.bin')
 
     invoke(tools.esptool, '--help')
-    m_utils.start_esptool.assert_called_with('--help')
+    m_actions.start_esptool.assert_called_with('--help')
 
     invoke(tools.esptool, '--click-help')
-    assert m_utils.start_esptool.call_count == 2
+    assert m_actions.start_esptool.call_count == 2
 
 
-def test_dotenv(m_utils):
+def test_dotenv(m_actions: Mock):
     invoke(tools.dotenv, 'set key value')
-    m_utils.start_dotenv.assert_called_with('set', 'key', 'value')
+    m_actions.start_dotenv.assert_called_with('set', 'key', 'value')

@@ -126,8 +126,8 @@ install() {
     python3 -m pip install pip setuptools wheel
     python3 -m pip install --prefer-binary ./brewblox-ctl.tar.gz
 
-    # Init the .env file
-    echo "BREWBLOX_RELEASE=${BREWBLOX_RELEASE}" >.env
+    # Init the config file
+    echo "release: ${BREWBLOX_RELEASE}" >./brewblox.yml
 
     exec python3 -m brewblox_ctl install
 }
