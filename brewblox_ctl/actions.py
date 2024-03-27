@@ -142,7 +142,7 @@ def make_udev_rules():
         utils.info('Adding udev rules for Particle devices ...')
         utils.sh(f'sudo mkdir -p {rules_dir}')
         utils.sh(f'sudo cp "{const.DIR_DEPLOYED}/50-particle.rules" {target}')
-        utils.sh('sudo udevadm control --reload-rules && sudo udevadm trigger')
+        utils.sh('sudo udevadm control --reload-rules && sudo udevadm trigger', check=False)
 
 
 def make_ctl_entrypoint():
@@ -216,7 +216,9 @@ def edit_avahi_config():
     if not config.avahi.managed or not utils.file_exists(fpath):
         return
 
-    avahi_config = ConfigObj(str(fpath), file_error=True)
+    content = utils.read_file_sudo(fpath)
+    # `infile` is treated as file.readlines() output if it is a list[str]
+    avahi_config = ConfigObj(infile=content.split('\n'))
     copy = deepcopy(avahi_config)
     avahi_config.setdefault('server', {}).setdefault('use-ipv6', 'no')
     avahi_config.setdefault('publish', {}).setdefault('publish-aaaa-on-ipv4', 'no')
@@ -249,7 +251,7 @@ def edit_sshd_config():
     if not utils.file_exists(fpath):
         return
 
-    content = utils.read_file(fpath)
+    content = utils.read_file_sudo(fpath)
     updated = re.sub(r'^AcceptEnv LANG LC',
                      '#AcceptEnv LANG LC',
                      content,

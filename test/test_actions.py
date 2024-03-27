@@ -297,7 +297,7 @@ def test_edit_avahi_config(mocker: MockerFixture,
 def test_edit_sshd_config(m_sh: Mock,
                           m_command_exists: Mock,
                           m_file_exists: Mock,
-                          m_read_file: Mock):
+                          m_read_file_sudo: Mock):
     lines = '\n'.join([
         '# Allow client to pass locale environment variables',
         'AcceptEnv LANG LC_*'
@@ -314,18 +314,18 @@ def test_edit_sshd_config(m_sh: Mock,
 
     # No change
     m_file_exists.return_value = True
-    m_read_file.return_value = comment_lines
+    m_read_file_sudo.return_value = comment_lines
     actions.edit_sshd_config()
     assert m_sh.call_count == 0
 
     # Changed, but no service restart
-    m_read_file.return_value = lines
+    m_read_file_sudo.return_value = lines
     m_command_exists.return_value = False
     actions.edit_sshd_config()
     assert m_sh.call_count == 0
 
     # Changed, full change
-    m_read_file.return_value = lines
+    m_read_file_sudo.return_value = lines
     m_command_exists.return_value = True
     actions.edit_sshd_config()
     m_sh.assert_called_with(matching('sudo systemctl restart'))
