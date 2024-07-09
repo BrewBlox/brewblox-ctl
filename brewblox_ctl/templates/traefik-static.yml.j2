@@ -27,9 +27,14 @@ entryPoints:
   web:
     address: :{{ config.ports.http }}
     http:
+      middlewares:
+        - cors@file
+        - auth@file
+{% if config.traefik.redirect_http %}
       redirections:
         entryPoint:
           to: websecure
+{% endif %}
   admin:
     address: :{{ config.ports.admin }}
     http:

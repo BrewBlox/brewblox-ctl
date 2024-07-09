@@ -1,6 +1,17 @@
+from glob import glob
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+
+def physical_interfaces() -> List[str]:
+    """Infers list of network interfaces connected to a physical component.
+
+    All network interfaces are listed in /sys/class/net/.
+    We want to exclude the loopback interface, and all virtual interfaces created by Docker.
+    We do this by only selecting the network interfaces that are linked to a device.
+    """
+    return [v.split('/')[4] for v in glob('/sys/class/net/*/device')]
 
 
 class ComposeConfig(BaseModel):
@@ -34,8 +45,23 @@ class PortConfig(BaseModel):
 class AvahiConfig(BaseModel):
     managed: bool = Field(default=True,
                           title='Enable/disable brewblox-ctl changing the host Avahi configuration')
-    reflection: bool = Field(default=True,
+    reflection: bool = Field(default=False,
                              title='Enable/disable mDNS reflection in host Avahi configuration')
+
+
+class ReflectorConfig(BaseModel):
+    enabled: bool = Field(default=True,
+                          title='Generate mDNS reflector services',
+                          description='Should not be combined with Avahi reflection.')
+    interfaces: List[str] = Field(default_factory=physical_interfaces,
+                                  title='Reflected host network interfaces',
+                                  description='A service will be generated for each interface.')
+
+
+class UsbProxyConfig(BaseModel):
+    enabled: bool = Field(default=False,
+                          title='Enable USB proxy service for Spark 2/3',
+                          description='The Spark service will query the proxy service during discovery.')
 
 
 class SystemConfig(BaseModel):
@@ -53,6 +79,9 @@ class TraefikConfig(BaseModel):
     tls: bool = Field(default=True,
                       title='Enable/disable TLS termination for the HTTPS port',
                       description='This can be disabled when TLS termination is handled by another proxy.')
+    redirect_http: bool = Field(default=True,
+                                title='Redirect HTTP requests to HTTPS and the HTTPS port',
+                                description='This option should not be disabled while authentication is enabled.')
     static_config_file: str = Field(default='/config/traefik.yml',
                                     title='Path to the static Traefik configuration file',
                                     description='This is the path inside the `traefik` service. ' +
@@ -98,6 +127,8 @@ class CtlConfig(BaseModel):
     ports: PortConfig = Field(default_factory=PortConfig)
     compose: ComposeConfig = Field(default_factory=ComposeConfig)
     avahi: AvahiConfig = Field(default_factory=AvahiConfig)
+    reflector: ReflectorConfig = Field(default_factory=ReflectorConfig)
+    usb_proxy: UsbProxyConfig = Field(default_factory=UsbProxyConfig)
     system: SystemConfig = Field(default_factory=SystemConfig)
     auth: AuthConfig = Field(default_factory=AuthConfig)
     traefik: TraefikConfig = Field(default_factory=TraefikConfig)

@@ -128,3 +128,29 @@ services:
         source: ./traefik/minica.der
         target: /var/www/static/minica.der
         read_only: true
+
+{% if config.usb_proxy.enabled %}
+  usb-proxy:
+    image: ghcr.io/brewblox/brewblox-usb-proxy:${BREWBLOX_RELEASE}
+    restart: unless-stopped
+    privileged: true
+    labels:
+      - traefik.enable=false
+    volumes:
+      - type: bind
+        source: /dev
+        target: /dev
+{% endif %}
+
+{% if config.reflector.enabled %}
+{% for interface in config.reflector.interfaces %}
+  reflector-{{interface}}:
+    image: yuxzhu/mdns-reflector:latest
+    restart: on-failure:3
+    network_mode: host
+    command: mdns-reflector -fn4 {{interface}} br-${COMPOSE_PROJECT_NAME}
+    labels:
+      - traefik.enable=false
+
+{% endfor %}
+{% endif %}

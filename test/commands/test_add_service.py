@@ -15,20 +15,6 @@ TESTED = add_service.__name__
 
 
 @pytest.fixture(autouse=True)
-def m_getgid(mocker: MockerFixture):
-    m = mocker.patch(TESTED + '.getgid')
-    m.return_value = 1000
-    return m
-
-
-@pytest.fixture(autouse=True)
-def m_geteuid(mocker: MockerFixture):
-    m = mocker.patch(TESTED + '.geteuid')
-    m.return_value = 1000
-    return m
-
-
-@pytest.fixture(autouse=True)
 def m_list_devices(mocker: MockerFixture) -> Mock:
     m = mocker.patch(TESTED + '.list_devices', autospec=True)
     return m
@@ -151,30 +137,3 @@ def test_add_plaato_yes(m_read_compose: Mock, m_confirm: Mock):
 
     invoke(add_service.add_plaato, '--name testey --token x', _err=True)
     invoke(add_service.add_plaato, '--name testey --token x --yes')
-
-
-def test_add_node_red(m_sh: Mock, m_read_compose: Mock, m_confirm: Mock):
-    m_read_compose.side_effect = lambda: {'services': {}}
-    m_confirm.return_value = True
-    invoke(add_service.add_node_red)
-    assert m_sh.call_count == 2
-
-    m_sh.reset_mock()
-    m_confirm.return_value = False
-    invoke(add_service.add_node_red, _err=True)
-    assert m_sh.call_count == 0
-
-
-def test_add_node_red_other_uid(m_sh: Mock, m_geteuid: Mock, m_read_compose: Mock, m_confirm: Mock):
-    m_geteuid.return_value = 1001
-    m_confirm.return_value = True
-    m_read_compose.side_effect = lambda: {'services': {}}
-    invoke(add_service.add_node_red)
-    assert m_sh.call_count == 3
-
-
-def test_add_node_red_yes(m_read_compose: Mock, m_confirm: Mock):
-    m_confirm.return_value = False
-    m_read_compose.side_effect = lambda: {'services': {'node-red': {}}}
-    invoke(add_service.add_node_red, _err=True)
-    invoke(add_service.add_node_red, '--yes')

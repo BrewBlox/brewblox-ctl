@@ -19,7 +19,9 @@ from . import const, utils
 from .models import CtlConfig
 
 JINJA_ENV = jinja2.Environment(loader=jinja2.PackageLoader('brewblox_ctl'),
-                               autoescape=jinja2.select_autoescape())
+                               autoescape=jinja2.select_autoescape(),
+                               trim_blocks=True,
+                               lstrip_blocks=True)
 
 
 def make_dotenv(version: str):
@@ -213,18 +215,30 @@ def edit_avahi_config():
     config = utils.get_config()
     fpath = Path('/etc/avahi/avahi-daemon.conf')
 
+    def sbool(v: bool) -> str:
+        return 'yes' if v else 'no'
+
     if not config.avahi.managed or not utils.file_exists(fpath):
         return
 
     content = utils.read_file_sudo(fpath)
+
     # `infile` is treated as file.readlines() output if it is a list[str]
     avahi_config = ConfigObj(infile=content.split('\n'))
-    copy = deepcopy(avahi_config)
-    avahi_config.setdefault('server', {}).setdefault('use-ipv6', 'no')
-    avahi_config.setdefault('publish', {}).setdefault('publish-aaaa-on-ipv4', 'no')
-    avahi_config.setdefault('reflector', {}).setdefault('enable-reflector', 'yes')
+    avahi_config.setdefault('server', {})
+    avahi_config.setdefault('publish', {})
+    avahi_config.setdefault('reflector', {})
 
-    if avahi_config == copy:
+    # Special case: for default Avahi and Brewblox settings, we don't need to edit the file
+    if not config.avahi.reflection and 'enable-reflector' not in avahi_config['reflector']:
+        return
+
+    prev_config = deepcopy(avahi_config)
+    avahi_config['server'].setdefault('use-ipv6', 'no')
+    avahi_config['publish'].setdefault('publish-aaaa-on-ipv4', 'no')
+    avahi_config['reflector']['enable-reflector'] = sbool(config.avahi.reflection)
+
+    if avahi_config == prev_config:
         return
 
     # avahi-daemon.conf requires a 'key=value' syntax
@@ -233,9 +247,9 @@ def edit_avahi_config():
 
     if utils.command_exists('systemctl'):
         utils.info('Restarting avahi-daemon service ...')
-        utils.sh('sudo systemctl restart avahi-daemon')
+        utils.sh('sudo systemctl restart avahi-daemon', check=False)
     else:
-        utils.warn('"systemctl" command not found. Please restart your machine to enable Wifi discovery.')
+        utils.warn('"systemctl" command not found. Please restart your machine to apply Avahi config.')
 
 
 def edit_sshd_config():

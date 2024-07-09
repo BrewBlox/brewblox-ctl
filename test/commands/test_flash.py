@@ -20,8 +20,8 @@ def m_usb(mocker: MockerFixture):
     return m
 
 
-def test_run_particle_flasher(m_sh: Mock):
-    flash.run_particle_flasher('taggart', True, 'do-stuff')
+def test_run_flasher(m_sh: Mock):
+    flash.run_flasher('taggart', True, 'do-stuff')
     m_sh.assert_any_call(
         'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
         'ghcr.io/brewblox/brewblox-firmware-flasher:taggart do-stuff')
@@ -84,9 +84,8 @@ def test_esp_flash(m_usb: Mock, m_sh: Mock):
     ]
     invoke(flash.flash, '--release develop --pull')
     m_sh.assert_any_call(
-        'SUDO docker run -it --rm --privileged ' +
-        '-v /dev:/dev -w /app/firmware --entrypoint bash --pull always ' +
-        'ghcr.io/brewblox/brewblox-devcon-spark:develop flash')
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
+        'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash')
 
 
 def test_invalid_flash(m_usb: Mock):

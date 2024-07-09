@@ -37,7 +37,7 @@ def experimental():
               help='Static controller URL. This will only be used for the initial credential exchange.')
 @click.option('--cert-file',
               type=click.Path(exists=True, resolve_path=True, path_type=Path),
-              default='./traefik/brewblox.crt',
+              default='./traefik/minica.pem',
               help='Path to broker certificate.')
 @click.option('--device-id',
               help='Manually set the device ID. '
@@ -152,7 +152,7 @@ def enable_spark_mqtt(server_host: Optional[str],
 
     send_cert_cmd = ' '.join([
         'curl -sS -X POST',
-        f'http://{device_host}/mqtt_certificate',
+        f'http://{device_host}/ca_certificate',
         f"-d '{cert}'"
     ])
 

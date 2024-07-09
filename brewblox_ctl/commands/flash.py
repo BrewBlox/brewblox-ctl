@@ -18,7 +18,7 @@ def cli():
     """Command collector"""
 
 
-def run_particle_flasher(release: str, pull: bool, cmd: str):
+def run_flasher(release: str, pull: bool, cmd: str):
     tag = utils.docker_tag(release)
     sudo = utils.optsudo()
 
@@ -32,24 +32,6 @@ def run_particle_flasher(release: str, pull: bool, cmd: str):
 
     with utils.downed_services():
         utils.sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-firmware-flasher:{tag} {cmd}')
-
-
-def run_esp_flasher(release: str, pull: bool):
-    tag = utils.docker_tag(release)
-    sudo = utils.optsudo()
-
-    opts = ' '.join([
-        '-it',
-        '--rm',
-        '--privileged',
-        '-v /dev:/dev',
-        '-w /app/firmware',
-        '--entrypoint bash',
-        '--pull ' + ('always' if pull else 'missing'),
-    ])
-
-    with utils.downed_services():
-        utils.sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-devcon-spark:{tag} flash')
 
 
 def find_usb_spark() -> usb.core.Device:
@@ -97,13 +79,13 @@ def flash(release, pull):
 
     if dev.idProduct == const.PID_PHOTON:
         utils.info('Flashing Spark 2 ...')
-        run_particle_flasher(release, pull, 'flash')
+        run_flasher(release, pull, 'flash')
     elif dev.idProduct == const.PID_P1:
         utils.info('Flashing Spark 3 ...')
-        run_particle_flasher(release, pull, 'flash')
+        run_flasher(release, pull, 'flash')
     elif dev.idProduct == const.PID_ESP32:
         utils.info('Flashing Spark 4 ...')
-        run_esp_flasher(release, pull)
+        run_flasher(release, pull, 'flash')
     else:
         raise ValueError('Unknown USB device')
 
@@ -218,4 +200,4 @@ def particle(release, pull, command):
 
     utils.info('Starting Particle image ...')
     utils.info("Type 'exit' and press enter to exit the shell")
-    run_particle_flasher(release, pull, command)
+    run_flasher(release, pull, command)

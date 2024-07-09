@@ -2,7 +2,6 @@
 Add and configure optional services
 """
 
-from os import geteuid, getgid
 from typing import Optional
 
 import click
@@ -145,7 +144,6 @@ def add_spark(name: str,
 
     compose['services'][name] = {
         'image': f'ghcr.io/brewblox/brewblox-devcon-spark:{utils.docker_tag(release)}',
-        'privileged': True,
         'restart': 'unless-stopped',
         'environment': environment,
         'volumes': [
@@ -274,47 +272,3 @@ def add_plaato(name, token, yes):
     click.echo('This service publishes history data, but does not have a UI component.')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
         utils.sh(f'{sudo}docker compose up -d')
-
-
-@cli.command()
-@click.option('-y', '--yes',
-              is_flag=True,
-              help='Do not prompt for confirmation')
-def add_node_red(yes):
-    """
-    Create a service for Node-RED.
-    """
-    utils.check_config()
-    utils.confirm_mode()
-    config = utils.get_config()
-
-    name = 'node-red'
-    sudo = utils.optsudo()
-    host = utils.host_ip_addresses()[0]
-    compose = utils.read_compose()
-
-    if not yes:
-        check_create_overwrite(compose, name)
-
-    compose['services'][name] = {
-        'image': 'ghcr.io/brewblox/node-red:${BREWBLOX_RELEASE}',
-        'restart': 'unless-stopped',
-        'volumes': [
-            localtime_volume(),
-            {
-                'type': 'bind',
-                'source': f'./{name}',
-                'target': '/data',
-            },
-        ]
-    }
-
-    utils.sh(f'mkdir -p ./{name}')
-    if [getgid(), geteuid()] != [1000, 1000]:
-        utils.sh(f'sudo chown -R 1000:1000 ./{name}')
-
-    utils.write_compose(compose)
-    click.echo(f'Added Node-RED service `{name}`.')
-    if utils.confirm('Do you want to run `brewblox-ctl up` now?'):
-        utils.sh(f'{sudo}docker compose up -d')
-        click.echo(f'Visit https://{host}:{config.ports.https}/{name} in your browser to load the editor.')
