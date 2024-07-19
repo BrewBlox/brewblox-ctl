@@ -14,8 +14,8 @@ from dotenv import load_dotenv
 from brewblox_ctl import click_helpers, utils
 from brewblox_ctl.commands import (add_service, auth, backup, configuration,
                                    database, diagnostic, docker, experimental,
-                                   fix, flash, http, install, service,
-                                   snapshot, tools, update)
+                                   fix, flash, install, service, snapshot,
+                                   tools, update)
 
 
 def escalate(ex):
@@ -54,7 +54,6 @@ def main(args=sys.argv[1:]):
                 configuration.cli,
                 auth.cli,
                 update.cli,
-                http.cli,
                 add_service.cli,
                 service.cli,
                 flash.cli,

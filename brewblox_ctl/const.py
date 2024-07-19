@@ -6,6 +6,8 @@ from pathlib import Path
 
 ARGS = sys.argv
 CLI = 'python3 -m brewblox_ctl'
+CURL = "curl -sSk -H 'content-type: application/json'"
+CURL_WAIT = f'{CURL} --fail --retry 60 --max-time 5 --retry-all-errors --retry-delay 10 -o /dev/null'
 
 # The configuration version installed by brewblox-ctl
 # This is written to .env during updates

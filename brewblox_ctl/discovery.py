@@ -5,6 +5,8 @@ Device discovery
 import enum
 import re
 from dataclasses import asdict, dataclass
+from glob import glob
+from pathlib import Path
 from queue import Empty, Queue
 from socket import inet_ntoa
 from typing import Dict, Generator, List, Optional
@@ -149,6 +151,44 @@ def discover_usb() -> Generator[DiscoveredDevice, None, None]:
         yield DiscoveredDevice(discovery='USB',
                                model=model,
                                device_id=id)
+
+
+def discover_particle_spark_tty(device_id: Optional[str] = None) -> Generator[str, None, None]:  # pragma: no cover
+    for tty in glob('/sys/class/tty/ttyACM*'):
+        tty = Path(tty)
+
+        if (tty / 'device' / 'subsystem').resolve() != Path('/sys/bus/usb'):
+            continue
+
+        dev_root = (tty / 'device').resolve() / '..'
+        usb_vid = (dev_root / 'idVendor').read_text().strip()
+        usb_pid = (dev_root / 'idProduct').read_text().strip()
+        usb_device_id = (dev_root / 'serial').read_text().strip()
+
+        if all([
+            int(usb_vid, 16) == const.VID_PARTICLE,
+            int(usb_pid, 16) in (const.PID_PHOTON, const.PID_P1),
+            device_id is None or usb_device_id == device_id,
+        ]):
+            yield f'/dev/{tty.name}'
+
+
+def discover_esp_spark_tty() -> Generator[str, None, None]:  # pragma: no cover
+    for tty in glob('/sys/class/tty/ttyUSB*'):
+        tty = Path(tty)
+
+        if (tty / 'device' / 'subsystem').resolve() != Path('/sys/bus/usb-serial'):
+            continue
+
+        dev_root = (tty / 'device').resolve() / '..' / '..'
+        usb_vid = (dev_root / 'idVendor').read_text().strip()
+        usb_pid = (dev_root / 'idProduct').read_text().strip()
+
+        if all([
+            int(usb_vid, 16) == const.VID_ESPRESSIF,
+            int(usb_pid, 16) == const.PID_ESP32,
+        ]):
+            yield f'/dev/{tty.name}'
 
 
 def discover_mdns() -> Generator[DiscoveredDevice, None, None]:

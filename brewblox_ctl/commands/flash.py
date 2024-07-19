@@ -2,13 +2,12 @@
 Flash device settings
 """
 
-from pathlib import Path
 from time import sleep
 
 import click
 import usb
 
-from brewblox_ctl import click_helpers, const, utils
+from brewblox_ctl import click_helpers, const, discovery, utils
 
 LISTEN_MODE_WAIT_S = 1
 
@@ -122,14 +121,13 @@ def particle_wifi(dev: usb.core.Device):
 
     sleep(LISTEN_MODE_WAIT_S)
 
-    serial = usb.util.get_string(dev, dev.iSerialNumber)
-    path = next(Path('/dev/serial/by-id').glob(f'*{serial}*'),
-                Path('/dev/ttyACM0'))
+    serial: str = usb.util.get_string(dev, dev.iSerialNumber)
+    dev_tty = next(discovery.discover_particle_spark_tty(serial.lower()))
 
     utils.info('Press w to start Wifi configuration.')
     utils.info('Press Ctrl + ] to cancel.')
     utils.info('The Spark must be restarted after canceling.')
-    utils.sh(f'pyserial-miniterm -q {path.resolve()} 2>/dev/null')
+    utils.sh(f'pyserial-miniterm -q {dev_tty} 2>/dev/null')
 
 
 def esp_wifi():

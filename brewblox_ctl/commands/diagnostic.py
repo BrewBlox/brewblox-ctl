@@ -8,7 +8,7 @@ from pathlib import Path
 
 import click
 
-from brewblox_ctl import actions, click_helpers, const, utils
+from brewblox_ctl import actions, click_helpers, const, discovery, utils
 
 
 def create():
@@ -129,7 +129,7 @@ def log(add_compose, add_system, upload):
     for svc in services:
         utils.info(f'Writing {svc} blocks ...')
         header(f'Blocks: {svc}')
-        append(f'{const.CLI} http post --pretty {host_url}/{svc}/blocks/all/read')
+        append(f'{const.CURL} -X POST {host_url}/{svc}/blocks/all/read | python3 -m json.tool')
 
     # Add system diagnostics
     if add_system:
@@ -183,6 +183,23 @@ def coredump(upload):
     else:
         utils.info('Skipping upload. If you want to manually upload the file, run: ' +
                    click.style('brewblox-ctl termbin ./coredump.b64', fg='green'))
+
+
+@cli.command()
+def monitor():
+    """Connect to a Spark 4, and monitor its logs.
+
+    This requires the Spark to be connected over USB.
+    Not compatible with the Spark 2 or 3.
+    """
+    dev_tty = next(discovery.discover_esp_spark_tty(), None)
+
+    if not dev_tty:
+        utils.warn('No Spark 4 detected')
+        return
+
+    utils.info(f'Connecting to {dev_tty} ...')
+    utils.sh(f'sudo -E env "PATH=$PATH" pyserial-miniterm --raw {dev_tty} 115200')
 
 
 @cli.command()

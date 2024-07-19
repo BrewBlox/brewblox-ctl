@@ -20,6 +20,16 @@ def m_usb(mocker: MockerFixture):
     return m
 
 
+@pytest.fixture
+def m_discover_tty(mocker: MockerFixture):
+    def gen(device_id):
+        yield '/dev/ttyACM0'
+
+    m = mocker.patch(TESTED + '.discovery.discover_particle_spark_tty', autospec=True)
+    m.side_effect = gen
+    return m
+
+
 def test_run_flasher(m_sh: Mock):
     flash.run_flasher('taggart', True, 'do-stuff')
     m_sh.assert_any_call(
@@ -99,7 +109,7 @@ def test_invalid_flash(m_usb: Mock):
     invoke(flash.flash, _err=True)
 
 
-def test_wifi(m_sh: Mock, mocker: MockerFixture):
+def test_wifi(m_sh: Mock, m_discover_tty: Mock, mocker: MockerFixture):
     mocker.patch(TESTED + '.LISTEN_MODE_WAIT_S', 0.0001)
     m_find = mocker.patch(TESTED + '.usb.core.find')
     m_get_string = mocker.patch(TESTED + '.usb.util.get_string', autospec=True)

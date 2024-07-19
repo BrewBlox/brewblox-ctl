@@ -184,8 +184,8 @@ def test_save_backup(mocker: MockerFixture, f_read_compose):
         call('global.redis.json', json.dumps(redis_data())),
         call('spark-one.spark.json', json.dumps(blocks_data())),
     ]
-    # wait, get datastore, get spark
-    assert len(httpretty.latest_requests()) == 3
+    # get datastore, get spark
+    assert len(httpretty.latest_requests()) == 2
 
 
 @httpretty.activate(allow_net_connect=False)
@@ -215,8 +215,8 @@ def test_save_backup_spark_err(mocker: MockerFixture, m_zipf, f_read_compose):
     assert m_zipfile.return_value.writestr.call_args_list == [
         call('global.redis.json', json.dumps(redis_data())),
     ]
-    # wait, get datastore, get spark
-    assert len(httpretty.latest_requests()) == 3
+    # get datastore, get spark
+    assert len(httpretty.latest_requests()) == 2
 
 
 @httpretty.activate(allow_net_connect=False)
@@ -238,8 +238,8 @@ def test_save_backup_ignore_spark_err(mocker: MockerFixture, m_zipf, f_read_comp
     assert m_zipfile.return_value.writestr.call_args_list == [
         call('global.redis.json', json.dumps(redis_data())),
     ]
-    # wait, get datastore, get spark
-    assert len(httpretty.latest_requests()) == 3
+    # get datastore, get spark
+    assert len(httpretty.latest_requests()) == 2
 
 
 def test_load_backup_empty(m_sh: Mock, m_zipf):

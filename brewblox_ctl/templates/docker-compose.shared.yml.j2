@@ -146,7 +146,7 @@ services:
 {% for interface in config.reflector.interfaces %}
   reflector-{{interface}}:
     image: yuxzhu/mdns-reflector:latest
-    restart: on-failure:3
+    restart: unless-stopped
     network_mode: host
     command: mdns-reflector -fn4 {{interface}} br-${COMPOSE_PROJECT_NAME}
     labels:

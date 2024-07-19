@@ -19,7 +19,6 @@ from dotenv import load_dotenv
 from ruamel.yaml import YAML
 
 from brewblox_ctl import click_helpers, const, utils
-from brewblox_ctl.commands import http
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -84,7 +83,7 @@ def save(save_compose, ignore_spark_error):
     store_url = utils.datastore_url()
 
     utils.info('Waiting for the datastore ...')
-    http.wait(store_url + '/ping', info_updates=True)
+    utils.sh(f'{const.CURL_WAIT} {store_url}/ping')
 
     config = utils.read_compose()
     sparks = [
@@ -139,7 +138,7 @@ def mset(data):
         utils.show_data('datastore', data)
         json.dump(data, tmp)
         tmp.flush()
-        utils.sh(f'{const.CLI} http post --quiet {utils.datastore_url()}/mset -f {tmp.name}')
+        utils.sh(f'{const.CURL} -X POST {utils.datastore_url()}/mset -d "@{tmp.name}"')
 
 
 @backup.command()
@@ -247,11 +246,11 @@ def load(archive,
     if load_datastore:
         if redis_file in available or couchdb_files:
             utils.info('Waiting for the datastore ...')
-            utils.sh(f'{const.CLI} http wait {store_url}/ping')
+            utils.sh(f'{const.CURL_WAIT} {store_url}/ping')
             # Wipe UI/Automation, but leave Spark files
-            mdelete_cmd = '{} http post {}/mdelete --quiet -d \'{{"namespace":"{}", "filter":"*"}}\''
-            utils.sh(mdelete_cmd.format(const.CLI, store_url, 'brewblox-ui-store'))
-            utils.sh(mdelete_cmd.format(const.CLI, store_url, 'brewblox-automation'))
+            mdelete_cmd = '{} -X POST {}/mdelete -d \'{{"namespace":"{}", "filter":"*"}}\''
+            utils.sh(mdelete_cmd.format(const.CURL, store_url, 'brewblox-ui-store'))
+            utils.sh(mdelete_cmd.format(const.CURL, store_url, 'brewblox-automation'))
         else:
             utils.info('No datastore files found in backup archive')
 
@@ -306,7 +305,7 @@ def load(archive,
                 utils.show_data(spark, data)
                 json.dump(data, tmp)
                 tmp.flush()
-                utils.sh(f'{const.CLI} http post {host_url}/{spark}/blocks/backup/load -f {tmp.name}')
+                utils.sh(f'{const.CURL} -X POST {host_url}/{spark}/blocks/backup/load -d "@{tmp.name}"')
                 utils.sh(f'{sudo}docker compose restart {spark}')
 
     if load_node_red and node_red_files:
