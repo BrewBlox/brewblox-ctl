@@ -45,6 +45,12 @@ def find_usb_spark() -> usb.core.Device:
             *usb.core.find(find_all=True,
                            idVendor=const.VID_ESPRESSIF,
                            idProduct=const.PID_ESP32),
+            *usb.core.find(find_all=True,
+                           idVendor=const.VID_PARTICLE,
+                           idProduct=const.PID_PHOTON_DFU),
+            *usb.core.find(find_all=True,
+                           idVendor=const.VID_PARTICLE,
+                           idProduct=const.PID_P1_DFU),
         ]
         num_devices = len(devices)
         if num_devices == 0:
@@ -81,6 +87,12 @@ def flash(release, pull):
         run_flasher(release, pull, 'flash')
     elif dev.idProduct == const.PID_P1:
         utils.info('Flashing Spark 3 ...')
+        run_flasher(release, pull, 'flash')
+    elif dev.idProduct == const.PID_PHOTON_DFU:
+        utils.info('Flashing Spark 2 already in DFU mode...')
+        run_flasher(release, pull, 'flash')
+    elif dev.idProduct == const.PID_P1_DFU:
+        utils.info('Flashing Spark 3 already in DFU mode...')
         run_flasher(release, pull, 'flash')
     elif dev.idProduct == const.PID_ESP32:
         utils.info('Flashing Spark 4 ...')
