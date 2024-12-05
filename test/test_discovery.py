@@ -16,8 +16,7 @@ from brewblox_ctl.testing import matching
 TESTED = discovery.__name__
 
 
-class ServiceBrowserMock():
-
+class ServiceBrowserMock:
     def __init__(self, conf, service_type, handlers):
         self.conf = conf
         self.service_type = service_type
@@ -25,19 +24,12 @@ class ServiceBrowserMock():
 
         for name in ['id0', 'id1', 'id2']:
             for handler in self.handlers:
-                handler(zeroconf=conf,
-                        service_type=service_type,
-                        name=name,
-                        state_change=ServiceStateChange.Added)
-                handler(zeroconf=conf,
-                        service_type=service_type,
-                        name=name,
-                        state_change=ServiceStateChange.Removed)
+                handler(zeroconf=conf, service_type=service_type, name=name, state_change=ServiceStateChange.Added)
+                handler(zeroconf=conf, service_type=service_type, name=name, state_change=ServiceStateChange.Removed)
 
 
 @pytest.fixture(autouse=True)
 def m_conf(mocker: MockerFixture):
-
     def get_service_info(service_type, name):
         dns_type = discovery.BREWBLOX_DNS_TYPE
         service_name = f'{name}.{dns_type}'
@@ -151,11 +143,7 @@ def test_match_id_services():
 
 
 def test_discover_usb():
-    expected = DiscoveredDevice(
-        discovery='USB',
-        model='Spark 3',
-        device_id='4f0052000551353432383931'
-    )
+    expected = DiscoveredDevice(discovery='USB', model='Spark 3', device_id='4f0052000551353432383931')
 
     gen = discovery.discover_usb()
     assert next(gen, None) == expected
@@ -166,15 +154,11 @@ def test_discover_usb():
 def test_discover_mdns():
     gen = discovery.discover_mdns()
     assert next(gen, None) == DiscoveredDevice(
-        discovery='mDNS',
-        model='Spark 3',
-        device_id='id1',
-        device_host='1.2.3.4')
+        discovery='mDNS', model='Spark 3', device_id='id1', device_host='1.2.3.4'
+    )
     assert next(gen, None) == DiscoveredDevice(
-        discovery='mDNS',
-        model='Spark 4',
-        device_id='id2',
-        device_host='4.3.2.1')
+        discovery='mDNS', model='Spark 4', device_id='id2', device_host='4.3.2.1'
+    )
     assert next(gen, None) is None
 
 

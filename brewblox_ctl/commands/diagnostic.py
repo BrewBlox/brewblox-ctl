@@ -32,15 +32,15 @@ def cli():
 
 
 @cli.command()
-@click.option('--add-compose/--no-add-compose',
-              default=True,
-              help='Include or omit docker compose config files in the generated log.')
-@click.option('--add-system/--no-add-system',
-              default=True,
-              help='Include or omit system diagnostics in the generated log.')
-@click.option('--upload/--no-upload',
-              default=True,
-              help='Whether to upload the log file to termbin.com.')
+@click.option(
+    '--add-compose/--no-add-compose',
+    default=True,
+    help='Include or omit docker compose config files in the generated log.',
+)
+@click.option(
+    '--add-system/--no-add-system', default=True, help='Include or omit system diagnostics in the generated log.'
+)
+@click.option('--upload/--no-upload', default=True, help='Whether to upload the log file to termbin.com.')
 def log(add_compose, add_system, upload):
     """Generate and share log file for bug reports.
 
@@ -91,9 +91,7 @@ def log(add_compose, add_system, upload):
     # Exclude potentially sensitive fields
     utils.info('Writing config ...')
     header('Config')
-    content = utils.get_config().model_dump_json(indent=2,
-                                                 exclude={'environment'},
-                                                 exclude_defaults=True)
+    content = utils.get_config().model_dump_json(indent=2, exclude={'environment'}, exclude_defaults=True)
     append(f"echo '{content}'")
 
     # Add active containers
@@ -153,14 +151,14 @@ def log(add_compose, add_system, upload):
     if upload:
         click.echo(actions.file_netcat('termbin.com', 9999, Path('./brewblox.log')).decode())
     else:
-        utils.info('Skipping upload. If you want to manually upload the log, run: ' +
-                   click.style('brewblox-ctl termbin ./brewblox.log', fg='green'))
+        utils.info(
+            'Skipping upload. If you want to manually upload the log, run: '
+            + click.style('brewblox-ctl termbin ./brewblox.log', fg='green')
+        )
 
 
 @cli.command()
-@click.option('--upload/--no-upload',
-              default=True,
-              help='Whether to upload the core dump file to termbin.com.')
+@click.option('--upload/--no-upload', default=True, help='Whether to upload the core dump file to termbin.com.')
 def coredump(upload):
     """Read and upload a core dump file for the Spark 4.
 
@@ -172,17 +170,16 @@ def coredump(upload):
 
     The `esptool` python package is required, and will be installed if not found.
     """
-    actions.start_esptool('--chip esp32',
-                          '--baud 115200',
-                          'read_flash 0xA10000 81920',
-                          'coredump.bin')
+    actions.start_esptool('--chip esp32', '--baud 115200', 'read_flash 0xA10000 81920', 'coredump.bin')
     utils.sh('base64 coredump.bin > coredump.b64')
 
     if upload:
         click.echo(actions.file_netcat('termbin.com', 9999, Path('./coredump.b64')).decode())
     else:
-        utils.info('Skipping upload. If you want to manually upload the file, run: ' +
-                   click.style('brewblox-ctl termbin ./coredump.b64', fg='green'))
+        utils.info(
+            'Skipping upload. If you want to manually upload the file, run: '
+            + click.style('brewblox-ctl termbin ./coredump.b64', fg='green')
+        )
 
 
 @cli.command()

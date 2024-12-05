@@ -48,15 +48,15 @@ def m_utils(m_read_compose: Mock, m_read_shared_compose: Mock, m_getenv: Mock, m
             },
             'mcguffin': {
                 'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
-            }
-        }}
+            },
+        }
+    }
     m_read_shared_compose.side_effect = lambda: {'services': {}}
 
 
 def test_update_ctl(m_actions: Mock, m_sh: Mock):
     invoke(update.update_ctl)
     m_actions.install_ctl_package.assert_called_once_with()
-    m_actions.uninstall_old_ctl_package.assert_called_once_with()
     m_actions.make_ctl_entrypoint.assert_called_once_with()
     m_sh.assert_not_called()
 
@@ -70,9 +70,7 @@ def test_update(m_file_exists: Mock, m_getenv: Mock, m_migration: Mock):
     invoke(update.update, _err=True)
     invoke(update.update, '--from-version 0.0.0 --prune', _err=True)
     invoke(update.update, '--from-version 9001.0.0 --prune', _err=True)
-    invoke(update.update,
-           '--from-version 0.0.1 --no-pull --no-update-ctl' +
-           ' --no-migrate --no-prune')
+    invoke(update.update, '--from-version 0.0.1 --no-pull --no-update-ctl' + ' --no-migrate --no-prune')
 
     m_getenv.return_value = None
     invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune')
@@ -103,64 +101,68 @@ def test_bind_localtime(m_read_compose: Mock, m_write_compose: Mock):
             'spark-one': {
                 'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
             },
-            'spark-two': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
-                'volumes': ['/data:/data']
-            },
-            'plaato': {
-                'image': 'brewblox/brewblox-plaato:rpi-edge',
-                'volumes': ['/etc/localtime:/etc/localtime:ro']
-            },
+            'spark-two': {'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge', 'volumes': ['/data:/data']},
+            'plaato': {'image': 'brewblox/brewblox-plaato:rpi-edge', 'volumes': ['/etc/localtime:/etc/localtime:ro']},
             'mcguffin': {
                 'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
-                'volumes': [{
-                    'type': 'bind',
-                    'source': '/etc/localtime',
-                    'target': '/etc/localtime',
-                    'read_only': True,
-                }]
-            }
-        }}
-
-    update.bind_localtime()
-    m_write_compose.assert_called_once_with({
-        'version': '3.7',
-        'services': {
-            'spark-one': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
-                'volumes': [{
-                    'type': 'bind',
-                    'source': '/etc/localtime',
-                    'target': '/etc/localtime',
-                    'read_only': True,
-                }]
-            },
-            'spark-two': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'volumes': [
-                    '/data:/data',
                     {
                         'type': 'bind',
                         'source': '/etc/localtime',
                         'target': '/etc/localtime',
                         'read_only': True,
                     }
-                ]
+                ],
             },
-            'plaato': {
-                'image': 'brewblox/brewblox-plaato:rpi-edge',
-                'volumes': ['/etc/localtime:/etc/localtime:ro']
+        },
+    }
+
+    update.bind_localtime()
+    m_write_compose.assert_called_once_with(
+        {
+            'version': '3.7',
+            'services': {
+                'spark-one': {
+                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
+                    'volumes': [
+                        {
+                            'type': 'bind',
+                            'source': '/etc/localtime',
+                            'target': '/etc/localtime',
+                            'read_only': True,
+                        }
+                    ],
+                },
+                'spark-two': {
+                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
+                    'volumes': [
+                        '/data:/data',
+                        {
+                            'type': 'bind',
+                            'source': '/etc/localtime',
+                            'target': '/etc/localtime',
+                            'read_only': True,
+                        },
+                    ],
+                },
+                'plaato': {
+                    'image': 'brewblox/brewblox-plaato:rpi-edge',
+                    'volumes': ['/etc/localtime:/etc/localtime:ro'],
+                },
+                'mcguffin': {
+                    'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
+                    'volumes': [
+                        {
+                            'type': 'bind',
+                            'source': '/etc/localtime',
+                            'target': '/etc/localtime',
+                            'read_only': True,
+                        }
+                    ],
+                },
             },
-            'mcguffin': {
-                'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
-                'volumes': [{
-                    'type': 'bind',
-                    'source': '/etc/localtime',
-                    'target': '/etc/localtime',
-                    'read_only': True,
-                }]
-            }
-        }})
+        }
+    )
 
 
 def test_bind_spark_backup(m_read_compose: Mock, m_write_compose: Mock):
@@ -170,78 +172,86 @@ def test_bind_spark_backup(m_read_compose: Mock, m_write_compose: Mock):
             'spark-one': {
                 'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
             },
-            'spark-two': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
-                'volumes': ['/data:/data']
-            },
+            'spark-two': {'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge', 'volumes': ['/data:/data']},
             'spark-three': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
-                'volumes': [{
-                    'type': 'bind',
-                    'source': './custom/backup/dir',
-                    'target': '/app/backup',
-                }]
-            },
-            'plaato': {
-                'image': 'brewblox/brewblox-plaato:rpi-edge',
-                'volumes': ['/etc/localtime:/etc/localtime:ro']
-            },
-            'mcguffin': {
-                'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
-                'volumes': [{
-                    'type': 'bind',
-                    'source': '/etc/localtime',
-                    'target': '/etc/localtime',
-                    'read_only': True,
-                }]
-            }
-        }}
-
-    update.bind_spark_backup()
-    m_write_compose.assert_called_once_with({
-        'version': '3.7',
-        'services': {
-            'spark-one': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
-                'volumes': [{
-                    'type': 'bind',
-                    'source': './spark/backup',
-                    'target': '/app/backup',
-                }]
-            },
-            'spark-two': {
                 'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
                 'volumes': [
-                    '/data:/data',
                     {
                         'type': 'bind',
-                        'source': './spark/backup',
+                        'source': './custom/backup/dir',
                         'target': '/app/backup',
                     }
-                ]
+                ],
             },
-            'spark-three': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
-                'volumes': [{
-                    'type': 'bind',
-                    'source': './custom/backup/dir',
-                    'target': '/app/backup',
-                }]
-            },
-            'plaato': {
-                'image': 'brewblox/brewblox-plaato:rpi-edge',
-                'volumes': ['/etc/localtime:/etc/localtime:ro']
-            },
+            'plaato': {'image': 'brewblox/brewblox-plaato:rpi-edge', 'volumes': ['/etc/localtime:/etc/localtime:ro']},
             'mcguffin': {
                 'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
-                'volumes': [{
-                    'type': 'bind',
-                    'source': '/etc/localtime',
-                    'target': '/etc/localtime',
-                    'read_only': True,
-                }]
-            }
-        }})
+                'volumes': [
+                    {
+                        'type': 'bind',
+                        'source': '/etc/localtime',
+                        'target': '/etc/localtime',
+                        'read_only': True,
+                    }
+                ],
+            },
+        },
+    }
+
+    update.bind_spark_backup()
+    m_write_compose.assert_called_once_with(
+        {
+            'version': '3.7',
+            'services': {
+                'spark-one': {
+                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
+                    'volumes': [
+                        {
+                            'type': 'bind',
+                            'source': './spark/backup',
+                            'target': '/app/backup',
+                        }
+                    ],
+                },
+                'spark-two': {
+                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
+                    'volumes': [
+                        '/data:/data',
+                        {
+                            'type': 'bind',
+                            'source': './spark/backup',
+                            'target': '/app/backup',
+                        },
+                    ],
+                },
+                'spark-three': {
+                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
+                    'volumes': [
+                        {
+                            'type': 'bind',
+                            'source': './custom/backup/dir',
+                            'target': '/app/backup',
+                        }
+                    ],
+                },
+                'plaato': {
+                    'image': 'brewblox/brewblox-plaato:rpi-edge',
+                    'volumes': ['/etc/localtime:/etc/localtime:ro'],
+                },
+                'mcguffin': {
+                    'image': 'brewblox/brewblox-mcguffin:${BREWBLOX_RELEASE}',
+                    'volumes': [
+                        {
+                            'type': 'bind',
+                            'source': '/etc/localtime',
+                            'target': '/etc/localtime',
+                            'read_only': True,
+                        }
+                    ],
+                },
+            },
+        }
+    )
 
 
 def test_bind_noop(m_read_shared_compose: Mock, m_read_compose: Mock, m_write_compose: Mock):
@@ -251,7 +261,7 @@ def test_bind_noop(m_read_shared_compose: Mock, m_read_compose: Mock, m_write_co
             'redis': {
                 'image': 'redis:6.0',
             },
-        }
+        },
     }
     m_read_compose.side_effect = lambda: {
         'version': '3.7',
@@ -259,7 +269,7 @@ def test_bind_noop(m_read_shared_compose: Mock, m_read_compose: Mock, m_write_co
             'redis': {
                 'image': 'redis:6.0',
             },
-        }
+        },
     }
 
     update.bind_localtime()

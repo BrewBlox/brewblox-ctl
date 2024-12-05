@@ -56,8 +56,9 @@ def m_utils(m_getenv: Mock, m_read_compose: Mock):
             },
             'automation': {
                 'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
-            }
-        }}
+            },
+        }
+    }
 
 
 def test_influx_measurements(m_sh_stream: Mock):
@@ -67,8 +68,9 @@ def test_influx_measurements(m_sh_stream: Mock):
 
 
 def test_influx_line_count(m_sh: Mock):
-    m_sh.return_value = \
+    m_sh.return_value = (
         '{"results":[{"series":[{"name":"spark-one","columns":["time","count"],"values":[[0,825518]]}]}]}'
+    )
     assert migration._influx_line_count('spark-one', '') == 825518
 
     m_sh.return_value = '{"results":[{}]}'
@@ -103,7 +105,7 @@ def test_copy_influx_measurement_victoria(mocker: MockerFixture, m_sh: Mock, m_s
 def test_copy_influx_measurement_empty(mocker: MockerFixture, m_sh_stream: Mock):
     def empty(cmd):
         yield ''
-        return
+
     m_sh_stream.side_effect = empty
     m_tmp = mocker.patch(TESTED + '.NamedTemporaryFile', wraps=migration.NamedTemporaryFile)
     mocker.patch(TESTED + '._influx_line_count', return_value=None)
@@ -184,36 +186,40 @@ def test_migrate_ghcr_images(m_read_compose: Mock, m_write_compose: Mock):
             'extension': {
                 'command': 'updated from shared compose',
             },
-        }}
+        },
+    }
     migration.migrate_ghcr_images()
-    m_write_compose.assert_called_once_with({
-        'version': '3.7',
-        'services': {
-            'spark-one': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:edge',
+    m_write_compose.assert_called_once_with(
+        {
+            'version': '3.7',
+            'services': {
+                'spark-one': {
+                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:edge',
+                },
+                'spark-two': {
+                    'image': 'brewblox/brewblox-devcon-spark:feature-branch',
+                },
+                'spark-three': {
+                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:$BREWBLOX_RELEASE',
+                },
+                'plaato': {
+                    'image': 'ghcr.io/brewblox/brewblox-plaato:edge',
+                },
+                'automation': {
+                    'image': 'ghcr.io/brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
+                },
+                'spark-fallback': {
+                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE:-develop}',
+                },
+                'third-party': {
+                    'image': 'external/image:tag',
+                },
+                'extension': {
+                    'command': 'updated from shared compose',
+                },
             },
-            'spark-two': {
-                'image': 'brewblox/brewblox-devcon-spark:feature-branch',
-            },
-            'spark-three': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:$BREWBLOX_RELEASE',
-            },
-            'plaato': {
-                'image': 'ghcr.io/brewblox/brewblox-plaato:edge',
-            },
-            'automation': {
-                'image': 'ghcr.io/brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
-            },
-            'spark-fallback': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:${BREWBLOX_RELEASE:-develop}',
-            },
-            'third-party': {
-                'image': 'external/image:tag',
-            },
-            'extension': {
-                'command': 'updated from shared compose',
-            },
-        }})
+        }
+    )
 
 
 def test_migrate_tilt_images(m_read_compose: Mock, m_write_compose: Mock):
@@ -226,9 +232,7 @@ def test_migrate_tilt_images(m_read_compose: Mock, m_write_compose: Mock):
             'tilt': {
                 'image': 'ghcr.io/brewblox/brewblox-tilt:feature-branch',
                 'network_mode': 'host',
-                'volumes': [
-                    './share:/share'
-                ]
+                'volumes': ['./share:/share'],
             },
             'tilt-new': {
                 'image': 'ghcr.io/brewblox/brewblox-tilt:feature-branch',
@@ -238,7 +242,7 @@ def test_migrate_tilt_images(m_read_compose: Mock, m_write_compose: Mock):
                         'source': '/var/run/dbus',
                         'target': '/var/run/dbus',
                     }
-                ]
+                ],
             },
             'third-party': {
                 'image': 'external/image:tag',
@@ -246,47 +250,49 @@ def test_migrate_tilt_images(m_read_compose: Mock, m_write_compose: Mock):
             'extension': {
                 'command': 'updated from shared compose',
             },
-        }}
+        },
+    }
     migration.migrate_tilt_images()
-    m_write_compose.assert_called_once_with({
-        'version': '3.7',
-        'services': {
-            'spark-one': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:edge',
+    m_write_compose.assert_called_once_with(
+        {
+            'version': '3.7',
+            'services': {
+                'spark-one': {
+                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:edge',
+                },
+                'tilt': {
+                    'image': 'ghcr.io/brewblox/brewblox-tilt:feature-branch',
+                    'volumes': [
+                        './share:/share',
+                        {
+                            'type': 'bind',
+                            'source': '/var/run/dbus',
+                            'target': '/var/run/dbus',
+                        },
+                    ],
+                },
+                'tilt-new': {
+                    'image': 'ghcr.io/brewblox/brewblox-tilt:feature-branch',
+                    'volumes': [
+                        {
+                            'type': 'bind',
+                            'source': '/var/run/dbus',
+                            'target': '/var/run/dbus',
+                        }
+                    ],
+                },
+                'third-party': {
+                    'image': 'external/image:tag',
+                },
+                'extension': {
+                    'command': 'updated from shared compose',
+                },
             },
-            'tilt': {
-                'image': 'ghcr.io/brewblox/brewblox-tilt:feature-branch',
-                'volumes': [
-                    './share:/share',
-                    {
-                        'type': 'bind',
-                        'source': '/var/run/dbus',
-                        'target': '/var/run/dbus',
-                    }
-                ]
-            },
-            'tilt-new': {
-                'image': 'ghcr.io/brewblox/brewblox-tilt:feature-branch',
-                'volumes': [
-                    {
-                        'type': 'bind',
-                        'source': '/var/run/dbus',
-                        'target': '/var/run/dbus',
-                    }
-                ]
-            },
-            'third-party': {
-                'image': 'external/image:tag',
-            },
-            'extension': {
-                'command': 'updated from shared compose',
-            },
-        }})
+        }
+    )
 
     # No-op if no tilt services
-    m_read_compose.side_effect = lambda: {
-        'version': '3.7',
-        'services': {}}
+    m_read_compose.side_effect = lambda: {'version': '3.7', 'services': {}}
     migration.migrate_tilt_images()
     assert m_write_compose.call_count == 1
 

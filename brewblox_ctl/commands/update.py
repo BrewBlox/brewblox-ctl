@@ -20,9 +20,11 @@ def check_version(prev_version: Version):
         raise SystemExit(1)
 
     if prev_version > Version(const.CFG_VERSION):
-        utils.error('Your system is running a version newer than the selected release. ' +
-                    'This may be due to switching release tracks.' +
-                    'You can use the --from-version flag if you know what you are doing.')
+        utils.error(
+            'Your system is running a version newer than the selected release. '
+            + 'This may be due to switching release tracks.'
+            + 'You can use the --from-version flag if you know what you are doing.'
+        )
         raise SystemExit(1)
 
 
@@ -39,7 +41,7 @@ def bind_localtime():
         'read_only': True,
     }
 
-    for (name, service) in compose['services'].items():
+    for name, service in compose['services'].items():
         name: str
         service: dict
 
@@ -71,7 +73,7 @@ def bind_spark_backup():
         'target': '/app/backup',
     }
 
-    for (name, service) in compose['services'].items():
+    for name, service in compose['services'].items():
         name: str
         service: dict
 
@@ -81,8 +83,9 @@ def bind_spark_backup():
         volumes = service.get('volumes', [])
         present = False
         for volume in volumes:
-            if (isinstance(volume, str) and volume.endswith(':/app/backup')) \
-                    or (isinstance(volume, dict) and volume.get('target') == '/app/backup'):
+            if (isinstance(volume, str) and volume.endswith(':/app/backup')) or (
+                isinstance(volume, dict) and volume.get('target') == '/app/backup'
+            ):
                 present = True
                 break
 
@@ -135,25 +138,17 @@ def upped_migrate(prev_version):
 
 
 @cli.command()
-@click.option('--update-ctl/--no-update-ctl',
-              default=True,
-              help='Update brewblox-ctl.')
-@click.option('--update-ctl-done',
-              is_flag=True,
-              hidden=True)
-@click.option('--pull/--no-pull',
-              default=True,
-              help='Update docker service images.')
-@click.option('--migrate/--no-migrate',
-              default=True,
-              help='Migrate Brewblox configuration and service settings.')
-@click.option('--prune/--no-prune',
-              default=True,
-              help='Remove unused docker images.')
-@click.option('--from-version',
-              default='0.0.0',
-              envvar=const.ENV_KEY_CFG_VERSION,
-              help='[ADVANCED] Override version number of active configuration.')
+@click.option('--update-ctl/--no-update-ctl', default=True, help='Update brewblox-ctl.')
+@click.option('--update-ctl-done', is_flag=True, hidden=True)
+@click.option('--pull/--no-pull', default=True, help='Update docker service images.')
+@click.option('--migrate/--no-migrate', default=True, help='Migrate Brewblox configuration and service settings.')
+@click.option('--prune/--no-prune', default=True, help='Remove unused docker images.')
+@click.option(
+    '--from-version',
+    default='0.0.0',
+    envvar=const.ENV_KEY_CFG_VERSION,
+    help='[ADVANCED] Override version number of active configuration.',
+)
 def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
     """Download and apply updates.
 
@@ -212,14 +207,12 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
 
     if update_ctl and not update_ctl_done:
         utils.info('Updating brewblox-ctl ...')
-        utils.pip_install('pip')
         actions.install_ctl_package()
         # Restart update - we just replaced the source code
         utils.sh(' '.join(['exec', const.CLI, *const.ARGS[1:], '--update-ctl-done']))
         return
 
     if update_ctl:
-        actions.uninstall_old_ctl_package()
         actions.make_ctl_entrypoint()
 
     actions.install_compose_plugin()
@@ -257,5 +250,4 @@ def update_ctl():
     """Download and update brewblox-ctl itself."""
     utils.confirm_mode()
     actions.install_ctl_package()
-    actions.uninstall_old_ctl_package()
     actions.make_ctl_entrypoint()

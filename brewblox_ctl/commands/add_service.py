@@ -7,8 +7,7 @@ from typing import Optional
 import click
 
 from brewblox_ctl import click_helpers, utils
-from brewblox_ctl.discovery import (DiscoveryType, choose_device,
-                                    find_device_by_host, list_devices)
+from brewblox_ctl.discovery import DiscoveryType, choose_device, find_device_by_host, list_devices
 
 
 def localtime_volume() -> dict:
@@ -36,10 +35,13 @@ def cli():
 
 
 @cli.command()
-@click.option('--discovery', 'discovery_type',
-              type=click.Choice(DiscoveryType.choices()),
-              default='all',
-              help='Discovery setting. Use "all" to check both mDNS and USB')
+@click.option(
+    '--discovery',
+    'discovery_type',
+    type=click.Choice(DiscoveryType.choices()),
+    default='all',
+    help='Discovery setting. Use "all" to check both mDNS and USB',
+)
 def discover_spark(discovery_type):
     """
     Discover available Spark controllers.
@@ -59,38 +61,40 @@ def discover_spark(discovery_type):
 
 
 @cli.command()
-@click.option('-n', '--name',
-              prompt='How do you want to call this service? The name must be unique',
-              callback=utils.check_service_name,
-              help='Service name')
-@click.option('--discover-now/--no-discover-now',
-              default=True,
-              help='Select from discovered devices if --device-id is not set')
-@click.option('--device-id',
-              help='Checked device ID')
-@click.option('--discovery', 'discovery_type',
-              type=click.Choice(DiscoveryType.choices()),
-              default='all',
-              help='Methods for discovering devices. This will become part of the service configuration.')
-@click.option('--device-host',
-              help='Static controller URL')
-@click.option('-y', '--yes',
-              is_flag=True,
-              help='Do not prompt for confirmation')
-@click.option('--release',
-              default='${BREWBLOX_RELEASE}',
-              help='Brewblox release track used by the Spark service.')
-@click.option('--simulation',
-              is_flag=True,
-              help='Add a simulation service. This will override discovery and connection settings.')
-def add_spark(name: str,
-              discover_now: bool,
-              device_id: Optional[str],
-              discovery_type: str,
-              device_host: Optional[str],
-              yes: bool,
-              release: str,
-              simulation: bool):
+@click.option(
+    '-n',
+    '--name',
+    prompt='How do you want to call this service? The name must be unique',
+    callback=utils.check_service_name,
+    help='Service name',
+)
+@click.option(
+    '--discover-now/--no-discover-now', default=True, help='Select from discovered devices if --device-id is not set'
+)
+@click.option('--device-id', help='Checked device ID')
+@click.option(
+    '--discovery',
+    'discovery_type',
+    type=click.Choice(DiscoveryType.choices()),
+    default='all',
+    help='Methods for discovering devices. This will become part of the service configuration.',
+)
+@click.option('--device-host', help='Static controller URL')
+@click.option('-y', '--yes', is_flag=True, help='Do not prompt for confirmation')
+@click.option('--release', default='${BREWBLOX_RELEASE}', help='Brewblox release track used by the Spark service.')
+@click.option(
+    '--simulation', is_flag=True, help='Add a simulation service. This will override discovery and connection settings.'
+)
+def add_spark(
+    name: str,
+    discover_now: bool,
+    device_id: Optional[str],
+    discovery_type: str,
+    device_host: Optional[str],
+    yes: bool,
+    release: str,
+    simulation: bool,
+):
     """
     Create or update a Spark service.
 
@@ -153,16 +157,12 @@ def add_spark(name: str,
                 'source': './spark/backup',
                 'target': '/app/backup',
             },
-        ]
+        ],
     }
 
     if simulation:
         mount_dir = f'./simulator__{name}'
-        compose['services'][name]['volumes'].append({
-            'type': 'bind',
-            'source': mount_dir,
-            'target': '/app/simulator'
-        })
+        compose['services'][name]['volumes'].append({'type': 'bind', 'source': mount_dir, 'target': '/app/simulator'})
         utils.sh(f'mkdir -m 777 -p {mount_dir}')
 
     utils.write_compose(compose)
@@ -173,9 +173,7 @@ def add_spark(name: str,
 
 
 @cli.command()
-@click.option('-y', '--yes',
-              is_flag=True,
-              help='Do not prompt for confirmation')
+@click.option('-y', '--yes', is_flag=True, help='Do not prompt for confirmation')
 def add_tilt(yes):
     """
     Create a service for the Tilt hydrometer.
@@ -227,18 +225,20 @@ def add_tilt(yes):
 
 
 @cli.command()
-@click.option('-n', '--name',
-              prompt='How do you want to call this service? The name must be unique',
-              callback=utils.check_service_name,
-              default='plaato',
-              help='Service name')
-@click.option('--token',
-              prompt='What is your Plaato auth token? '
-              'For more info: https://plaato.io/apps/help-center#!hc-auth-token',
-              help='Plaato authentication token.')
-@click.option('-y', '--yes',
-              is_flag=True,
-              help='Do not prompt for confirmation')
+@click.option(
+    '-n',
+    '--name',
+    prompt='How do you want to call this service? The name must be unique',
+    callback=utils.check_service_name,
+    default='plaato',
+    help='Service name',
+)
+@click.option(
+    '--token',
+    prompt='What is your Plaato auth token? ' 'For more info: https://plaato.io/apps/help-center#!hc-auth-token',
+    help='Plaato authentication token.',
+)
+@click.option('-y', '--yes', is_flag=True, help='Do not prompt for confirmation')
 def add_plaato(name, token, yes):
     """
     Create a service for the Plaato airlock.
@@ -264,7 +264,7 @@ def add_plaato(name, token, yes):
             'PLAATO_AUTH': token,
         },
         'command': f'--name={name}',
-        'volumes': [localtime_volume()]
+        'volumes': [localtime_volume()],
     }
 
     utils.write_compose(compose)

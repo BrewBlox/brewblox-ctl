@@ -19,10 +19,7 @@ TESTED = experimental.__name__
 def m_choose(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.choose_device', autospec=True)
     m.side_effect = lambda _1, _2: DiscoveredDevice(
-        discovery='mDNS',
-        model='Spark 4',
-        device_id='c4dd5766bb18',
-        device_host='192.168.0.55'
+        discovery='mDNS', model='Spark 4', device_id='c4dd5766bb18', device_host='192.168.0.55'
     )
     return m
 

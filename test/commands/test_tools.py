@@ -1,6 +1,7 @@
 """
 Tests brewblox_ctl.commands.tools
 """
+
 from unittest.mock import Mock
 
 import pytest

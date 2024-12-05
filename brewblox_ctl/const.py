@@ -1,11 +1,12 @@
 """
 Const values
 """
+
 import sys
 from pathlib import Path
 
 ARGS = sys.argv
-CLI = 'python3 -m brewblox_ctl'
+CLI = 'uv run python3 -m brewblox_ctl'
 CURL = "curl -sSk -H 'content-type: application/json'"
 CURL_WAIT = f'{CURL} --fail --retry 60 --max-time 5 --retry-all-errors --retry-delay 10 -o /dev/null'
 
@@ -45,10 +46,10 @@ APT_DEPENDENCIES = [
 ]
 
 # USB Vendor / Product IDs
-VID_PARTICLE = 0x2b04
-PID_PHOTON = 0xc006
-PID_PHOTON_DFU = 0xd006
-PID_P1 = 0xc008
-PID_P1_DFU = 0xd008
-VID_ESPRESSIF = 0x10c4
-PID_ESP32 = 0xea60
+VID_PARTICLE = 0x2B04
+PID_PHOTON = 0xC006
+PID_PHOTON_DFU = 0xD006
+PID_P1 = 0xC008
+PID_P1_DFU = 0xD008
+VID_ESPRESSIF = 0x10C4
+PID_ESP32 = 0xEA60

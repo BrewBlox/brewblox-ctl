@@ -60,10 +60,9 @@ def strtobool(val: str) -> bool:
     val = val.lower()
     if val in ('y', 'yes', 't', 'true', 'on', '1'):
         return True
-    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+    if val in ('n', 'no', 'f', 'false', 'off', '0'):
         return False
-    else:
-        raise ValueError(f'invalid truth value {val}')
+    raise ValueError(f'invalid truth value {val}')
 
 
 def strex(ex: Exception) -> str:
@@ -73,8 +72,7 @@ def strex(ex: Exception) -> str:
     msg = str(ex)
     if '\n' in msg:
         return f'{type(ex).__name__}:\n{msg}'
-    else:
-        return f'{type(ex).__name__}({msg})'
+    return f'{type(ex).__name__}({msg})'
 
 
 def random_string(size: int) -> str:
@@ -115,21 +113,26 @@ def confirm_mode():
     y, n, v, d = [click.style(v, underline=True) for v in 'ynvd']
     suffix = f" ({y}es, {n}o, {v}erbose, {d}ry-run) [press ENTER for default value 'yes']"
 
-    retv: str = click.prompt('Do you want to continue?',
-                             type=click.Choice([
-                                 'y',
-                                 'yes',
-                                 'n',
-                                 'no',
-                                 'v',
-                                 'verbose',
-                                 'd',
-                                 'dry-run',
-                             ], case_sensitive=False),
-                             default='yes',
-                             show_default=False,
-                             show_choices=False,
-                             prompt_suffix=suffix)
+    retv: str = click.prompt(
+        'Do you want to continue?',
+        type=click.Choice(
+            [
+                'y',
+                'yes',
+                'n',
+                'no',
+                'v',
+                'verbose',
+                'd',
+                'dry-run',
+            ],
+            case_sensitive=False,
+        ),
+        default='yes',
+        show_default=False,
+        show_choices=False,
+        prompt_suffix=suffix,
+    )
 
     v = retv.lower()
     if v in ('n', 'no'):
@@ -184,9 +187,7 @@ def is_armv6() -> bool:
 
 
 def is_wsl() -> bool:
-    return bool(re.match(r'.*(Microsoft|WSL)',
-                         platform.version(),
-                         flags=re.IGNORECASE))
+    return bool(re.match(r'.*(Microsoft|WSL)', platform.version(), flags=re.IGNORECASE))
 
 
 def is_root() -> bool:
@@ -205,8 +206,7 @@ def has_docker_rights():
 
 
 def is_brewblox_dir(dir: str) -> bool:
-    return (Path(dir) / 'brewblox.yml').exists() or \
-        (const.ENV_KEY_CFG_VERSION in dotenv_values(f'{dir}/.env'))
+    return (Path(dir) / 'brewblox.yml').exists() or (const.ENV_KEY_CFG_VERSION in dotenv_values(f'{dir}/.env'))
 
 
 def is_empty_dir(dir):
@@ -221,8 +221,7 @@ def user_home_exists() -> bool:
 
 def is_compose_up():
     sudo = optsudo()
-    return Path('docker-compose.yml').exists() and \
-        sh(f'{sudo}docker compose ps -q', capture=True).strip() != ''
+    return Path('docker-compose.yml').exists() and sh(f'{sudo}docker compose ps -q', capture=True).strip() != ''
 
 
 @contextmanager
@@ -264,15 +263,14 @@ def docker_tag(release=None):
 def check_config(required=True):
     if is_brewblox_dir('.'):
         return True
-    elif required:
+    if required:
         click.echo('Please run brewblox-ctl in a Brewblox directory.')
         raise SystemExit(1)
-    elif confirm(
-            f'No Brewblox configuration found in current directory ({Path.cwd()}).' +
-            ' Are you sure you want to continue?'):
+    if confirm(
+        f'No Brewblox configuration found in current directory ({Path.cwd()}).' + ' Are you sure you want to continue?'
+    ):
         return False
-    else:
-        raise SystemExit(0)
+    raise SystemExit(0)
 
 
 def sh(cmd: str, check=True, capture=False, silent=False) -> str:
@@ -285,12 +283,7 @@ def sh(cmd: str, check=True, capture=False, silent=False) -> str:
     stderr = STDOUT if check and not silent else DEVNULL
     stdout = PIPE if capture or silent else None
 
-    result = run(cmd,
-                 shell=True,
-                 check=check,
-                 universal_newlines=capture,
-                 stdout=stdout,
-                 stderr=stderr)
+    result = run(cmd, shell=True, check=check, text=capture, stdout=stdout, stderr=stderr)
 
     return result.stdout or ''
 
@@ -325,9 +318,7 @@ def check_ok(cmd: str) -> bool:
 
 
 def pip_install(*libs):
-    return sh('python3 -m pip install '
-              + '--upgrade --no-cache-dir --prefer-binary '
-              + ' '.join(libs))
+    return sh('uv pip install ' + '--upgrade --no-cache' + ' '.join(libs))
 
 
 def info(msg: str):
@@ -390,10 +381,11 @@ def host_ip_addresses() -> List[str]:
     for if_name, snics in psutil.net_if_addrs().items():
         if re.fullmatch(r'(lo|veth[0-9a-f]+)', if_name):
             continue
-        addresses += [snic.address
-                      for snic in snics
-                      if snic.family in [socket.AF_INET, socket.AF_INET6]
-                      and not snic.address.startswith('fe80::')]
+        addresses += [
+            snic.address
+            for snic in snics
+            if snic.family in [socket.AF_INET, socket.AF_INET6] and not snic.address.startswith('fe80::')
+        ]
     return addresses
 
 
@@ -460,10 +452,7 @@ def write_shared_compose(data: Union[dict, CommentedMap]):
 
 def list_services(image=None) -> List[str]:
     config = read_compose()
-    return [
-        k for k, v in config['services'].items()
-        if image is None or v.get('image', '').startswith(image)
-    ]
+    return [k for k, v in config['services'].items() if image is None or v.get('image', '').startswith(image)]
 
 
 def check_service_name(ctx, param, value):

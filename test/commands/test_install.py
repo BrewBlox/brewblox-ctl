@@ -2,7 +2,6 @@
 Tests brewblox_ctl.commands.install
 """
 
-
 from unittest.mock import Mock
 
 import pytest.__main__

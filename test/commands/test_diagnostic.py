@@ -45,7 +45,7 @@ def m_start_esptool(mocker: MockerFixture):
     return m
 
 
-@pytest.fixture()
+@pytest.fixture
 def m_discover_tty(mocker: MockerFixture):
     def gen():
         yield from []
@@ -85,6 +85,7 @@ def test_monitor(m_sh: Mock, m_discover_tty: Mock):
 
     def gen():
         yield from ['/dev/ttyUSB0']
+
     m_discover_tty.side_effect = gen
 
     invoke(diagnostic.monitor)

@@ -71,37 +71,46 @@ def zipf_names():
 
 def zipf_read():
     return [
-        'BREWBLOX_RELEASE=9001'.encode(),
-        yaml.safe_dump({
-            'version': '3.7',
-            'services': {
-                'spark-one': {
-                    'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
-                    'depends_on': ['datastore'],
+        b'BREWBLOX_RELEASE=9001',
+        yaml.safe_dump(
+            {
+                'version': '3.7',
+                'services': {
+                    'spark-one': {
+                        'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
+                        'depends_on': ['datastore'],
+                    },
+                    'plaato': {
+                        'image': 'brewblox/brewblox-plaato:rpi-edge',
+                    },
                 },
-                'plaato': {
-                    'image': 'brewblox/brewblox-plaato:rpi-edge',
-                }
-            }}).encode(),
+            }
+        ).encode(),
         json.dumps({'values': []}).encode(),
-        json.dumps([
-            {'_id': 'module__obj', '_rev': '1234', 'k': 'v'},
-            {'_id': 'invalid', '_rev': '4321', 'k': 'v'},
-        ]).encode(),
-        json.dumps([
-            {'_id': 'spark-id', '_rev': '1234', 'k': 'v'},
-        ]).encode(),
+        json.dumps(
+            [
+                {'_id': 'module__obj', '_rev': '1234', 'k': 'v'},
+                {'_id': 'invalid', '_rev': '4321', 'k': 'v'},
+            ]
+        ).encode(),
+        json.dumps(
+            [
+                {'_id': 'spark-id', '_rev': '1234', 'k': 'v'},
+            ]
+        ).encode(),
         json.dumps({'blocks': []}).encode(),
         json.dumps({'blocks': [], 'other': []}).encode(),
     ]
 
 
 def redis_data():
-    return {'values': [
+    return {
+        'values': [
             {'id': 'id1', 'namespace': 'n1', 'k': 'v1'},
             {'id': 'id2', 'namespace': 'n2', 'k': 'v2'},
             {'id': 'id3', 'namespace': 'n3', 'k': 'v3'},
-            ]}
+        ]
+    }
 
 
 def blocks_data():
@@ -164,8 +173,9 @@ def f_read_compose(m_read_compose: Mock):
             },
             'plaato': {
                 'image': 'brewblox/brewblox-plaato:rpi-edge',
-            }
-        }}
+            },
+        }
+    }
 
 
 @httpretty.activate(allow_net_connect=False)
@@ -177,8 +187,7 @@ def test_save_backup(mocker: MockerFixture, f_read_compose):
     invoke(backup.save)
 
     m_mkdir.assert_called_once_with(Path('backup/').resolve())
-    m_zipfile.assert_called_once_with(
-        matching(r'^backup/brewblox_backup_\d{8}_\d{4}.zip'), 'w', zipfile.ZIP_DEFLATED)
+    m_zipfile.assert_called_once_with(matching(r'^backup/brewblox_backup_\d{8}_\d{4}.zip'), 'w', zipfile.ZIP_DEFLATED)
     m_zipfile.return_value.write.assert_any_call('docker-compose.yml')
     assert m_zipfile.return_value.writestr.call_args_list == [
         call('global.redis.json', json.dumps(redis_data())),
@@ -257,16 +266,21 @@ def test_load_backup(mocker: MockerFixture, m_zipf):
 
 
 def test_load_backup_none(m_sh, m_zipf):
-    invoke(backup.load, ' '.join([
-        'fname',
-        '--no-load-compose',
-        '--no-load-datastore',
-        '--no-load-spark',
-        '--no-load-node-red',
-        '--no-load-mosquitto',
-        '--no-load-tilt',
-        '--no-update',
-    ]))
+    invoke(
+        backup.load,
+        ' '.join(
+            [
+                'fname',
+                '--no-load-compose',
+                '--no-load-datastore',
+                '--no-load-spark',
+                '--no-load-node-red',
+                '--no-load-mosquitto',
+                '--no-load-tilt',
+                '--no-update',
+            ]
+        ),
+    )
     assert m_zipf.read.call_count == 1
     assert m_sh.call_count == 1
 

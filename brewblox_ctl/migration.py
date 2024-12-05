@@ -28,7 +28,8 @@ def _influx_measurements() -> List[str]:
             '-database brewblox '
             "-execute 'SHOW MEASUREMENTS' "
             '-format csv'
-        ))
+        )
+    )
 
     measurements = [
         s.strip().split(',')[1]
@@ -43,11 +44,13 @@ def _influx_line_count(service: str, args: str) -> Optional[int]:
     sudo = utils.optsudo()
     measurement = f'"brewblox"."downsample_1m"."{service}"'
     points_field = '"m_ Combined Influx points"'
-    json_result = utils.sh(f'{sudo}docker exec influxdb-migrate influx '
-                           '-database brewblox '
-                           f"-execute 'SELECT count({points_field}) FROM {measurement} {args}' "
-                           '-format json',
-                           capture=True)
+    json_result = utils.sh(
+        f'{sudo}docker exec influxdb-migrate influx '
+        '-database brewblox '
+        f"-execute 'SELECT count({points_field}) FROM {measurement} {args}' "
+        '-format json',
+        capture=True,
+    )
 
     result = json.loads(json_result)
 
@@ -78,7 +81,7 @@ def _copy_influx_measurement(
 
     total_lines = _influx_line_count(service, args)
     offset = max(offset, 0)
-    offset -= (offset % QUERY_BATCH_SIZE)  # Round down to multiple of batch size
+    offset -= offset % QUERY_BATCH_SIZE  # Round down to multiple of batch size
     num_lines = offset
 
     if target == 'file':
@@ -92,7 +95,8 @@ def _copy_influx_measurement(
             f'{sudo}docker exec influxdb-migrate influx '
             '-database brewblox '
             f"-execute 'SELECT * FROM {measurement} {args} ORDER BY time LIMIT {QUERY_BATCH_SIZE} OFFSET {offset}' "
-            '-format csv')
+            '-format csv'
+        )
 
         headers = next(generator, '').strip()
         time = None
@@ -118,13 +122,7 @@ def _copy_influx_measurement(
                 # Influx line protocol:
                 # MEASUREMENT k1=1,k2=2,k3=3 TIMESTAMP
                 tmp.write(f'{name} ')
-                tmp.write(
-                    ','.join((
-                        f'{f}={v}'
-                        for f, v in zip(fields, values[2:])
-                        if v
-                    ))
-                )
+                tmp.write(','.join((f'{f}={v}' for f, v in zip(fields, values[2:]) if v)))
                 tmp.write(f' {time}\n')
 
             tmp.flush()
@@ -183,12 +181,14 @@ def migrate_influxdb(
 
     # Start standalone container
     # We'll communicate using 'docker exec', so no need to publish a port
-    utils.sh(f'{sudo}docker run '
-             '--rm -d '
-             '--name influxdb-migrate '
-             '-v "$(pwd)/influxdb:/var/lib/influxdb" '
-             'influxdb:1.8 '
-             '> /dev/null')
+    utils.sh(
+        f'{sudo}docker run '
+        '--rm -d '
+        '--name influxdb-migrate '
+        '-v "$(pwd)/influxdb:/var/lib/influxdb" '
+        'influxdb:1.8 '
+        '> /dev/null'
+    )
 
     # Do a health check until startup is done
     inner_cmd = 'curl --output /dev/null --silent --fail http://localhost:8086/health'
@@ -224,9 +224,11 @@ def migrate_ghcr_images():
         # Image may:
         # - Have a tag that starts with "rpi-". We'll remove this during replacement.
         # - Have either a `$BREWBLOX_RELEASE`, `${BREWBLOX_RELEASE}`, or `${BREWBLOX_RELEASE:-default}` tag.
-        changed = re.sub(r'^brewblox/([\w\-]+)\:(rpi\-)?((\$\{?BREWBLOX_RELEASE(:\-\w+)?\}?)|develop|edge)$',
-                         r'ghcr.io/brewblox/\1:\3',
-                         img)
+        changed = re.sub(
+            r'^brewblox/([\w\-]+)\:(rpi\-)?((\$\{?BREWBLOX_RELEASE(:\-\w+)?\}?)|develop|edge)$',
+            r'ghcr.io/brewblox/\1:\3',
+            img,
+        )
         if changed != img:
             utils.info(f'Editing "{name}" ...')
             svc['image'] = changed

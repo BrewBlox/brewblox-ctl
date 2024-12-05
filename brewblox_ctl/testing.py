@@ -46,7 +46,6 @@ def check_sudo(shell_cmd, *args, **kwargs):
     """
     if isinstance(shell_cmd, (GeneratorType, list, tuple)):
         return [check_sudo(cmd) for cmd in shell_cmd]
-    elif re.match(r'(^|.*[;&\|])\s*docker', shell_cmd):
+    if re.match(r'(^|.*[;&\|])\s*docker', shell_cmd):
         raise AssertionError(f'Found docker call without sudo: `{shell_cmd}`')
-    else:
-        return DEFAULT
+    return DEFAULT

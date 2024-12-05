@@ -53,7 +53,9 @@ install_ctl() {
     fi
 
     # Create virtual env
-    python3 -m venv .venv
+    uv venv
+    # Activate virtual env
+    source .venv/bin/activate
 
     # Download the sdist tarball
     log_info "Downloading brewblox-ctl for ${BREWBLOX_RELEASE}..."
@@ -61,14 +63,10 @@ install_ctl() {
         -O "./brewblox-ctl.tar.gz" \
         "https://brewblox.blob.core.windows.net/ctl/${BREWBLOX_RELEASE}/brewblox-ctl.tar.gz"
 
-    # Activate virtual env
-    # shellcheck source=/dev/null
-    source .venv/bin/activate
 
     # Install packages into the virtual env
-    log_info "Installing Python packages..."
-    python3 -m pip install pip setuptools wheel
-    python3 -m pip install --prefer-binary ./brewblox-ctl.tar.gz
+    log_info "Installing brewblox-ctl..."
+    uv pip install ./brewblox-ctl.tar.gz
 }
 
 # Args: none
@@ -114,9 +112,7 @@ run_ctl() {
         install_ctl
     fi
 
-    # shellcheck source=/dev/null
-    source .venv/bin/activate
-    exec python3 -m brewblox_ctl "${ARGS[@]}"
+    exec uv run python3 -m brewblox_ctl "${ARGS[@]}"
 }
 
 # Default use case:

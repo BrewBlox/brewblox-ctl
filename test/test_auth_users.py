@@ -12,7 +12,6 @@ TESTED = auth_users.__name__
 
 
 class MatchingHash:
-
     def __init__(self, value: str):
         self._value = value
 
@@ -24,10 +23,7 @@ class MatchingHash:
 
 
 def test_read_users(m_file_exists: Mock, m_read_file_sudo: Mock):
-    m_read_file_sudo.return_value = '\n'.join([
-        'usr1:hashed_password_1',
-        'usr2:hashed_password_2'
-    ])
+    m_read_file_sudo.return_value = '\n'.join(['usr1:hashed_password_1', 'usr2:hashed_password_2'])
     m_file_exists.return_value = True
 
     assert auth_users.read_users() == {
@@ -74,8 +70,7 @@ def test_add_user(mocker: MockerFixture):
     auth_users.add_user('name', 'pass')
     assert m_prompt.call_count == 0
     assert m_getpass.call_count == 0
-    m_write_users.assert_called_with({'existing': '***',
-                                      'name': MatchingHash('pass')})
+    m_write_users.assert_called_with({'existing': '***', 'name': MatchingHash('pass')})
 
 
 def test_remove_user(mocker: MockerFixture):

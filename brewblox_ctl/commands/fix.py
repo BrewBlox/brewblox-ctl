@@ -3,6 +3,7 @@ Host configuration fixes.
 """
 
 import click
+
 from brewblox_ctl import actions, click_helpers, utils
 
 
@@ -17,8 +18,7 @@ def fix():
 
 
 @fix.command()
-@click.option('--config-file',
-              help='Path to Docker daemon config. Defaults to /etc/docker/daemon.json.')
+@click.option('--config-file', help='Path to Docker daemon config. Defaults to /etc/docker/daemon.json.')
 def ipv6(config_file):
     """Fix IPv6 support on the host machine.
 

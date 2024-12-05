@@ -24,10 +24,7 @@ def m_list_devices(mocker: MockerFixture) -> Mock:
 def m_choose(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.choose_device', autospec=True)
     m.side_effect = lambda _1, _2: DiscoveredDevice(
-        discovery='mDNS',
-        model='Spark 4',
-        device_id='280038000847343337373738',
-        device_host='192.168.0.55'
+        discovery='mDNS', model='Spark 4', device_id='280038000847343337373738', device_host='192.168.0.55'
     )
     return m
 
@@ -36,10 +33,7 @@ def m_choose(mocker: MockerFixture):
 def m_find_by_host(mocker: MockerFixture):
     m = mocker.patch(TESTED + '.find_device_by_host', autospec=True)
     m.side_effect = lambda _1: DiscoveredDevice(
-        discovery='mDNS',
-        model='Spark 4',
-        device_id='280038000847343337373738',
-        device_host='192.168.0.55'
+        discovery='mDNS', model='Spark 4', device_id='280038000847343337373738', device_host='192.168.0.55'
     )
     return m
 
@@ -84,10 +78,8 @@ def test_add_spark_yes(m_read_compose: Mock, m_confirm: Mock):
 
 def test_spark_overwrite(m_read_compose: Mock):
     m_read_compose.side_effect = lambda: {
-        'services': {
-            'testey': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:develop'
-            }}}
+        'services': {'testey': {'image': 'ghcr.io/brewblox/brewblox-devcon-spark:develop'}}
+    }
 
     invoke(add_service.add_spark, '--name testey --yes')
     invoke(add_service.add_spark, '--name new-testey')

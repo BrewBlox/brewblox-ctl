@@ -2,7 +2,6 @@
 Tests brewblox_ctl.commands.snapshot
 """
 
-
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -32,7 +31,7 @@ def test_save_defaults(m_sh: Mock, m_file_exists: Mock):
     m_file_exists.return_value = False
 
     invoke(snapshot.save)
-    cwd = Path('.').resolve().name
+    cwd = Path().resolve().name
     m_sh.assert_any_call(matching(r'sudo tar -C .* -czf ../brewblox-snapshot.tar.gz ' + cwd))
 
 
@@ -68,7 +67,7 @@ def test_load_defaults(m_sh: Mock, m_file_exists: Mock):
     utils.get_opts().dry_run = True
     m_file_exists.return_value = False
     invoke(snapshot.load)
-    cwd = Path('.').resolve().name + '/'
+    cwd = Path().resolve().name + '/'
     m_sh.assert_any_call(matching(r'.*' + cwd))
 
 

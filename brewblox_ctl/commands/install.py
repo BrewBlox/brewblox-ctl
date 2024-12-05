@@ -37,9 +37,10 @@ class InstallOptions:
         self.init_eventbus: bool = True
 
     def check_compatibility(self):
-        if utils.is_armv6() \
-            and not utils.confirm('ARMv6 detected. The Raspberry Pi Zero and 1 are not supported. ' +
-                                  'Do you want to continue?', default=False):
+        if utils.is_armv6() and not utils.confirm(
+            'ARMv6 detected. The Raspberry Pi Zero and 1 are not supported. ' + 'Do you want to continue?',
+            default=False,
+        ):
             raise SystemExit(0)
 
     def check_confirm_opts(self):
@@ -50,7 +51,8 @@ class InstallOptions:
 
         if not self.use_defaults:
             self.skip_confirm = utils.confirm(
-                'Do you want to disable the confirmation prompt for brewblox-ctl commands?')
+                'Do you want to disable the confirmation prompt for brewblox-ctl commands?'
+            )
 
     def check_system_opts(self):
         self.apt_install = True
@@ -61,8 +63,10 @@ class InstallOptions:
             utils.info(f'Apt packages: "{apt_deps}"')
             self.apt_install = False
         elif not self.use_defaults:
-            self.apt_install = utils.confirm('Do you want brewblox-ctl to install and update system (apt) packages? ' +
-                                             f'Installed packages: `{apt_deps}`.')
+            self.apt_install = utils.confirm(
+                'Do you want brewblox-ctl to install and update system (apt) packages? '
+                + f'Installed packages: `{apt_deps}`.'
+            )
 
     def check_docker_opts(self):
         self.docker_install = True
@@ -89,12 +93,11 @@ class InstallOptions:
         self.reboot_needed = False
         self.prompt_reboot = True
 
-        if self.docker_install \
-            or self.docker_group_add \
-                or utils.is_docker_user() and not utils.has_docker_rights():
+        if self.docker_install or self.docker_group_add or (utils.is_docker_user() and not utils.has_docker_rights()):
             self.reboot_needed = True
-            self.prompt_reboot = utils.confirm('A reboot is required after installation. ' +
-                                               'Do you want to be prompted before that happens?')
+            self.prompt_reboot = utils.confirm(
+                'A reboot is required after installation. ' + 'Do you want to be prompted before that happens?'
+            )
 
     def check_init_opts(self):
         self.init_compose = True
@@ -106,38 +109,44 @@ class InstallOptions:
         self.init_spark_backup = True
 
         if utils.file_exists('./docker-compose.yml'):
-            self.init_compose = not utils.confirm('This directory already contains a docker-compose.yml file. ' +
-                                                  'Do you want to keep it?')
+            self.init_compose = not utils.confirm(
+                'This directory already contains a docker-compose.yml file. ' + 'Do you want to keep it?'
+            )
 
         if utils.file_exists('./auth/'):
-            self.init_auth = not utils.confirm('This directory already contains user authentication files. '
-                                               'Do you want to keep them?')
+            self.init_auth = not utils.confirm(
+                'This directory already contains user authentication files. ' 'Do you want to keep them?'
+            )
 
         if utils.file_exists('./redis/'):
-            self.init_datastore = not utils.confirm('This directory already contains Redis datastore files. ' +
-                                                    'Do you want to keep them?')
+            self.init_datastore = not utils.confirm(
+                'This directory already contains Redis datastore files. ' + 'Do you want to keep them?'
+            )
 
         if utils.file_exists('./victoria/'):
-            self.init_history = not utils.confirm('This directory already contains Victoria history files. ' +
-                                                  'Do you want to keep them?')
+            self.init_history = not utils.confirm(
+                'This directory already contains Victoria history files. ' + 'Do you want to keep them?'
+            )
 
         if utils.file_exists('./traefik/'):
-            self.init_gateway = not utils.confirm('This directory already contains Traefik gateway files. ' +
-                                                  'Do you want to keep them?')
+            self.init_gateway = not utils.confirm(
+                'This directory already contains Traefik gateway files. ' + 'Do you want to keep them?'
+            )
 
         if utils.file_exists('./mosquitto/'):
-            self.init_eventbus = not utils.confirm('This directory already contains Mosquitto config files. ' +
-                                                   'Do you want to keep them?')
+            self.init_eventbus = not utils.confirm(
+                'This directory already contains Mosquitto config files. ' + 'Do you want to keep them?'
+            )
 
         if utils.file_exists('./spark/backup/'):
-            self.init_spark_backup = not utils.confirm('This directory already contains Spark backup files. ' +
-                                                       'Do you want to keep them?')
+            self.init_spark_backup = not utils.confirm(
+                'This directory already contains Spark backup files. ' + 'Do you want to keep them?'
+            )
 
 
 @cli.command()
 @click.pass_context
-@click.option('--snapshot', 'snapshot_file',
-              help='Load system snapshot generated by `brewblox-ctl snapshot save`.')
+@click.option('--snapshot', 'snapshot_file', help='Load system snapshot generated by `brewblox-ctl snapshot save`.')
 def install(ctx: click.Context, snapshot_file):
     """Install Brewblox and its dependencies.
 
@@ -223,7 +232,6 @@ def install(ctx: click.Context, snapshot_file):
         utils.info(f"Skipped: adding {user} to 'docker' group.")
 
     # Always apply these actions
-    actions.uninstall_old_ctl_package()
     actions.install_compose_plugin()
     actions.edit_sshd_config()
     actions.fix_ipv6(None, False)
@@ -303,13 +311,12 @@ def install(ctx: click.Context, snapshot_file):
 
 
 @cli.command()
-@click.option('--domain',
-              multiple=True,
-              help='Additional alternative domain name for the generated cert. ' +
-              'This option can be used multiple times.')
-@click.option('--release',
-              default=None,
-              help='Brewblox release track for the minica Docker image.')
+@click.option(
+    '--domain',
+    multiple=True,
+    help='Additional alternative domain name for the generated cert. ' + 'This option can be used multiple times.',
+)
+@click.option('--release', default=None, help='Brewblox release track for the minica Docker image.')
 def makecert(domain, release):
     """Generate SSL CA and certificate.
 

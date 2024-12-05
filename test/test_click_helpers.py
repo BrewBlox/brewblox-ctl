@@ -44,7 +44,8 @@ def test_ordered_commands():
         sources=[
             cli_one,
             cli_two,
-        ])
+        ]
+    )
 
     assert cli.list_commands(None) == [
         'z-cmd-one-one',

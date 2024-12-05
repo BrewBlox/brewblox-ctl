@@ -48,7 +48,7 @@ def test_make_shared_compose(m_write_file: Mock):
 
 
 def test_make_compose(m_read_compose: Mock, m_write_compose: Mock):
-    m_read_compose.side_effect = lambda: {}
+    m_read_compose.side_effect = dict
     actions.make_compose()
     m_write_compose.assert_called_with({'services': {}})
 
@@ -97,11 +97,9 @@ def test_install_compose_plugin(m_sh: Mock, m_check_ok: Mock, m_command_exists: 
         actions.install_compose_plugin()
 
 
-def test_check_ports(mocker: MockerFixture,
-                     m_confirm: Mock,
-                     m_getenv: Mock,
-                     m_file_exists: Mock,
-                     m_is_compose_up: Mock):
+def test_check_ports(
+    mocker: MockerFixture, m_confirm: Mock, m_getenv: Mock, m_file_exists: Mock, m_is_compose_up: Mock
+):
     m_net_connections = mocker.patch(TESTED + '.psutil.net_connections', autospec=True)
     m_net_connections.return_value = []
 
@@ -116,27 +114,33 @@ def test_check_ports(mocker: MockerFixture,
 
     # Find a mapped port
     m_net_connections.return_value = [
-        _common.sconn(fd=0,
-                      family=AF_INET6,
-                      type=SOCK_STREAM,
-                      laddr=_common.addr('::', 1234),
-                      raddr=('::', 44444),
-                      status='ESTABLISHED',
-                      pid=None),
-        _common.sconn(fd=0,
-                      family=AF_INET,
-                      type=SOCK_STREAM,
-                      laddr=_common.addr('0.0.0.0', 80),
-                      raddr=_common.addr('::', 44444),
-                      status='ESTABLISHED',
-                      pid=None),
-        _common.sconn(fd=0,
-                      family=AF_INET6,
-                      type=SOCK_STREAM,
-                      laddr=_common.addr('::', 80),
-                      raddr=_common.addr('::', 44444),
-                      status='ESTABLISHED',
-                      pid=None),
+        _common.sconn(
+            fd=0,
+            family=AF_INET6,
+            type=SOCK_STREAM,
+            laddr=_common.addr('::', 1234),
+            raddr=('::', 44444),
+            status='ESTABLISHED',
+            pid=None,
+        ),
+        _common.sconn(
+            fd=0,
+            family=AF_INET,
+            type=SOCK_STREAM,
+            laddr=_common.addr('0.0.0.0', 80),
+            raddr=_common.addr('::', 44444),
+            status='ESTABLISHED',
+            pid=None,
+        ),
+        _common.sconn(
+            fd=0,
+            family=AF_INET6,
+            type=SOCK_STREAM,
+            laddr=_common.addr('::', 80),
+            raddr=_common.addr('::', 44444),
+            status='ESTABLISHED',
+            pid=None,
+        ),
     ]
     actions.check_ports()
 
@@ -171,11 +175,6 @@ def test_install_ctl_package(m_sh: Mock, m_getenv: Mock, m_user_home_exists: Moc
     assert m_sh.call_count == 1
 
 
-def test_uninstall_old_ctl_package(m_sh: Mock):
-    actions.uninstall_old_ctl_package()
-    assert m_sh.call_count > 0
-
-
 def test_deploy_ctl_wrapper(m_sh: Mock, m_user_home_exists: Mock):
     m_user_home_exists.return_value = True
     actions.make_ctl_entrypoint()
@@ -198,19 +197,16 @@ def test_fix_ipv6(m_sh: Mock, m_is_wsl: Mock, m_command_exists: Mock, m_read_fil
         """
         /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
         grep --color=auto dockerd
-        """,   # ps aux
+        """,  # ps aux
         None,  # mkdir
         None,  # touch
         None,  # restart
-
         # with config provided, no restart
         None,  # mkdir
         None,  # touch
-
         # with config, service command not found
         None,  # mkdir
         None,  # touch
-
         # with config, config already set
         None,  # mkdir
         None,  # touch
@@ -234,12 +230,9 @@ def test_fix_ipv6(m_sh: Mock, m_is_wsl: Mock, m_command_exists: Mock, m_read_fil
     assert m_sh.call_count == 4 + 2 + 2 + 2
 
 
-def test_edit_avahi_config(mocker: MockerFixture,
-                           m_sh: Mock,
-                           m_command_exists: Mock,
-                           m_file_exists: Mock,
-                           m_info: Mock,
-                           m_warn: Mock):
+def test_edit_avahi_config(
+    mocker: MockerFixture, m_sh: Mock, m_command_exists: Mock, m_file_exists: Mock, m_info: Mock, m_warn: Mock
+):
     config = ConfigObj()
     m_config = mocker.patch(TESTED + '.ConfigObj')
     m_config.return_value = config
@@ -297,18 +290,9 @@ def test_edit_avahi_config(mocker: MockerFixture,
     assert config['reflector']['enable-reflector'] == 'no'
 
 
-def test_edit_sshd_config(m_sh: Mock,
-                          m_command_exists: Mock,
-                          m_file_exists: Mock,
-                          m_read_file_sudo: Mock):
-    lines = '\n'.join([
-        '# Allow client to pass locale environment variables',
-        'AcceptEnv LANG LC_*'
-    ])
-    comment_lines = '\n'.join([
-        '# Allow client to pass locale environment variables',
-        '#AcceptEnv LANG LC_*'
-    ])
+def test_edit_sshd_config(m_sh: Mock, m_command_exists: Mock, m_file_exists: Mock, m_read_file_sudo: Mock):
+    lines = '\n'.join(['# Allow client to pass locale environment variables', 'AcceptEnv LANG LC_*'])
+    comment_lines = '\n'.join(['# Allow client to pass locale environment variables', '#AcceptEnv LANG LC_*'])
 
     # File not exists
     m_file_exists.return_value = False
