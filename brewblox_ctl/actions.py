@@ -388,4 +388,4 @@ def start_dotenv(*args):
 def start_esptool(*args):
     if not utils.command_exists('esptool.py'):
         utils.pip_install('esptool')
-    return utils.sh('uv run esptool.py ' + ' '.join(args))
+    return utils.sh('sudo -E env "PATH=$PATH" uv run esptool.py ' + ' '.join(args))

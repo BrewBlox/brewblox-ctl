@@ -322,11 +322,11 @@ def test_start_esptool(m_sh: Mock, m_command_exists: Mock):
     m_command_exists.return_value = False
 
     actions.start_esptool('--chip esp32', 'read_flash', 'coredump.bin')
-    m_sh.assert_called_with('sudo -E env "PATH=$PATH" esptool.py --chip esp32 read_flash coredump.bin')
+    m_sh.assert_called_with('sudo -E env "PATH=$PATH" uv run esptool.py --chip esp32 read_flash coredump.bin')
     assert m_sh.call_count == 2
 
     m_sh.reset_mock()
     m_command_exists.return_value = True
     actions.start_esptool()
-    m_sh.assert_called_with('sudo -E env "PATH=$PATH" esptool.py ')
+    m_sh.assert_called_with('sudo -E env "PATH=$PATH" uv run esptool.py ')
     assert m_sh.call_count == 1
