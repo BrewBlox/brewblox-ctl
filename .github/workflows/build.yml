@@ -39,7 +39,7 @@ jobs:
 
       - name: Build
         run: |
-          uv build -f sdist
+          uv build --sdist
 
       - name: Upload to Azure Storage
         if: github.event_name != 'pull_request'
