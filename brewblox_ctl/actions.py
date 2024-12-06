@@ -194,9 +194,7 @@ def install_ctl_package():  # always | missing | never
     if utils.file_exists('./brewblox-ctl.tar.gz'):
         utils.sh('rm -f ./brewblox-ctl.tar.gz')  # remove old file
     release = config.ctl_release or config.release
-    utils.sh(
-        f'uv pip install --reinstall-package brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@{release}"'
-    )
+    utils.sh(f'uv pip install brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@{release}"')
 
 
 def install_compose_plugin():

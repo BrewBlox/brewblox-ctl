@@ -162,17 +162,13 @@ def test_install_ctl_package(m_sh: Mock, m_get_config: Mock, m_user_home_exists:
     m_user_home_exists.return_value = True
 
     actions.install_ctl_package()
-    m_sh.assert_called_with(
-        'uv pip install --reinstall-package brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@edge"'
-    )
+    m_sh.assert_called_with('uv pip install brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@edge"')
 
     m_sh.reset_mock()
 
     config.release = 'tag'
     actions.install_ctl_package()
-    m_sh.assert_called_with(
-        'uv pip install --reinstall-package brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@tag"'
-    )
+    m_sh.assert_called_with('uv pip install brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@tag"')
 
     m_sh.reset_mock()
 
@@ -180,9 +176,7 @@ def test_install_ctl_package(m_sh: Mock, m_get_config: Mock, m_user_home_exists:
     m_file_exists.add_existing_files('./brewblox-ctl.tar.gz')
     actions.install_ctl_package()
     m_sh.assert_any_call('rm -f ./brewblox-ctl.tar.gz')
-    m_sh.assert_called_with(
-        'uv pip install --reinstall-package brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@ctl_tag"'
-    )
+    m_sh.assert_called_with('uv pip install brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@ctl_tag"')
 
 
 def test_deploy_ctl_wrapper(m_sh: Mock, m_user_home_exists: Mock):
