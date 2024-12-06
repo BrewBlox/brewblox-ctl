@@ -24,14 +24,14 @@ class MatchingHash:
 
 def test_read_users(m_file_exists: Mock, m_read_file_sudo: Mock):
     m_read_file_sudo.return_value = '\n'.join(['usr1:hashed_password_1', 'usr2:hashed_password_2'])
-    m_file_exists.return_value = True
+    m_file_exists.add_existing_files('./auth/users.passwd')
 
     assert auth_users.read_users() == {
         'usr1': 'hashed_password_1',
         'usr2': 'hashed_password_2',
     }
 
-    m_file_exists.return_value = False
+    m_file_exists.clear_existing_files()
     assert auth_users.read_users() == {}
 
 

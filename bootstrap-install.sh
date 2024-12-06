@@ -91,13 +91,6 @@ install() {
         pushd "${BREWBLOX_DIR}" >/dev/null
     fi
 
-
-    # Download the sdist tarball
-    log_info "Downloading brewblox-ctl..."
-    wget -q \
-        -O ./brewblox-ctl.tar.gz \
-        "https://brewblox.blob.core.windows.net/ctl/${BREWBLOX_RELEASE}/brewblox-ctl.tar.gz"
-
     # Creating and activating virtual env
     log_info "Creating and activating Python virtual env..."
     uv venv
@@ -105,7 +98,7 @@ install() {
 
     # Install packages into the virtual env
     log_info "Installing Python packages..."
-    uv pip install ./brewblox-ctl.tar.gz
+    uv pip install "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
 
     # Init the config file
     echo "release: ${BREWBLOX_RELEASE}" >./brewblox.yml

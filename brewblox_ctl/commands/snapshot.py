@@ -34,7 +34,7 @@ def save(file, force):
     """
     utils.check_config()
     utils.confirm_mode()
-    dir = Path('./').resolve()
+    brewblox_dir = Path('./').resolve()
 
     if utils.file_exists(file):
         if force or utils.confirm(f'`{file}` already exists. ' + 'Do you want to overwrite it?'):
@@ -43,7 +43,11 @@ def save(file, force):
             return
 
     with utils.downed_services():
-        utils.sh(f'sudo tar -C {dir.parent} --exclude .venv -czf {file} {dir.name}')
+        utils.info(f'Creating snapshot of {brewblox_dir} directory ...')
+        utils.info('Generating requirements.txt for snapshot, to restore Python packages at the same version')
+        utils.sh('uv pip freeze > {dir.parent}/requirements.txt')
+        utils.sh(f'sudo tar -C {brewblox_dir.parent} -czf {file} {brewblox_dir.name}')
+        utils.sh(f'rm -f {brewblox_dir.parent}/requirements.txt')
         click.echo(Path(file).resolve())
 
 
@@ -57,20 +61,42 @@ def load(file):
     """
     utils.check_config()
     utils.confirm_mode()
-    dir = Path('./').resolve()
+    brewblox_dir = Path('./').resolve()
 
     with TemporaryDirectory() as tmpdir:
-        utils.info(f'Extracting snapshot to {dir} directory ...')
+        utils.info(f'Extracting snapshot to {brewblox_dir} directory ...')
         utils.sh(f'tar -xzf {file} -C {tmpdir}')
         content = list(Path(tmpdir).iterdir())
         if utils.get_opts().dry_run:
             content = ['brewblox']
         if len(content) != 1:
-            raise ValueError(f'Multiple files found in snapshot: {content}')
-        utils.sh('sudo rm -rf ./*')
-        # We need to explicitly include dotfiles in the mv glob
-        src = content[0]
-        utils.sh(f'mv {src}/.[!.]* {src}/* {dir}/')
-        utils.get_config.cache_clear()
+            err = f'Multiple files found in snapshot: {content}'
+            raise ValueError(err)
+    # check that the target directory is empty
+    if any(brewblox_dir.iterdir()) and not utils.confirm(
+        f'Target directory `{brewblox_dir}` is not empty. Existing files will be deleted. Do you want to continue?'
+    ):
+        return
 
-    actions.install_ctl_package(download='missing')
+    utils.sh(f'sudo rm -rf {brewblox_dir}/*')
+    # We need to explicitly include dotfiles in the mv glob
+    src = content[0]
+    utils.sh(f'mv {src}/.[!.]* {src}/* {brewblox_dir}/')
+    utils.get_config.cache_clear()
+
+    utils.info('Recreating Python virtual environment')
+    utils.sh('uv venv')
+    utils.sh('source .venv/bin/activate')
+    if utils.file_exists('requirements.txt'):
+        utils.info('Restoring Python packages from requirements.txt')
+        utils.sh('uv pip install -r requirements.txt')
+        utils.sh('rm requirements.txt')
+    elif utils.file_exists('brewblox-ctl.tar.gz'):
+        utils.info('Restoring Python packages from brewlox-ctl.tar.gz')
+        utils.sh('uv pip install brewblox-ctl.tar.gz')
+        utils.sh('rm brewblox-ctl.tar.gz')
+    else:
+        utils.info(
+            'No requirements.txt or brewblox-ctl.tar.gz in snapshot. ' 'Installing default version of brewblox-ctl'
+        )
+        actions.install_ctl_package()

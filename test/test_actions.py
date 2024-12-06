@@ -27,7 +27,7 @@ def test_make_config_dirs(m_sh: Mock):
 
 
 def test_make_tls_certificates(m_sh: Mock, m_file_exists: Mock):
-    m_file_exists.return_value = True
+    m_file_exists.add_existing_files('./traefik/brew.blox/cert.pem', './traefik/minica.der')
 
     actions.make_tls_certificates()
     assert m_sh.call_count == 1
@@ -72,11 +72,11 @@ def test_apt_upgrade(m_sh: Mock, m_command_exists: Mock):
 
 
 def test_make_udev_rules(m_sh: Mock, m_file_exists: Mock):
-    m_file_exists.return_value = True
+    m_file_exists.add_existing_files('/etc/udev/rules.d/50-particle.rules')
     actions.make_udev_rules()
     assert m_sh.call_count == 0
 
-    m_file_exists.return_value = False
+    m_file_exists.clear_existing_files()
     actions.make_udev_rules()
     assert m_sh.call_count > 0
 
@@ -106,7 +106,6 @@ def test_check_ports(
     m_getenv.side_effect = lambda k, default: default
     actions.check_ports()
 
-    m_file_exists.return_value = False
     actions.check_ports()
 
     m_is_compose_up.return_value = False
@@ -157,22 +156,33 @@ def test_check_ports(
     actions.check_ports()
 
 
-def test_install_ctl_package(m_sh: Mock, m_getenv: Mock, m_user_home_exists: Mock, m_file_exists: Mock):
-    m_getenv.return_value = 'release'
+def test_install_ctl_package(m_sh: Mock, m_get_config: Mock, m_user_home_exists: Mock, m_file_exists: Mock):
+    config = m_get_config
+
     m_user_home_exists.return_value = True
-    m_file_exists.return_value = True
 
     actions.install_ctl_package()
-    assert m_sh.call_count == 2
+    m_sh.assert_called_with(
+        'uv pip install --reinstall-package brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@edge"'
+    )
 
     m_sh.reset_mock()
-    actions.install_ctl_package('missing')
-    assert m_sh.call_count == 1
+
+    config.release = 'tag'
+    actions.install_ctl_package()
+    m_sh.assert_called_with(
+        'uv pip install --reinstall-package brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@tag"'
+    )
 
     m_sh.reset_mock()
-    m_file_exists.return_value = False
-    actions.install_ctl_package('never')
-    assert m_sh.call_count == 1
+
+    config.ctl_release = 'ctl_tag'
+    m_file_exists.add_existing_files('./brewblox-ctl.tar.gz')
+    actions.install_ctl_package()
+    m_sh.assert_any_call('rm -f ./brewblox-ctl.tar.gz')
+    m_sh.assert_called_with(
+        'uv pip install --reinstall-package brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@ctl_tag"'
+    )
 
 
 def test_deploy_ctl_wrapper(m_sh: Mock, m_user_home_exists: Mock):
@@ -238,7 +248,6 @@ def test_edit_avahi_config(
     m_config.return_value = config
 
     # File not found
-    m_file_exists.return_value = False
     actions.edit_avahi_config()
     assert m_config.call_count == 0
     assert m_info.call_count == 0
@@ -246,7 +255,7 @@ def test_edit_avahi_config(
     assert m_sh.call_count == 0
 
     # File is found for other tests
-    m_file_exists.return_value = True
+    m_file_exists.add_existing_files('/etc/avahi/avahi-daemon.conf')
 
     # Noop for empty config and default settings
     m_sh.reset_mock()
@@ -295,12 +304,11 @@ def test_edit_sshd_config(m_sh: Mock, m_command_exists: Mock, m_file_exists: Moc
     comment_lines = '\n'.join(['# Allow client to pass locale environment variables', '#AcceptEnv LANG LC_*'])
 
     # File not exists
-    m_file_exists.return_value = False
     actions.edit_sshd_config()
     assert m_sh.call_count == 0
 
     # No change
-    m_file_exists.return_value = True
+    m_file_exists.add_existing_files('/etc/ssh/sshd_config')
     m_read_file_sudo.return_value = comment_lines
     actions.edit_sshd_config()
     assert m_sh.call_count == 0

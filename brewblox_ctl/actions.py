@@ -189,14 +189,14 @@ def apt_upgrade():
         utils.sh('sudo apt-get update && sudo apt-get upgrade -y')
 
 
-def install_ctl_package(download: str = 'always'):  # always | missing | never
+def install_ctl_package():  # always | missing | never
     config = utils.get_config()
-    exists = utils.file_exists('./brewblox-ctl.tar.gz')
+    if utils.file_exists('./brewblox-ctl.tar.gz'):
+        utils.sh('rm -f ./brewblox-ctl.tar.gz')  # remove old file
     release = config.ctl_release or config.release
-    if download == 'always' or (download == 'missing' and not exists):
-        url = f'https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz'
-        utils.sh(f'wget -q -O ./brewblox-ctl.tar.gz {url}')
-    utils.sh('uv pip install --reinstall-package brewblox_ctl ./brewblox-ctl.tar.gz')
+    utils.sh(
+        f'uv pip install --reinstall-package brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@{release}"'
+    )
 
 
 def install_compose_plugin():

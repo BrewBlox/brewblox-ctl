@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -82,8 +83,30 @@ def m_clearenv(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture(autouse=True)
 def m_file_exists(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.file_exists)
-    m.return_value = True
+    existing_files = set()
+
+    def file_exists_side_effect(path: str) -> bool:
+        print(f'Checking: {path} ')
+        resolved_path = Path(path).resolve() if not Path(path).is_absolute() else Path(path)
+        return str(resolved_path) in existing_files
+
+    m = Mock(spec=utils.file_exists, side_effect=file_exists_side_effect)
+
+    # Add helper methods to update the mock's behavior
+    def add_existing_files(*files):
+        # Convert relative paths to absolute based on cwd
+        nonlocal existing_files
+        existing_files.clear()
+        for file in files:
+            resolved_path = Path(file).resolve() if not Path(file).is_absolute() else Path(file)
+            existing_files.add(str(resolved_path))
+
+    def clear_existing_files():
+        existing_files.clear()  # Clear all existing files
+
+    m.add_existing_files = add_existing_files
+    m.clear_existing_files = clear_existing_files
+
     monkeypatch.setattr(utils, 'file_exists', m)
     return m
 

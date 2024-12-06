@@ -131,28 +131,27 @@ def test_migrate_influxdb(mocker: MockerFixture, m_file_exists: Mock):
 
     # Dry run noop
     opts.dry_run = True
-    m_file_exists.return_value = True
+    m_file_exists.add_existing_files('./influxdb')
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 0
 
     # No influx data dir found
     opts.dry_run = False
-    m_file_exists.return_value = False
+    m_file_exists.clear_existing_files()
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 0
 
     # preconditions OK, services predefined
     opts.dry_run = False
-    m_file_exists.return_value = True
+    m_file_exists.add_existing_files('./influxdb')
     migration.migrate_influxdb('victoria', '1d', ['s1', 's2', 's3'])
     assert m_meas.call_count == 0
     assert m_copy.call_count == 3
 
     # preconditions OK, services wildcard
     opts.dry_run = False
-    m_file_exists.return_value = True
     migration.migrate_influxdb('victoria', '1d', [])
     assert m_meas.call_count == 1
     assert m_copy.call_count == 3 + 2

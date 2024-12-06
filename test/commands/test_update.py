@@ -63,6 +63,7 @@ def test_update_ctl(m_actions: Mock, m_sh: Mock):
 
 def test_update(m_file_exists: Mock, m_getenv: Mock, m_migration: Mock):
     config = utils.get_config()
+    m_file_exists.add_existing_files(const.CONFIG_FILE)
 
     invoke(update.update, '--from-version 0.0.1', input='\n')
     invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune')
@@ -75,8 +76,8 @@ def test_update(m_file_exists: Mock, m_getenv: Mock, m_migration: Mock):
     m_getenv.return_value = None
     invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune')
 
+    m_file_exists.clear_existing_files()
     config.system.apt_upgrade = False
-    m_file_exists.return_value = False
     invoke(update.update, '--from-version 0.0.1 --no-update-ctl')
     assert m_migration.migrate_env_config.call_count == 1
 

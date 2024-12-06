@@ -17,14 +17,12 @@ SNAPSHOT = install.snapshot.__name__
 
 @pytest.fixture(autouse=True)
 def m_sleep(mocker: MockerFixture):
-    m = mocker.patch(TESTED + '.sleep')
-    return m
+    return mocker.patch(TESTED + '.sleep')
 
 
 @pytest.fixture(autouse=True)
 def m_input(mocker: MockerFixture):
-    m = mocker.patch(TESTED + '.input')
-    return m
+    return mocker.patch(TESTED + '.input')
 
 
 @pytest.fixture
@@ -36,8 +34,7 @@ def m_opts(mocker: MockerFixture):
 
 @pytest.fixture
 def m_actions(mocker: MockerFixture):
-    m = mocker.patch(TESTED + '.actions', autospec=True)
-    return m
+    return mocker.patch(TESTED + '.actions', autospec=True)
 
 
 @pytest.fixture
@@ -49,8 +46,7 @@ def m_auth_users(mocker: MockerFixture):
 
 @pytest.fixture
 def m_snapshot_actions(mocker: MockerFixture):
-    m = mocker.patch(SNAPSHOT + '.actions', autospec=True)
-    return m
+    return mocker.patch(SNAPSHOT + '.actions', autospec=True)
 
 
 def test_check_compatibility(mocker: MockerFixture, m_confirm: Mock, m_is_armv6: Mock):
@@ -179,8 +175,10 @@ def test_check_reboot_opts(m_confirm: Mock, m_is_docker_user: Mock):
 def test_check_init_opts(m_confirm: Mock, m_file_exists: Mock):
     opts = install.InstallOptions()
 
+    m_file_exists.add_existing_files(
+        './docker-compose.yml', './auth/', './redis/', './victoria/', './traefik/', './mosquitto/', './spark/backup/'
+    )
     m_confirm.return_value = True
-    m_file_exists.return_value = True
     opts.check_init_opts()
     assert opts.init_compose is False
     assert opts.init_auth is False
@@ -190,7 +188,7 @@ def test_check_init_opts(m_confirm: Mock, m_file_exists: Mock):
     assert opts.init_eventbus is False
     assert opts.init_spark_backup is False
 
-    m_file_exists.return_value = False
+    m_file_exists.clear_existing_files()
     opts.check_init_opts()
     assert opts.init_compose is True
     assert opts.init_auth is True

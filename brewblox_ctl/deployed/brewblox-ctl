@@ -57,16 +57,9 @@ install_ctl() {
     # Activate virtual env
     source .venv/bin/activate
 
-    # Download the sdist tarball
-    log_info "Downloading brewblox-ctl for ${BREWBLOX_RELEASE}..."
-    wget -q \
-        -O "./brewblox-ctl.tar.gz" \
-        "https://brewblox.blob.core.windows.net/ctl/${BREWBLOX_RELEASE}/brewblox-ctl.tar.gz"
-
-
     # Install packages into the virtual env
     log_info "Installing brewblox-ctl..."
-    uv pip install ./brewblox-ctl.tar.gz
+    uv pip install "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
 }
 
 # Args: none

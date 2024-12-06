@@ -15,8 +15,7 @@ TESTED = configuration.__name__
 
 @pytest.fixture(autouse=True)
 def m_actions(mocker: MockerFixture):
-    m = mocker.patch(TESTED + '.actions', autospec=True)
-    return m
+    return mocker.patch(TESTED + '.actions', autospec=True)
 
 
 def test_inspect():
@@ -24,7 +23,8 @@ def test_inspect():
 
 
 def test_apply(m_file_exists: Mock):
+    m_file_exists.add_existing_files('brewblox.yml')
     invoke(configuration.apply)
 
-    m_file_exists.return_value = False
+    m_file_exists.clear_existing_files()
     invoke(configuration.apply)
