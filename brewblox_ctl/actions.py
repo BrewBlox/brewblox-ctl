@@ -194,6 +194,16 @@ def install_ctl_package():  # always | missing | never
     if utils.file_exists('./brewblox-ctl.tar.gz'):
         utils.sh('rm -f ./brewblox-ctl.tar.gz')  # remove old file
     release = config.ctl_release or config.release
+    # install uv if not installed
+    if not utils.command_exists('uv'):
+        utils.info('brewblox-ctl now manages python pacakges with uv. Installing uv ...')
+        utils.sh('wget -qO- https://astral.sh/uv/install.sh | sh')
+    if not utils.command_exists('uv'):
+        utils.warn('Failed to install uv with install script, retrying with pip')
+        utils.sh('pip install uv')
+    if not utils.command_exists('uv'):
+        utils.error('Failed to install uv, please install it manually.')
+        raise SystemExit(1)
     utils.sh(f'uv pip install brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@{release}"')
 
 

@@ -12,6 +12,7 @@ from pytest_mock import MockerFixture
 
 from brewblox_ctl import actions
 from brewblox_ctl.testing import matching
+import contextlib
 
 TESTED = actions.__name__
 
@@ -156,7 +157,9 @@ def test_check_ports(
     actions.check_ports()
 
 
-def test_install_ctl_package(m_sh: Mock, m_get_config: Mock, m_user_home_exists: Mock, m_file_exists: Mock):
+def test_install_ctl_package(
+    m_sh: Mock, m_get_config: Mock, m_user_home_exists: Mock, m_file_exists: Mock, m_command_exists: Mock
+):
     config = m_get_config
 
     m_user_home_exists.return_value = True
@@ -177,6 +180,20 @@ def test_install_ctl_package(m_sh: Mock, m_get_config: Mock, m_user_home_exists:
     actions.install_ctl_package()
     m_sh.assert_any_call('rm -f ./brewblox-ctl.tar.gz')
     m_sh.assert_called_with('uv pip install brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@ctl_tag"')
+    # uv was already installed
+    uv_from_script = 'wget -qO- https://astral.sh/uv/install.sh | sh'
+    uv_from_pip = 'pip install uv'
+    assert not any(call[0][0] == uv_from_script for call in m_sh.call_args_list), 'Unexpected uv install from script'
+    assert not any(call[0][0] == uv_from_pip for call in m_sh.call_args_list), 'Unexpected uv install from pip'
+
+    # test uv not installed yet
+    m_sh.reset_mock()
+    m_file_exists.clear_existing_files()
+    m_command_exists.return_value = False
+    with contextlib.suppress(SystemExit):
+        actions.install_ctl_package()
+    assert any(call[0][0] == uv_from_script for call in m_sh.call_args_list), 'Expected uv install from script'
+    assert any(call[0][0] == uv_from_pip for call in m_sh.call_args_list), 'Expected uv install from pip'
 
 
 def test_deploy_ctl_wrapper(m_sh: Mock, m_user_home_exists: Mock):
