@@ -52,9 +52,27 @@ install_ctl() {
         fi
     fi
 
-    # Create virtual env
+    # Check if the `uv` command exists
+    if ! command -v uv >/dev/null 2>&1; then
+        log_info "brewblox-ctl now manages Python packages with uv. Installing uv ..."
+        wget -qO- https://astral.sh/uv/install.sh | sh
+        uv venv
+    fi
+
+    # Check again if the `uv` command exists
+    if ! command -v uv >/dev/null 2>&1; then
+        log_warn "Failed to install uv with install script, retrying with pip"
+        pip install --user uv
+    fi
+
+    # Final check if the `uv` command exists
+    if ! command -v uv >/dev/null 2>&1; then
+        log_error "Failed to install uv, please install it manually."
+        exit 1
+    fi
+
+    # Create and activate virtual env
     uv venv
-    # Activate virtual env
     source .venv/bin/activate
 
     # Install packages into the virtual env
@@ -101,7 +119,8 @@ run_ctl() {
         pushd "${BREWBLOX_DIR}" >/dev/null
     fi
 
-    if [[ ! -d .venv ]]; then
+    # if no venv found or uv not found, install
+    if [[ ! -d .venv ]] || ! command -v uv >/dev/null 2>&1; then
         install_ctl
     fi
 
