@@ -87,13 +87,13 @@ def load(file):
     utils.get_config.cache_clear()
     utils.info('Recreating Python virtual environment')
     utils.sh('uv venv')
-    utils.sh('source .venv/bin/activate')
     if utils.file_exists('requirements.txt'):
         utils.info('Restoring Python packages from requirements.txt')
         utils.sh('uv pip install -r requirements.txt')
         utils.sh('rm requirements.txt')
     elif utils.file_exists('brewblox-ctl.tar.gz'):
         utils.info('Restoring Python packages from brewlox-ctl.tar.gz')
+        utils.sh('uv pip install pip')  # for backwards compaitibility with older brewblox-ctl versions from snapshot
         utils.sh('uv pip install brewblox-ctl.tar.gz')
         utils.sh('rm brewblox-ctl.tar.gz')
     else:

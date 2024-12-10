@@ -71,9 +71,8 @@ install_ctl() {
         exit 1
     fi
 
-    # Create and activate virtual env
+    # Create venv
     uv venv
-    source .venv/bin/activate
 
     # Install packages into the virtual env
     log_info "Installing brewblox-ctl..."

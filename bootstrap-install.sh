@@ -91,10 +91,8 @@ install() {
         pushd "${BREWBLOX_DIR}" >/dev/null
     fi
 
-    # Creating and activating virtual env
-    log_info "Creating and activating Python virtual env..."
+    log_info "Creating Python virtual env..."
     uv venv
-    source .venv/bin/activate
 
     # Install packages into the virtual env
     log_info "Installing Python packages..."
