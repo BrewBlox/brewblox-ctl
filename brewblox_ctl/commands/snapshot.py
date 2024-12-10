@@ -63,8 +63,14 @@ def load(file):
     utils.confirm_mode()
     brewblox_dir = Path('./').resolve()
 
+    utils.info(f'Extracting snapshot to {brewblox_dir} directory ...')
+    # check that the target directory is empty
+    if any(brewblox_dir.iterdir()) and not utils.confirm(
+        f'Target directory `{brewblox_dir}` is not empty. Existing files will be deleted. Do you want to continue?'
+    ):
+        return
+
     with TemporaryDirectory() as tmpdir:
-        utils.info(f'Extracting snapshot to {brewblox_dir} directory ...')
         utils.sh(f'tar -xzf {file} -C {tmpdir}')
         content = list(Path(tmpdir).iterdir())
         if utils.get_opts().dry_run:
@@ -72,18 +78,13 @@ def load(file):
         if len(content) != 1:
             err = f'Multiple files found in snapshot: {content}'
             raise ValueError(err)
-    # check that the target directory is empty
-    if any(brewblox_dir.iterdir()) and not utils.confirm(
-        f'Target directory `{brewblox_dir}` is not empty. Existing files will be deleted. Do you want to continue?'
-    ):
-        return
 
-    utils.sh(f'sudo rm -rf {brewblox_dir}/*')
-    # We need to explicitly include dotfiles in the mv glob
-    src = content[0]
-    utils.sh(f'mv {src}/.[!.]* {src}/* {brewblox_dir}/')
+        utils.sh(f'sudo rm -rf {brewblox_dir}/*')
+        # We need to explicitly include dotfiles in the mv glob
+        src = content[0]
+        utils.sh(f'mv {src}/.[!.]* {src}/* {brewblox_dir}/')
+
     utils.get_config.cache_clear()
-
     utils.info('Recreating Python virtual environment')
     utils.sh('uv venv')
     utils.sh('source .venv/bin/activate')
