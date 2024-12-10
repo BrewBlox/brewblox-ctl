@@ -46,7 +46,8 @@ def save(file, force):
         utils.info(f'Creating snapshot of {brewblox_dir} directory ...')
         utils.info('Generating requirements.txt for snapshot, to restore Python packages at the same version')
         utils.sh(f'uv pip freeze > {brewblox_dir}/requirements.txt')
-        utils.sh(f'sudo tar -C {brewblox_dir.parent} -czf {file} {brewblox_dir.name}')
+        utils.info('Creating snapshot tarball')
+        utils.sh(f'sudo tar -C {brewblox_dir.parent} --exclude .venv -czf {file} {brewblox_dir.name}')
         utils.sh(f'rm -f {brewblox_dir}/requirements.txt')
         click.echo(Path(file).resolve())
 
