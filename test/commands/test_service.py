@@ -23,10 +23,7 @@ def m_utils(m_read_compose: Mock):
 
 
 def test_restart_services(m_confirm: Mock):
-    m_confirm.side_effect = [
-        False,
-        True
-    ]
+    m_confirm.side_effect = [False, True]
     ctx = Mock()
     service.restart_services(ctx)
     assert ctx.invoke.call_count == 0

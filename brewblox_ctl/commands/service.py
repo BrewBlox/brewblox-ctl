@@ -24,12 +24,12 @@ def restart_services(ctx: click.Context, **kwargs):
 
 
 @service.command()
-@click.option('--image',
-              help='Image type filter. Leave blank to show all images.')
+@click.option('--image', help='Image type filter. Leave blank to show all images.')
 def show(image):
     """Show all services of a specific type.
 
-    Use the --image flag to filter."""
+    Use the --image flag to filter.
+    """
     utils.check_config()
     services = utils.list_services(image)
     click.echo('\n'.join(services), nl=bool(services))

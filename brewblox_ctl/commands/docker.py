@@ -2,7 +2,6 @@
 Brewblox-ctl docker commands
 """
 
-
 import re
 
 import click
@@ -15,9 +14,11 @@ def cli():
     """Command collector"""
 
 
-@cli.command(context_settings=dict(
-    ignore_unknown_options=True,
-))
+@cli.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+    )
+)
 @click.option('-d', '--detach', is_flag=True, hidden=True)
 @click.argument('compose_args', nargs=-1, type=click.UNPROCESSED)
 def up(detach, compose_args):
@@ -27,13 +28,14 @@ def up(detach, compose_args):
     """
     utils.check_config()
     utils.confirm_mode()
-    sudo = utils.optsudo()
-    utils.sh(f'{sudo}docker compose up -d ' + ' '.join(list(compose_args)))
+    utils.docker_up(compose_args)
 
 
-@cli.command(context_settings=dict(
-    ignore_unknown_options=True,
-))
+@cli.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+    )
+)
 @click.argument('compose_args', nargs=-1, type=click.UNPROCESSED)
 def down(compose_args):
     """Stop all services.
@@ -42,13 +44,14 @@ def down(compose_args):
     """
     utils.check_config()
     utils.confirm_mode()
-    sudo = utils.optsudo()
-    utils.sh(f'{sudo}docker compose down ' + ' '.join(list(compose_args)))
+    utils.docker_down(compose_args)
 
 
-@cli.command(context_settings=dict(
-    ignore_unknown_options=True,
-))
+@cli.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+    )
+)
 @click.argument('compose_args', nargs=-1, type=click.UNPROCESSED)
 def restart(compose_args):
     """Recreates all services.
@@ -60,8 +63,7 @@ def restart(compose_args):
     """
     utils.check_config()
     utils.confirm_mode()
-    sudo = utils.optsudo()
-    utils.sh(f'{sudo}docker compose up -d --force-recreate ' + ' '.join(list(compose_args)))
+    utils.docker_up(['--force-recreate', *list(compose_args)])
 
 
 @cli.command()
@@ -112,9 +114,7 @@ def kill(zombies):
             utils.warn('')
             return
 
-        procs = re.findall(
-            r'(\d+)/docker-proxy',
-            utils.sh('sudo netstat -pna', capture=True))
+        procs = re.findall(r'(\d+)/docker-proxy', utils.sh('sudo netstat -pna', capture=True))
 
         if procs:
             utils.info(f'Removing {len(procs)} zombies ...')

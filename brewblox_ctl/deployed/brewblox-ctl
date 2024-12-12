@@ -52,23 +52,44 @@ install_ctl() {
         fi
     fi
 
-    # Create virtual env
-    python3 -m venv .venv
+    # Check if the `uv` command exists
+    if ! command -v uv >/dev/null 2>&1; then
+        log_info "brewblox-ctl now manages Python packages with uv. Installing uv ..."
+        wget -qO- https://astral.sh/uv/install.sh | sh
+        uv venv
+    fi
 
-    # Download the sdist tarball
-    log_info "Downloading brewblox-ctl for ${BREWBLOX_RELEASE}..."
-    wget -q \
-        -O "./brewblox-ctl.tar.gz" \
-        "https://brewblox.blob.core.windows.net/ctl/${BREWBLOX_RELEASE}/brewblox-ctl.tar.gz"
+    # Check again if the `uv` command exists
+    if ! command -v uv >/dev/null 2>&1; then
+        log_warn "Failed to install uv with install script, retrying with pip"
+        pip install --user uv
+    fi
 
-    # Activate virtual env
-    # shellcheck source=/dev/null
-    source .venv/bin/activate
+    # Final check if the `uv` command exists
+    if ! command -v uv >/dev/null 2>&1; then
+        log_error "Failed to install uv, please install it manually."
+        exit 1
+    fi
+
+    # Check if git is installed
+    if ! command -v git >/dev/null 2>&1; then
+        log_error "git is required to install brewblox-ctl."
+        # check if apt is installed
+        if command -v apt-get >/dev/null 2>&1; then
+            log_info "Installing git with apt..."
+            sudo apt-get update && sudo apt install -y git
+        else
+            log_error "apt-get not found. Please install git manually and try again. If you are using a Synology NAS, you can install git from the package center's community repo."
+            exit 1
+        fi
+    fi
+
+    # Create venv
+    uv venv
 
     # Install packages into the virtual env
-    log_info "Installing Python packages..."
-    python3 -m pip install pip setuptools wheel
-    python3 -m pip install --prefer-binary ./brewblox-ctl.tar.gz
+    log_info "Installing brewblox-ctl..."
+    uv pip install "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
 }
 
 # Args: none
@@ -110,13 +131,12 @@ run_ctl() {
         pushd "${BREWBLOX_DIR}" >/dev/null
     fi
 
-    if [[ ! -d .venv ]]; then
+    # if no venv found or uv not found, install
+    if [[ ! -d .venv ]] || ! command -v uv >/dev/null 2>&1 || ! uv pip show brewblox_ctl >/dev/null; then
         install_ctl
     fi
 
-    # shellcheck source=/dev/null
-    source .venv/bin/activate
-    exec python3 -m brewblox_ctl "${ARGS[@]}"
+    exec uv run python3 -m brewblox_ctl "${ARGS[@]}"
 }
 
 # Default use case:

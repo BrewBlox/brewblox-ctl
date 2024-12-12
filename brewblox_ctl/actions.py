@@ -18,10 +18,12 @@ from configobj import ConfigObj
 from . import const, utils
 from .models import CtlConfig
 
-JINJA_ENV = jinja2.Environment(loader=jinja2.PackageLoader('brewblox_ctl'),
-                               autoescape=jinja2.select_autoescape(),
-                               trim_blocks=True,
-                               lstrip_blocks=True)
+JINJA_ENV = jinja2.Environment(
+    loader=jinja2.PackageLoader('brewblox_ctl'),
+    autoescape=jinja2.select_autoescape(),
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
 
 
 def make_dotenv(version: str):
@@ -47,9 +49,7 @@ def make_config_dirs():
     utils.sh('mkdir -p ' + ' '.join(dirs))
 
 
-def make_tls_certificates(always: bool = False,
-                          custom_domains: Iterable[str] = None,
-                          release: str = None):
+def make_tls_certificates(always: bool = False, custom_domains: Iterable[str] = None, release: str = None):
     absdir = Path('./traefik').resolve()
     sudo = utils.optsudo()
     tag = utils.docker_tag(release)
@@ -70,32 +70,40 @@ def make_tls_certificates(always: bool = False,
         utils.info(f'Generating new certificates in {absdir} ...')
         utils.sh(f'mkdir -p "{absdir}"')
         utils.sh(f'sudo rm -rf "{absdir}/brew.blox"')
-        utils.sh(' '.join([
-            f'{sudo}docker',
-            'run',
-            '--rm',
-            '--pull=always',
-            f'--user={os.geteuid()}:{os.getgid()}',
-            f'--volume="{absdir}":/cert',
-            f'ghcr.io/brewblox/minica:{tag}',
-            f'--domains="{",".join(domains)}"',
-            f'--ip-addresses={",".join(addresses)}',
-        ]))
+        utils.sh(
+            ' '.join(
+                [
+                    f'{sudo}docker',
+                    'run',
+                    '--rm',
+                    '--pull=always',
+                    f'--user={os.geteuid()}:{os.getgid()}',
+                    f'--volume="{absdir}":/cert',
+                    f'ghcr.io/brewblox/minica:{tag}',
+                    f'--domains="{",".join(domains)}"',
+                    f'--ip-addresses={",".join(addresses)}',
+                ]
+            )
+        )
 
     if create_der:
-        utils.sh(' '.join([
-            f'{sudo}docker',
-            'run',
-            '--rm',
-            f'--user={os.geteuid()}:{os.getgid()}',
-            f'--volume="{absdir}":/cert',
-            'alpine/openssl',
-            'x509',
-            '-in /cert/minica.pem',
-            '-inform PEM',
-            '-out /cert/minica.der',
-            '-outform DER',
-        ]))
+        utils.sh(
+            ' '.join(
+                [
+                    f'{sudo}docker',
+                    'run',
+                    '--rm',
+                    f'--user={os.geteuid()}:{os.getgid()}',
+                    f'--volume="{absdir}":/cert',
+                    'alpine/openssl',
+                    'x509',
+                    '-in /cert/minica.pem',
+                    '-inform PEM',
+                    '-out /cert/minica.der',
+                    '-outform DER',
+                ]
+            )
+        )
 
     utils.sh(f'chmod +r {absdir}/minica.pem')
 
@@ -181,19 +189,32 @@ def apt_upgrade():
         utils.sh('sudo apt-get update && sudo apt-get upgrade -y')
 
 
-def install_ctl_package(download: str = 'always'):  # always | missing | never
+def install_ctl_package():  # always | missing | never
     config = utils.get_config()
-    exists = utils.file_exists('./brewblox-ctl.tar.gz')
+    if utils.file_exists('./brewblox-ctl.tar.gz'):
+        utils.sh('rm -f ./brewblox-ctl.tar.gz')  # remove old file
     release = config.ctl_release or config.release
-    if download == 'always' or download == 'missing' and not exists:
-        url = f'https://brewblox.blob.core.windows.net/ctl/{release}/brewblox-ctl.tar.gz'
-        utils.sh(f'wget -q -O ./brewblox-ctl.tar.gz {url}')
-    utils.sh('python3 -m pip install --prefer-binary ./brewblox-ctl.tar.gz')
+    # install uv if not installed
+    if not utils.command_exists('uv'):
+        utils.info('brewblox-ctl now manages python pacakges with uv. Installing uv ...')
+        utils.sh('wget -qO- https://astral.sh/uv/install.sh | sh')
+    if not utils.command_exists('uv'):
+        utils.warn('Failed to install uv with install script, retrying with pip')
+        utils.sh('pip install uv')
+    if not utils.command_exists('uv'):
+        utils.error('Failed to install uv, please install it manually.')
+        raise SystemExit(1)
+    if not utils.command_exists('git'):
+        utils.info('git is required to install brewblox-ctl. Installing git ...')
+        if not utils.command_exists('apt-get'):
+            utils.error(
+                'apt-get is not found. Please install git manually.'
+                ' On a synology NAS, you can install it from the package center community repo.'
+            )
+            raise SystemExit(1)
+        utils.sh('sudo apt-get update && sudo apt-get install -y git')
 
-
-def uninstall_old_ctl_package():
-    utils.sh('rm -rf ./brewblox_ctl_lib/', check=False)
-    utils.sh('rm -rf $(python3 -m site --user-site)/brewblox_ctl*', check=False)
+    utils.sh(f'uv pip install brewblox_ctl "git+https://github.com/brewblox/brewblox-ctl@{release}"')
 
 
 def install_compose_plugin():
@@ -266,10 +287,7 @@ def edit_sshd_config():
         return
 
     content = utils.read_file_sudo(fpath)
-    updated = re.sub(r'^AcceptEnv LANG LC',
-                     '#AcceptEnv LANG LC',
-                     content,
-                     flags=re.MULTILINE)
+    updated = re.sub(r'^AcceptEnv LANG LC', '#AcceptEnv LANG LC', content, flags=re.MULTILINE)
 
     if content == updated:
         return
@@ -285,17 +303,14 @@ def edit_sshd_config():
 def check_ports():
     if utils.is_compose_up():
         utils.info('Stopping services ...')
-        utils.sh(f'{utils.optsudo()}docker compose down')
+        utils.docker_down()
 
     config = utils.get_config()
     ports = config.ports.model_dump().values()
 
     try:
         port_connnections = [
-            conn
-            for conn in psutil.net_connections()
-            if conn.laddr.ip in ['::', '0.0.0.0']
-            and conn.laddr.port in ports
+            conn for conn in psutil.net_connections() if conn.laddr.ip in ['::', '0.0.0.0'] and conn.laddr.port in ports
         ]
     except psutil.AccessDenied:
         utils.warn('Unable to read network connections. You need to run `netstat` or `lsof` manually.')
@@ -321,7 +336,7 @@ def fix_ipv6(config_file=None, restart=True):
         default_config_file = '/etc/docker/daemon.json'
         dockerd_proc = utils.sh('ps aux | grep dockerd', capture=True)
         proc_match = re.match(r'.*--config-file[\s=](?P<file>.*\.json).*', dockerd_proc, flags=re.MULTILINE)
-        config_file = proc_match and proc_match.group('file') or default_config_file
+        config_file = (proc_match and proc_match.group('file')) or default_config_file
 
     config_file = Path(config_file)
     utils.info(f'Using Docker config file {config_file}')
@@ -350,9 +365,7 @@ def fix_ipv6(config_file=None, restart=True):
             utils.warn('"service" command not found. Please restart your machine to apply config changes.')
 
 
-def file_netcat(host: str,
-                port: int,
-                path: utils.PathLike_) -> bytes:  # pragma: no cover
+def file_netcat(host: str, port: int, path: utils.PathLike_) -> bytes:  # pragma: no cover
     """Uploads given file to host/url.
 
     Not all supported systems (looking at you, Synology) come with `nc` pre-installed.
@@ -393,4 +406,4 @@ def start_dotenv(*args):
 def start_esptool(*args):
     if not utils.command_exists('esptool.py'):
         utils.pip_install('esptool')
-    return utils.sh('sudo -E env "PATH=$PATH" esptool.py ' + ' '.join(args))
+    return utils.sh('sudo -E env "PATH=$PATH" uv run esptool.py ' + ' '.join(args))

@@ -1,40 +1,44 @@
-[tool.poetry]
+[project]
 name = "brewblox-ctl"
 version = "1.0.0"
 description = "Brewblox management tool"
-authors = ["BrewPi <development@brewpi.com>"]
-license = "GPL-3.0"
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = ">=3.8,<4"
-requests = "^2.32.3"
-click = "^8.1.7"
-python-dotenv = { extras = ["cli"], version = "^0.21.1" }
-configobj = "^5.0.6"
-zeroconf = "^0.47.3"
-pyusb = "^1.2.1"
-pyserial = "^3.5"
-psutil = "^5.9.4"
-"ruamel.yaml" = "^0.17.21"
-packaging = "^23.0"
-passlib = "^1.7.4"
-pydantic = "^2.6.4"
-jinja2 = "^3.1.3"
-
-[tool.poetry.group.dev.dependencies]
-pytest-cov = "*"
-flake8 = ">=5"
-autopep8 = "*"
-pytest-mock = "*"
-flake8-quotes = "*"
-httpretty = "1.0.5"
-pyyaml = "^6.0"
-flake8-pyproject = "^1.2.3"
+authors = [
+    {name = "BrewPi", email = "development@brewpi.com"},
+]
+license = {text = "GPL-3.0"}
+requires-python = "<4,>=3.8"
+dependencies = [
+    "requests<3.0.0,>=2.32.3",
+    "click<9.0.0,>=8.1.7",
+    "python-dotenv[cli]<1.0.0,>=0.21.1",
+    "configobj<6.0.0,>=5.0.6",
+    "zeroconf<1.0.0,>=0.47.3",
+    "pyusb<2.0.0,>=1.2.1",
+    "pyserial<4.0,>=3.5",
+    "psutil<6.0.0,>=5.9.4",
+    "ruamel-yaml<1.0.0,>=0.17.21",
+    "packaging<24.0,>=23.0",
+    "passlib<2.0.0,>=1.7.4",
+    "pydantic<3.0.0,>=2.6.4",
+    "jinja2<4.0.0,>=3.1.3",
+]
+[dependency-groups]
+dev = [
+    "pytest-cov",
+    "flake8>=5",
+    "autopep8",
+    "pytest-mock",
+    "flake8-quotes",
+    "httpretty==1.0.5",
+    "pyyaml<7.0,>=6.0",
+    "flake8-pyproject<2.0.0,>=1.2.3",
+    "ruff>=0.8.1",
+]
 
 [build-system]
-requires = ["poetry-core~=1.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 addopts = """
@@ -66,9 +70,46 @@ omit = [
     "brewblox_ctl/templates/*",
 ]
 
-[tool.flake8]
-max-line-length = 120
-exclude = ".venv"
 
-[tool.autopep8]
-max-line-length = 120
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D211",
+    "D203",
+    "D213",
+    "D212",
+    "D401",
+    "COM812",
+    "ISC001",
+    "Q000",
+    "Q003",
+]
+
+[tool.ruff.format]
+indent-style = "space"
+line-ending = "lf"
+quote-style = "single"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"test/**/*.py" = [
+    # at least this three should be fine in tests:
+    "S101", # asserts allowed in tests...
+    "ARG", # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT", # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    # The below are debateable
+    "PLR2004", # Magic value used in comparison, ...
+    "S311", # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "D103", # Missing docstring in public function
+    "ANN201", # Missing return type annotation
+    "SLF001", # private member accessed
+    "D200", # One-line docstring should fit on one line with quotes
+    "D400", # First line should end with a period
+    "D401", # First line should be in imperative mood
+    "D415", # First line should end with a period, question mark, or exclamation point
+    "FLY002", # Consider f-string instead of string join
+    "ANN", # Missing type annotation for variable
+]
+

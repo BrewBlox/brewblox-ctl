@@ -1,6 +1,7 @@
 """
 Prints data in tabular format
 """
+
 from typing import Dict, List
 
 import click
@@ -15,11 +16,12 @@ class Table:
     and all rows are justified to the width of the header.
     """
 
-    def __init__(self,
-                 keys: List[str],
-                 headers: Dict[str, str] = None,
-                 formatting: Dict[str, str] = None,
-                 ) -> None:
+    def __init__(
+        self,
+        keys: List[str],
+        headers: Dict[str, str] = None,
+        formatting: Dict[str, str] = None,
+    ) -> None:
         self.keys = keys
         self.headers = headers or {}
         self.formatting = formatting or {}
@@ -41,10 +43,7 @@ class Table:
 
     def print_row(self, row: Dict[str, str]):
         line_values = [
-            self.formatting
-                .get(key, '{}')
-                .format(row.get(key, ''))
-                .ljust(self.col_width.get(key, 0))
+            self.formatting.get(key, '{}').format(row.get(key, '')).ljust(self.col_width.get(key, 0))
             for key in self.keys
         ]
         click.echo(' '.join(line_values))

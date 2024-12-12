@@ -9,8 +9,7 @@ from typing import Optional
 import click
 
 from brewblox_ctl import click_helpers, utils
-from brewblox_ctl.discovery import (DiscoveredDevice, DiscoveryType,
-                                    choose_device, find_device_by_host)
+from brewblox_ctl.discovery import DiscoveredDevice, DiscoveryType, choose_device, find_device_by_host
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -24,33 +23,42 @@ def experimental():
 
 
 @experimental.command()
-@click.option('--server-host',
-              default=None,
-              help='External hostname for the Brewblox system. '
-              'This value defaults to "$HOSTNAME.local".')
-@click.option('--server-port',
-              type=int,
-              default=None,
-              help='External MQTTS port for the Brewblox system. '
-              'This value defaults to the current BREWBLOX_PORT_MQTTS value.')
-@click.option('--device-host',
-              help='Static controller URL. This will only be used for the initial credential exchange.')
-@click.option('--cert-file',
-              type=click.Path(exists=True, resolve_path=True, path_type=Path),
-              default='./traefik/minica.pem',
-              help='Path to broker certificate.')
-@click.option('--device-id',
-              help='Manually set the device ID. '
-              'brewblox-ctl will not attempt to communicate, and print a cURL command instead. '
-              'If --device-host is set, it will be included in the printed command.')
+@click.option(
+    '--server-host',
+    default=None,
+    help='External hostname for the Brewblox system. ' 'This value defaults to "$HOSTNAME.local".',
+)
+@click.option(
+    '--server-port',
+    type=int,
+    default=None,
+    help='External MQTTS port for the Brewblox system. '
+    'This value defaults to the current BREWBLOX_PORT_MQTTS value.',
+)
+@click.option(
+    '--device-host', help='Static controller URL. This will only be used for the initial credential exchange.'
+)
+@click.option(
+    '--cert-file',
+    type=click.Path(exists=True, resolve_path=True, path_type=Path),
+    default='./traefik/minica.pem',
+    help='Path to broker certificate.',
+)
+@click.option(
+    '--device-id',
+    help='Manually set the device ID. '
+    'brewblox-ctl will not attempt to communicate, and print a cURL command instead. '
+    'If --device-host is set, it will be included in the printed command.',
+)
 @click.option('--release', default=None, help='Brewblox release track.')
-def enable_spark_mqtt(server_host: Optional[str],
-                      server_port: Optional[int],
-                      device_host: Optional[str],
-                      cert_file: Path,
-                      device_id: Optional[str],
-                      release: Optional[str],
-                      ):
+def enable_spark_mqtt(
+    server_host: Optional[str],
+    server_port: Optional[int],
+    device_host: Optional[str],
+    cert_file: Path,
+    device_id: Optional[str],
+    release: Optional[str],
+):
     """
     Enables secured MQTT communication between a Spark 4 and Brewblox.
 
@@ -105,10 +113,7 @@ def enable_spark_mqtt(server_host: Optional[str],
 
     if device_id:
         dev = DiscoveredDevice(
-            discovery='TCP',
-            device_id=device_id,
-            model='Spark 4',
-            device_host=device_host or '{DEVICE_HOST}'
+            discovery='TCP', device_id=device_id, model='Spark 4', device_host=device_host or '{DEVICE_HOST}'
         )
     elif device_host:
         dev = find_device_by_host(device_host)
@@ -131,30 +136,30 @@ def enable_spark_mqtt(server_host: Optional[str],
 
     # Set username/password for device
     utils.info('Adding user to MQTT eventbus ...')
-    utils.sh(f'{sudo}docker run' +
-             ' -it --rm' +
-             f' -v {mosquitto_path}:/mosquitto/include' +
-             ' --entrypoint mosquitto_passwd' +
-             f' ghcr.io/brewblox/mosquitto:{tag}' +
-             ' -b /mosquitto/include/externals.passwd' +
-             f' {device_id} {password}')
+    utils.sh(
+        f'{sudo}docker run'
+        + ' -it --rm'
+        + f' -v {mosquitto_path}:/mosquitto/include'
+        + ' --entrypoint mosquitto_passwd'
+        + f' ghcr.io/brewblox/mosquitto:{tag}'
+        + ' -b /mosquitto/include/externals.passwd'
+        + f' {device_id} {password}'
+    )
 
     # Reload eventbus configuration
     utils.sh(f'{sudo}docker compose kill -s SIGHUP eventbus', silent=True)
 
     # Send credentials to controller
     # Use cURL to make the command reproducible on different machines
-    send_credentials_cmd = ' '.join([
-        'curl -sS -X POST',
-        f'http://{device_host}/mqtt_credentials',
-        f"-d '{json.dumps(credentials)}'",
-    ])
+    send_credentials_cmd = ' '.join(
+        [
+            'curl -sS -X POST',
+            f'http://{device_host}/mqtt_credentials',
+            f"-d '{json.dumps(credentials)}'",
+        ]
+    )
 
-    send_cert_cmd = ' '.join([
-        'curl -sS -X POST',
-        f'http://{device_host}/ca_certificate',
-        f"-d '{cert}'"
-    ])
+    send_cert_cmd = ' '.join(['curl -sS -X POST', f'http://{device_host}/ca_certificate', f"-d '{cert}'"])
 
     if send_config:
         utils.info('Sending MQTT configuration to controller ...')

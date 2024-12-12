@@ -15,11 +15,7 @@ def read_users() -> dict:
         content = utils.read_file_sudo(const.PASSWD_FILE)
 
     return {
-        name: hashed
-        for (name, hashed)
-        in [line.strip().split(':', 1)
-            for line in content.split('\n')
-            if ':' in line]
+        name: hashed for (name, hashed) in [line.strip().split(':', 1) for line in content.split('\n') if ':' in line]
     }
 
 

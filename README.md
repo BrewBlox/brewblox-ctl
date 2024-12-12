@@ -42,7 +42,7 @@ and then starts the `brewblox-ctl install` command to handle everything else.
 ## The brewblox-ctl executable
 
 One file that defies the convention of everything being placed in the Brewblox directory is the `brewblox-ctl` executable.
-This script activates (or installs) the virtualenv, and then calls `exec python3 -m brewblox_ctl ARGS`
+This script activates (or installs) the virtualenv, and then calls `uv run python3 -m brewblox_ctl ARGS`
 
 For users to call this as a single command, it needs to be findable using `$PATH`.
 It is deployed in `$HOME/.local/bin` if `$HOME` exists, otherwise in `/usr/local/bin`.
@@ -59,4 +59,4 @@ Install brewblox as normal, then (in your brewblox directory), run:
 ln -s ${BREWBLOX_CTL_REPO_DIR}/brewblox_ctl ./brewblox_ctl
 ```
 
-The `brewblox-ctl` script involves `python3 -m brewblox_ctl`, which prefers `./brewblox_ctl` over the installed version.
+The `brewblox-ctl` script involves `uv run python3 -m brewblox_ctl`, which prefers `./brewblox_ctl` over the installed version.

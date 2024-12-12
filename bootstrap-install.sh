@@ -64,25 +64,9 @@ install() {
     fi
 
     # Install system packages
-    if command_exists "apt-get"; then
-        log_info "Installing Apt packages..."
-        sudo apt-get update
-        sudo apt-get upgrade -y
-        sudo apt-get install -y python3-pip python3-venv
-    else
-        # We also list packages installed in brewblox-ctl install
-        # This is a duplication of the list in brewblox_ctl.const
-        log_warn "apt-get not found. You may need to manually install system packages:"
-        log_warn ""
-        log_warn "python3-pip python3-venv curl libssl-dev libffi-dev avahi-daemon"
-        log_warn ""
-    fi
 
-    if ! command_exists python3; then
-        log_error "Python3 not found."
-        log_error "Install Python >=3.6 manually, or add the existing installation to PATH."
-        exit 1
-    fi
+    log_info "Installing uv"
+    wget -qO- https://astral.sh/uv/install.sh | sh
 
     log_info "Brewblox dir is \"${BREWBLOX_DIR}\""
     log_info "Brewblox release is \"${BREWBLOX_RELEASE}\""
@@ -107,24 +91,12 @@ install() {
         pushd "${BREWBLOX_DIR}" >/dev/null
     fi
 
-    # Create virtual env
     log_info "Creating Python virtual env..."
-    python3 -m venv .venv
-
-    # Download the sdist tarball
-    log_info "Downloading brewblox-ctl..."
-    wget -q \
-        -O ./brewblox-ctl.tar.gz \
-        "https://brewblox.blob.core.windows.net/ctl/${BREWBLOX_RELEASE}/brewblox-ctl.tar.gz"
-
-    # Activate virtual env
-    # shellcheck source=/dev/null
-    source .venv/bin/activate
+    uv venv
 
     # Install packages into the virtual env
     log_info "Installing Python packages..."
-    python3 -m pip install pip setuptools wheel
-    python3 -m pip install --prefer-binary ./brewblox-ctl.tar.gz
+    uv pip install "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
 
     # Init the config file
     echo "release: ${BREWBLOX_RELEASE}" >./brewblox.yml

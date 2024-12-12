@@ -3,7 +3,7 @@ set -euo pipefail
 pushd "$(dirname "$0")" >/dev/null
 
 # This script is for building manual releases
-# Automatic releases are done in azure-pipelines.yml
+# Automatic releases are done in github actions
 
 # Args
 TAG=${1:-"local"}
@@ -20,7 +20,7 @@ if [[ -z "${AZURE_STORAGE_SAS_TOKEN:-}" ]]; then
     exit 1
 fi
 
-poetry build -f sdist
+uv build --sdist
 
 az storage blob upload \
     --account-name brewblox \

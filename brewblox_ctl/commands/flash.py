@@ -21,13 +21,15 @@ def run_flasher(release: str, pull: bool, cmd: str):
     tag = utils.docker_tag(release)
     sudo = utils.optsudo()
 
-    opts = ' '.join([
-        '-it',
-        '--rm',
-        '--privileged',
-        '-v /dev:/dev',
-        '--pull ' + ('always' if pull else 'missing'),
-    ])
+    opts = ' '.join(
+        [
+            '-it',
+            '--rm',
+            '--privileged',
+            '-v /dev:/dev',
+            '--pull ' + ('always' if pull else 'missing'),
+        ]
+    )
 
     with utils.downed_services():
         utils.sh(f'{sudo}docker run {opts} ghcr.io/brewblox/brewblox-firmware-flasher:{tag} {cmd}')
@@ -36,21 +38,11 @@ def run_flasher(release: str, pull: bool, cmd: str):
 def find_usb_spark() -> usb.core.Device:
     while True:
         devices = [
-            *usb.core.find(find_all=True,
-                           idVendor=const.VID_PARTICLE,
-                           idProduct=const.PID_PHOTON),
-            *usb.core.find(find_all=True,
-                           idVendor=const.VID_PARTICLE,
-                           idProduct=const.PID_P1),
-            *usb.core.find(find_all=True,
-                           idVendor=const.VID_ESPRESSIF,
-                           idProduct=const.PID_ESP32),
-            *usb.core.find(find_all=True,
-                           idVendor=const.VID_PARTICLE,
-                           idProduct=const.PID_PHOTON_DFU),
-            *usb.core.find(find_all=True,
-                           idVendor=const.VID_PARTICLE,
-                           idProduct=const.PID_P1_DFU),
+            *usb.core.find(find_all=True, idVendor=const.VID_PARTICLE, idProduct=const.PID_PHOTON),
+            *usb.core.find(find_all=True, idVendor=const.VID_PARTICLE, idProduct=const.PID_P1),
+            *usb.core.find(find_all=True, idVendor=const.VID_ESPRESSIF, idProduct=const.PID_ESP32),
+            *usb.core.find(find_all=True, idVendor=const.VID_PARTICLE, idProduct=const.PID_PHOTON_DFU),
+            *usb.core.find(find_all=True, idVendor=const.VID_PARTICLE, idProduct=const.PID_P1_DFU),
         ]
         num_devices = len(devices)
         if num_devices == 0:
@@ -115,21 +107,9 @@ def particle_wifi(dev: usb.core.Device):
         PARTICLE_LISTEN_VALUE = 0  # wValue
         PARTICLE_BUF_SIZE = 64  # wLength
 
-        dev.ctrl_transfer(
-            HOST_TO_DEVICE,
-            REQUEST_INIT,
-            PARTICLE_LISTEN_VALUE,
-            PARTICLE_LISTEN_INDEX,
-            PARTICLE_BUF_SIZE
-        )
+        dev.ctrl_transfer(HOST_TO_DEVICE, REQUEST_INIT, PARTICLE_LISTEN_VALUE, PARTICLE_LISTEN_INDEX, PARTICLE_BUF_SIZE)
 
-        dev.ctrl_transfer(
-            HOST_TO_DEVICE,
-            REQUEST_SEND,
-            PARTICLE_LISTEN_VALUE,
-            PARTICLE_LISTEN_INDEX,
-            PARTICLE_BUF_SIZE
-        )
+        dev.ctrl_transfer(HOST_TO_DEVICE, REQUEST_SEND, PARTICLE_LISTEN_VALUE, PARTICLE_LISTEN_INDEX, PARTICLE_BUF_SIZE)
 
     sleep(LISTEN_MODE_WAIT_S)
 

@@ -18,20 +18,24 @@ def database():
 
 
 @database.command()
-@click.option('--target',
-              default='victoria',
-              help='Where to store exported data',
-              type=click.Choice(['victoria', 'file']))
-@click.option('--duration',
-              default='',
-              prompt='From how far back do you want to migrate data? (eg. 1d, 30d, 1y). '
-              'Leave empty to migrate everything.',
-              help='Period of exported data. Example: 30d')
-@click.option('--offset',
-              multiple=True, nargs=2, type=click.Tuple([str, int]),
-              default=[],
-              help='Start given service(s) with an offset. Useful for resuming exports. '
-              'Example: [--offset spark-one 10000 --offset spark-two 5000]')
+@click.option(
+    '--target', default='victoria', help='Where to store exported data', type=click.Choice(['victoria', 'file'])
+)
+@click.option(
+    '--duration',
+    default='',
+    prompt='From how far back do you want to migrate data? (eg. 1d, 30d, 1y). ' 'Leave empty to migrate everything.',
+    help='Period of exported data. Example: 30d',
+)
+@click.option(
+    '--offset',
+    multiple=True,
+    nargs=2,
+    type=click.Tuple([str, int]),
+    default=[],
+    help='Start given service(s) with an offset. Useful for resuming exports. '
+    'Example: [--offset spark-one 10000 --offset spark-two 5000]',
+)
 @click.argument('services', nargs=-1)
 def from_influxdb(target, duration, offset, services):
     """Migrate history data from InfluxDB to Victoria Metrics or file.

@@ -20,10 +20,8 @@ def auth():
 
 
 @auth.command()
-@click.option('-u', '--username',
-              help='Name for the new web UI user')
-@click.option('-p', '--password',
-              help='Password for the new web UI user')
+@click.option('-u', '--username', help='Name for the new web UI user')
+@click.option('-p', '--password', help='Password for the new web UI user')
 def add(username: Optional[str], password: Optional[str]):
     """
     Add or update a user.
@@ -34,9 +32,7 @@ def add(username: Optional[str], password: Optional[str]):
 
 
 @auth.command()
-@click.option('-u', '--username',
-              prompt=True,
-              help='User name')
+@click.option('-u', '--username', prompt=True, help='User name')
 def remove(username: str):
     """
     Remove a user.

@@ -22,6 +22,4 @@ def m_migration(mocker: MockerFixture):
 def test_from_influxdb(m_migration: Mock, m_confirm_mode: Mock):
     invoke(database.from_influxdb, '--duration=1d --offset s1 1000 --offset s2 5000 s1 s2')
     m_confirm_mode.assert_called_once()
-    m_migration.migrate_influxdb.assert_called_once_with(
-        'victoria', '1d', ['s1', 's2'], [('s1', 1000), ('s2', 5000)]
-    )
+    m_migration.migrate_influxdb.assert_called_once_with('victoria', '1d', ['s1', 's2'], [('s1', 1000), ('s2', 5000)])

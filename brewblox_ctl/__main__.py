@@ -12,17 +12,29 @@ from click.exceptions import ClickException
 from dotenv import load_dotenv
 
 from brewblox_ctl import click_helpers, utils
-from brewblox_ctl.commands import (add_service, auth, backup, configuration,
-                                   database, diagnostic, docker, experimental,
-                                   fix, flash, install, service, snapshot,
-                                   tools, update)
+from brewblox_ctl.commands import (
+    add_service,
+    auth,
+    backup,
+    configuration,
+    database,
+    diagnostic,
+    docker,
+    experimental,
+    fix,
+    flash,
+    install,
+    service,
+    snapshot,
+    tools,
+    update,
+)
 
 
 def escalate(ex):
     if utils.get_config().debug:
         raise ex
-    else:
-        raise SystemExit(1)
+    raise SystemExit(1)
 
 
 def ensure_tty():  # pragma: no cover
@@ -31,7 +43,7 @@ def ensure_tty():  # pragma: no cover
     if not sys.stdin.isatty():  # pragma: no cover
         try:
             sys.stdin = open('/dev/tty')
-        except (IOError, OSError):
+        except OSError:
             click.secho('Failed to open TTY input. Confirm prompts will fail.')
 
 
@@ -64,24 +76,17 @@ def main(args=sys.argv[1:]):
                 backup.cli,
                 snapshot.cli,
                 experimental.cli,
-            ])
-        @click.option('-y', '--yes',
-                      is_flag=True,
-                      help='Do not prompt to confirm commands.')
-        @click.option('-d', '--dry', '--dry-run',
-                      is_flag=True,
-                      help='Dry run mode: echo commands instead of running them.')
-        @click.option('-q', '--quiet',
-                      is_flag=True,
-                      help='Show less detailed output.')
-        @click.option('-v', '--verbose',
-                      is_flag=True,
-                      help='Show more detailed output.')
-        @click.option('--color/--no-color',
-                      default=None,
-                      help='Format messages with unicode color codes.')
+            ],
+        )
+        @click.option('-y', '--yes', is_flag=True, help='Do not prompt to confirm commands.')
+        @click.option(
+            '-d', '--dry', '--dry-run', is_flag=True, help='Dry run mode: echo commands instead of running them.'
+        )
+        @click.option('-q', '--quiet', is_flag=True, help='Show less detailed output.')
+        @click.option('-v', '--verbose', is_flag=True, help='Show more detailed output.')
+        @click.option('--color/--no-color', default=None, help='Format messages with unicode color codes.')
         def cli(yes: bool, dry: bool, quiet: bool, verbose: bool, color: Optional[bool]):
-            """
+            r"""
             The Brewblox management tool.
 
             Example calls:

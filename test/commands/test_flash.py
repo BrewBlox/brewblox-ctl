@@ -33,8 +33,9 @@ def m_discover_tty(mocker: MockerFixture):
 def test_run_flasher(m_sh: Mock):
     flash.run_flasher('taggart', True, 'do-stuff')
     m_sh.assert_any_call(
-        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'ghcr.io/brewblox/brewblox-firmware-flasher:taggart do-stuff')
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always '
+        + 'ghcr.io/brewblox/brewblox-firmware-flasher:taggart do-stuff'
+    )
 
 
 def test_find_usb_spark(m_usb: Mock):
@@ -56,7 +57,7 @@ def test_find_usb_spark(m_usb: Mock):
         [],
         [],
         [],
-        ['Spark 4']
+        ['Spark 4'],
     ]
 
     assert flash.find_usb_spark() == 'Spark 4'
@@ -75,8 +76,9 @@ def test_photon_flash(m_usb: Mock, m_sh: Mock):
     ]
     invoke(flash.flash, '--release develop --pull')
     m_sh.assert_any_call(
-        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash')
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always '
+        + 'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash'
+    )
 
 
 def test_photon_flash_already_dfu(m_usb: Mock, m_sh: Mock):
@@ -92,8 +94,9 @@ def test_photon_flash_already_dfu(m_usb: Mock, m_sh: Mock):
     ]
     invoke(flash.flash, '--release develop --pull')
     m_sh.assert_any_call(
-        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash')
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always '
+        + 'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash'
+    )
 
 
 def test_p1_flash(m_usb: Mock, m_sh: Mock):
@@ -109,25 +112,21 @@ def test_p1_flash(m_usb: Mock, m_sh: Mock):
     ]
     invoke(flash.flash, '--release develop --pull')
     m_sh.assert_any_call(
-        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash')
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always '
+        + 'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash'
+    )
 
 
 def test_p1_flash_already_dfu(m_usb: Mock, m_sh: Mock):
     m_dev = Mock()
     m_dev.idProduct = const.PID_P1_DFU
     m_dev.idVendor = const.VID_PARTICLE
-    m_usb.core.find.side_effect = [
-        [],
-        [],
-        [],
-        [],
-        [m_dev]
-    ]
+    m_usb.core.find.side_effect = [[], [], [], [], [m_dev]]
     invoke(flash.flash, '--release develop --pull')
     m_sh.assert_any_call(
-        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash')
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always '
+        + 'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash'
+    )
 
 
 def test_esp_flash(m_usb: Mock, m_sh: Mock):
@@ -143,21 +142,16 @@ def test_esp_flash(m_usb: Mock, m_sh: Mock):
     ]
     invoke(flash.flash, '--release develop --pull')
     m_sh.assert_any_call(
-        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash')
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always '
+        + 'ghcr.io/brewblox/brewblox-firmware-flasher:develop flash'
+    )
 
 
 def test_invalid_flash(m_usb: Mock):
     m_dev = Mock()
     m_dev.idProduct = 123
     m_dev.idVendor = 456
-    m_usb.core.find.side_effect = [
-        [],
-        [],
-        [],
-        [],
-        [m_dev]
-    ]
+    m_usb.core.find.side_effect = [[], [], [], [], [m_dev]]
     invoke(flash.flash, _err=True)
 
 
@@ -202,5 +196,6 @@ def test_particle(m_sh: Mock):
     invoke(flash.particle, '--release develop --pull -c testey')
     assert m_sh.call_count == 3
     m_sh.assert_any_call(
-        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always ' +
-        'ghcr.io/brewblox/brewblox-firmware-flasher:develop testey')
+        'SUDO docker run -it --rm --privileged -v /dev:/dev --pull always '
+        + 'ghcr.io/brewblox/brewblox-firmware-flasher:develop testey'
+    )
