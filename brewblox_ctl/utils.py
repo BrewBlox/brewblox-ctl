@@ -344,7 +344,7 @@ def check_ok(cmd: str) -> bool:
 
 
 def pip_install(*libs):
-    return sh('uv pip install ' + '--upgrade --no-cache' + ' '.join(libs))
+    return sh('uv run python3 -m pip install ' + '--upgrade --no-cache' + ' '.join(libs))
 
 
 def info(msg: str):

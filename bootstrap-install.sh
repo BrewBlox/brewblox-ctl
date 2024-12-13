@@ -68,6 +68,9 @@ install() {
     log_info "Installing uv"
     wget -qO- https://astral.sh/uv/install.sh | sh
 
+    # add uv to PATH
+    source $HOME/.local/bin/env
+
     log_info "Brewblox dir is \"${BREWBLOX_DIR}\""
     log_info "Brewblox release is \"${BREWBLOX_RELEASE}\""
 
@@ -96,12 +99,15 @@ install() {
 
     # Install packages into the virtual env
     log_info "Installing Python packages..."
-    uv pip install "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
+
+    # use regular pip instead of uv pip because uv pip installs aarch64 package on 32-bit raspberry pi for pydantic-core
+    uv pip install pip --upgrade
+    uv run python3 -m pip install "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
 
     # Init the config file
     echo "release: ${BREWBLOX_RELEASE}" >./brewblox.yml
 
-    exec python3 -m brewblox_ctl install
+    uv run python3 -m brewblox_ctl install
 }
 
 # Protect against incomplete file downloads

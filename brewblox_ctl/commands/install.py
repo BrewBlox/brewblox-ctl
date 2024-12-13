@@ -202,7 +202,6 @@ def install(ctx: click.Context, snapshot_file):
         opts.check_init_opts()
 
     # Save preferences to brewblox.yml
-    utils.info('Generating brewblox.yml ...')
     config.skip_confirm = opts.skip_confirm
     config.system.apt_upgrade = opts.apt_install
     actions.make_brewblox_config(config)
