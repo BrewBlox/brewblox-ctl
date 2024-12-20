@@ -73,7 +73,7 @@ def test_load_with_requirements_txt(m_sh: Mock, m_file_exists: Mock, m_actions: 
     utils.get_opts().dry_run = True
     m_file_exists.add_existing_files('requirements.txt')
     invoke(snapshot.load)
-    m_sh.assert_any_call('uv run python3 -m pip install -r requirements.txt')
+    m_sh.assert_any_call('uv pip install -r requirements.txt')
     m_sh.assert_called_with('rm requirements.txt')
     m_actions.install_ctl_package.assert_not_called()
 
@@ -82,7 +82,7 @@ def test_load_with_ctl_tarball(m_sh: Mock, m_file_exists: Mock, m_actions: Mock)
     utils.get_opts().dry_run = True
     m_file_exists.add_existing_files('brewblox-ctl.tar.gz')
     invoke(snapshot.load)
-    m_sh.assert_any_call('uv run python3 -m pip install brewblox-ctl.tar.gz')
+    m_sh.assert_any_call('uv pip install brewblox-ctl.tar.gz')
     m_sh.assert_called_with('rm brewblox-ctl.tar.gz')
     m_actions.install_ctl_package.assert_not_called()
 

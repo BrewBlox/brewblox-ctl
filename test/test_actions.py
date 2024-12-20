@@ -166,13 +166,13 @@ def test_install_ctl_package(
     m_command_exists.add_existing_commands('apt-get', 'uv', 'git')
 
     actions.install_ctl_package()
-    m_sh.assert_called_with('uv run python3 -m pip install "git+https://github.com/brewblox/brewblox-ctl@edge"')
+    m_sh.assert_called_with('uv pip install "git+https://github.com/brewblox/brewblox-ctl@edge"')
 
     m_sh.reset_mock()
 
     config.release = 'tag'
     actions.install_ctl_package()
-    m_sh.assert_called_with('uv run python3 -m pip install "git+https://github.com/brewblox/brewblox-ctl@tag"')
+    m_sh.assert_called_with('uv pip install "git+https://github.com/brewblox/brewblox-ctl@tag"')
 
     m_sh.reset_mock()
 
@@ -212,7 +212,7 @@ def test_install_ctl_package(
     m_file_exists.add_existing_files('./brewblox-ctl.tar.gz')
     actions.install_ctl_package()
     m_sh.assert_any_call('rm -f ./brewblox-ctl.tar.gz')
-    m_sh.assert_called_with('uv run python3 -m pip install "git+https://github.com/brewblox/brewblox-ctl@ctl_tag"')
+    m_sh.assert_called_with('uv pip install "git+https://github.com/brewblox/brewblox-ctl@ctl_tag"')
     assert not any(call[0][0] == uv_from_script for call in m_sh.call_args_list), 'Unexpected uv install from script'
     assert not any(call[0][0] == uv_from_pip for call in m_sh.call_args_list), 'Unexpected uv install from pip'
 

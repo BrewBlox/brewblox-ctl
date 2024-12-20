@@ -101,8 +101,7 @@ install() {
     log_info "Installing Python packages..."
 
     # use regular pip instead of uv pip because uv pip installs aarch64 package on 32-bit raspberry pi for pydantic-core
-    uv pip install pip --upgrade
-    uv run python3 -m pip install "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
+    uv pip install "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
 
     # Init the config file
     echo "release: ${BREWBLOX_RELEASE}" >./brewblox.yml
