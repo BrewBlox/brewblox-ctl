@@ -24,7 +24,7 @@ def database():
 @click.option(
     '--duration',
     default='',
-    prompt='From how far back do you want to migrate data? (eg. 1d, 30d, 1y). ' 'Leave empty to migrate everything.',
+    prompt='From how far back do you want to migrate data? (eg. 1d, 30d, 1y). Leave empty to migrate everything.',
     help='Period of exported data. Example: 30d',
 )
 @click.option(

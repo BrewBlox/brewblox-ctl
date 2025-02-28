@@ -108,7 +108,5 @@ def load(file):
         )
         utils.sh('rm brewblox-ctl.tar.gz')
     else:
-        utils.info(
-            'No requirements.txt or brewblox-ctl.tar.gz in snapshot. ' 'Installing default version of brewblox-ctl'
-        )
+        utils.info('No requirements.txt or brewblox-ctl.tar.gz in snapshot. Installing default version of brewblox-ctl')
         actions.install_ctl_package()

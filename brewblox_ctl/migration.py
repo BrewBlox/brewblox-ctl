@@ -24,10 +24,7 @@ def _influx_measurements() -> List[str]:
 
     raw_measurements = list(
         utils.sh_stream(
-            f'{sudo}docker exec influxdb-migrate influx '
-            '-database brewblox '
-            "-execute 'SHOW MEASUREMENTS' "
-            '-format csv'
+            f"{sudo}docker exec influxdb-migrate influx -database brewblox -execute 'SHOW MEASUREMENTS' -format csv"
         )
     )
 

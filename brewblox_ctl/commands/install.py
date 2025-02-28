@@ -115,7 +115,7 @@ class InstallOptions:
 
         if utils.file_exists('./auth/'):
             self.init_auth = not utils.confirm(
-                'This directory already contains user authentication files. ' 'Do you want to keep them?'
+                'This directory already contains user authentication files. Do you want to keep them?'
             )
 
         if utils.file_exists('./redis/'):
