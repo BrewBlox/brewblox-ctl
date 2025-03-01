@@ -63,9 +63,20 @@ install() {
         fi
     fi
 
-    # Install system packages
+    # Install git if not available
+    if ! command_exists git; then
+        log_info "Installing git"
+        # check if apt-get is available
+        if command_exists apt-get; then
+            sudo apt-get install -y git
+        else
+            log_error "apt-get not found. Please install git manually first."
+            exit 1
+        fi
+    fi
 
-    log_info "Installing uv"
+    # Install uv
+    log_info "Installing and uv"
     wget -qO- https://astral.sh/uv/install.sh | sh
 
     # add uv to PATH
