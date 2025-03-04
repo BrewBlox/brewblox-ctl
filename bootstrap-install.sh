@@ -102,6 +102,9 @@ install() {
     log_info "Installing and uv"
     wget -qO- https://astral.sh/uv/install.sh | sh
 
+    log_info "Reloading shell environment..."
+    source "$HOME/.local/bin/env"
+
     log_info "Creating Python virtual env..."
     uv venv
 
