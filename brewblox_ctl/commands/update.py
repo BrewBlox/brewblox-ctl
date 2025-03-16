@@ -151,7 +151,7 @@ def upped_migrate(prev_version):
     help='[ADVANCED] Override version number of active configuration.',
 )
 def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
-    """Download and apply updates.
+    r"""Download and apply updates.
 
     This is the one-stop-shop for updating your Brewblox install.
     You can use any of the options to fine-tune the update by enabling or disabling subroutines.

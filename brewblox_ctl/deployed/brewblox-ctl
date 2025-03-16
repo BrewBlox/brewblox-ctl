@@ -89,7 +89,7 @@ install_ctl() {
 
     # Install packages into the virtual env
     log_info "Installing brewblox-ctl..."
-    uv pip install "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
+    uv pip install --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
 }
 
 # Args: none

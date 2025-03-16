@@ -75,7 +75,7 @@ def log(add_compose, add_system, upload):
     sudo = utils.optsudo()
 
     # Create log
-    utils.info(f"Log file: {Path('./brewblox.log').resolve()}")
+    utils.info(f'Log file: {Path("./brewblox.log").resolve()}')
     create()
     append('date')
 

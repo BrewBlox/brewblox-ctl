@@ -235,7 +235,7 @@ def add_tilt(yes):
 )
 @click.option(
     '--token',
-    prompt='What is your Plaato auth token? ' 'For more info: https://plaato.io/apps/help-center#!hc-auth-token',
+    prompt='What is your Plaato auth token? For more info: https://plaato.io/apps/help-center#!hc-auth-token',
     help='Plaato authentication token.',
 )
 @click.option('-y', '--yes', is_flag=True, help='Do not prompt for confirmation')

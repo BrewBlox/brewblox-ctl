@@ -90,17 +90,23 @@ def load(file):
     utils.sh('uv venv')
     if utils.file_exists('requirements.txt'):
         utils.info('Restoring Python packages from requirements.txt')
-        utils.sh('uv pip install --upgrade pip')
-        utils.sh('uv run python3 -m pip install -r requirements.txt')
+        utils.sh(
+            'uv pip install --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match --upgrade pip'
+        )
+        utils.sh(
+            'uv pip install --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match -r requirements.txt'
+        )
         utils.sh('rm requirements.txt')
     elif utils.file_exists('brewblox-ctl.tar.gz'):
         utils.info('Restoring Python packages from brewlox-ctl.tar.gz')
         # for backwards compaitibility with older brewblox-ctl versions from snapshot
-        utils.sh('uv pip install --upgrade pip')
-        utils.sh('uv run python3 -m pip install brewblox-ctl.tar.gz')
+        utils.sh(
+            'uv pip install --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match --upgrade pip'
+        )
+        utils.sh(
+            'uv pip install --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match brewblox-ctl.tar.gz'
+        )
         utils.sh('rm brewblox-ctl.tar.gz')
     else:
-        utils.info(
-            'No requirements.txt or brewblox-ctl.tar.gz in snapshot. ' 'Installing default version of brewblox-ctl'
-        )
+        utils.info('No requirements.txt or brewblox-ctl.tar.gz in snapshot. Installing default version of brewblox-ctl')
         actions.install_ctl_package()

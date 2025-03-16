@@ -9,6 +9,7 @@ import socket
 from contextlib import closing, suppress
 from copy import deepcopy
 from pathlib import Path
+from subprocess import CalledProcessError
 from typing import Iterable
 
 import jinja2
@@ -189,7 +190,7 @@ def apt_upgrade():
         utils.sh('sudo apt-get update && sudo apt-get upgrade -y')
 
 
-def install_ctl_package():  # always | missing | never
+def install_ctl_package():
     config = utils.get_config()
     if utils.file_exists('./brewblox-ctl.tar.gz'):
         utils.sh('rm -f ./brewblox-ctl.tar.gz')  # remove old file
@@ -200,7 +201,7 @@ def install_ctl_package():  # always | missing | never
         utils.sh('wget -qO- https://astral.sh/uv/install.sh | sh')
     if not utils.command_exists('uv'):
         utils.warn('Failed to install uv with install script, retrying with pip')
-        utils.sh('pip install uv')
+        utils.sh('pip install --upgrade uv')
     if not utils.command_exists('uv'):
         utils.error('Failed to install uv, please install it manually.')
         raise SystemExit(1)
@@ -214,8 +215,17 @@ def install_ctl_package():  # always | missing | never
             raise SystemExit(1)
         utils.sh('sudo apt-get update && sudo apt-get install -y git')
 
-    utils.sh('uv pip install --upgrade pip')
-    utils.sh(f'uv run python3 -m pip install "git+https://github.com/brewblox/brewblox-ctl@{release}"')
+    try:
+        utils.sh('uv self update')
+    except CalledProcessError:  # pragma: no cover
+        utils.error(
+            'Failed to update uv. Try updating it manually with: wget -qO- https://astral.sh/uv/install.sh | sh'
+        )
+        raise SystemExit(1) from None
+
+    utils.sh(
+        f'uv pip install --upgrade --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@{release}"'
+    )
 
 
 def install_compose_plugin():

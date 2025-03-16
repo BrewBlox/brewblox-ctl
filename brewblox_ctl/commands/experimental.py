@@ -26,14 +26,13 @@ def experimental():
 @click.option(
     '--server-host',
     default=None,
-    help='External hostname for the Brewblox system. ' 'This value defaults to "$HOSTNAME.local".',
+    help='External hostname for the Brewblox system. This value defaults to "$HOSTNAME.local".',
 )
 @click.option(
     '--server-port',
     type=int,
     default=None,
-    help='External MQTTS port for the Brewblox system. '
-    'This value defaults to the current BREWBLOX_PORT_MQTTS value.',
+    help='External MQTTS port for the Brewblox system. This value defaults to the current BREWBLOX_PORT_MQTTS value.',
 )
 @click.option(
     '--device-host', help='Static controller URL. This will only be used for the initial credential exchange.'

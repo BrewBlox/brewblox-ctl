@@ -63,13 +63,17 @@ install() {
         fi
     fi
 
-    # Install system packages
-
-    log_info "Installing uv"
-    wget -qO- https://astral.sh/uv/install.sh | sh
-
-    # add uv to PATH
-    source $HOME/.local/bin/env
+    # Install git if not available
+    if ! command_exists git; then
+        log_info "Installing git"
+        # check if apt-get is available
+        if command_exists apt-get; then
+            sudo apt-get install -y git
+        else
+            log_error "apt-get not found. Please install git manually first."
+            exit 1
+        fi
+    fi
 
     log_info "Brewblox dir is \"${BREWBLOX_DIR}\""
     log_info "Brewblox release is \"${BREWBLOX_RELEASE}\""
@@ -94,19 +98,25 @@ install() {
         pushd "${BREWBLOX_DIR}" >/dev/null
     fi
 
+    # Install uv
+    log_info "Installing and uv"
+    wget -qO- https://astral.sh/uv/install.sh | sh
+
+    log_info "Reloading shell environment..."
+    source "$HOME/.local/bin/env"
+
     log_info "Creating Python virtual env..."
     uv venv
 
     # Install packages into the virtual env
-    log_info "Installing Python packages..."
+    log_info "Installing brewblox-ctl..."
 
-    # use regular pip instead of uv pip because uv pip installs aarch64 package on 32-bit raspberry pi for pydantic-core
-    uv pip install pip --upgrade
-    uv run python3 -m pip install "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
+    uv pip install --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@${BREWBLOX_RELEASE}"
 
-    # Init the config file
+    log_info "Creating brewblox.yml..."
     echo "release: ${BREWBLOX_RELEASE}" >./brewblox.yml
 
+    log_info "Running brewblox-ctl install..."
     uv run python3 -m brewblox_ctl install
 }
 
