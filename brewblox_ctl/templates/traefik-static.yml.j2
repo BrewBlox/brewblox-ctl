@@ -11,10 +11,9 @@
 api:
   dashboard: true
 providers:
-  providersThrottleDuration: 2s
   docker:
     constraints: "LabelRegex(`com.docker.compose.project`, `{{ config.compose.project }}`)"
-    defaultRule: 'PathPrefix(`/{% raw %}{{ index .Labels "com.docker.compose.service" }}{% endraw %}`)"
+    defaultRule: 'PathPrefix(`/{% raw %}{{ index .Labels "com.docker.compose.service" }}{% endraw %}`)'
   file:
     directory: {{ config.traefik.dynamic_config_dir }}
 entryPoints:
