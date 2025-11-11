@@ -213,7 +213,8 @@ def install_ctl_package():
                 ' On a synology NAS, you can install it from the package center community repo.'
             )
             raise SystemExit(1)
-        utils.sh('sudo apt-get update && sudo apt-get install -y git')
+        # Install git and python3-dev to enable building wheels when piwheels is unavailable
+        utils.sh('sudo apt-get update && sudo apt-get install -y git python3-dev')
 
     try:
         utils.sh('uv self update')
@@ -224,7 +225,9 @@ def install_ctl_package():
         raise SystemExit(1) from None
 
     utils.sh(
-        f'uv pip install --upgrade --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@{release}"'
+        f'uv pip install --upgrade --force-reinstall '
+        f'--extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match '
+        f'"git+https://github.com/brewblox/brewblox-ctl@{release}"'
     )
 
 
