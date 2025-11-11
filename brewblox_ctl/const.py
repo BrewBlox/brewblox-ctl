@@ -42,6 +42,7 @@ APT_DEPENDENCIES = [
     'curl',
     'libssl-dev',
     'libffi-dev',
+    'python3-dev',
     'avahi-daemon',
     'git',
 ]
