@@ -206,6 +206,64 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
     if not update_ctl_done:
         utils.info(f'Starting update for brewblox {config.release} ...')
 
+    # Warn if user overrides Traefik in docker-compose.yml
+    try:
+        if utils.file_exists(const.COMPOSE_FILE):
+            user_compose = utils.read_compose()
+            traefik_svc = user_compose.get('services', {}).get('traefik')
+            if traefik_svc is not None:
+                img = traefik_svc.get('image', '')
+                if img and not img.startswith('traefik:3'):
+                    utils.warn(
+                        f'docker-compose.yml overrides the Traefik image ({img}). '
+                        'Brewblox now uses Traefik v3. Please review your override for compatibility.'
+                    )
+                else:
+                    utils.warn(
+                        'docker-compose.yml overrides the traefik service. '
+                        'If you customized command/entrypoints/labels, ensure they are compatible with Traefik v3.'
+                    )
+
+        # Warn if brewblox.yml config customizes Traefik file paths
+        if config.traefik.static_config_file != '/config/traefik.yml':
+            utils.warn(
+                f'brewblox.yml sets traefik.static_config_file to {config.traefik.static_config_file}. '
+                'Verify your static configuration is compatible with Traefik v3.'
+            )
+        if config.traefik.dynamic_config_dir != '/config/dynamic':
+            utils.warn(
+                f'brewblox.yml sets traefik.dynamic_config_dir to {config.traefik.dynamic_config_dir}. '
+                'Verify your dynamic configuration is compatible with Traefik v3.'
+            )
+
+        # Warn if any additional compose files define a custom traefik service
+        default_files = {'docker-compose.shared.yml', 'docker-compose.yml'}
+        for f in config.compose.files:
+            if f in default_files:
+                continue
+            try:
+                if utils.file_exists(f):
+                    data = utils.read_yaml(f)
+                    traefik_svc = (data or {}).get('services', {}).get('traefik')
+                    if traefik_svc is not None:
+                        img = traefik_svc.get('image', '')
+                        if img and not str(img).startswith('traefik:3'):
+                            utils.warn(
+                                f'{f} overrides the Traefik image ({img}). '
+                                'Brewblox now uses Traefik v3. Please review your override for compatibility.'
+                            )
+                        else:
+                            utils.warn(
+                                f'{f} overrides the traefik service. '
+                                'If you customized command/entrypoints/labels, ensure they are compatible with Traefik v3.'
+                            )
+            except Exception as ex:  # pragma: no cover
+                utils.warn(f'Failed to inspect {f} for Traefik overrides.')
+                utils.warn(utils.strex(ex))
+    except Exception as ex:  # pragma: no cover
+        utils.warn('Failed to inspect docker-compose.yml for Traefik overrides.')
+        utils.warn(utils.strex(ex))
+
     if update_ctl and not update_ctl_done:
         utils.info('Updating brewblox-ctl ...')
         actions.install_ctl_package()
