@@ -88,7 +88,7 @@ services:
         read_only: true
 
   traefik:
-    image: traefik:3.6
+    image: traefik:3.6.1
     restart: unless-stopped
     command: --configFile={{ config.traefik.static_config_file }}
     volumes:
