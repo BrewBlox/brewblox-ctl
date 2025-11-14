@@ -167,7 +167,7 @@ def test_install_ctl_package(
 
     actions.install_ctl_package()
     m_sh.assert_called_with(
-        'uv pip install --upgrade --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@edge"'
+        'uv pip install --upgrade --force-reinstall --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@edge"'
     )
 
     m_sh.reset_mock()
@@ -175,14 +175,14 @@ def test_install_ctl_package(
     config.release = 'tag'
     actions.install_ctl_package()
     m_sh.assert_called_with(
-        'uv pip install --upgrade --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@tag"'
+        'uv pip install --upgrade --force-reinstall --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@tag"'
     )
 
     m_sh.reset_mock()
 
     uv_from_script = 'wget -qO- https://astral.sh/uv/install.sh | sh'
     uv_from_pip = 'pip install --upgrade uv'
-    git_install = 'sudo apt-get update && sudo apt-get install -y git'
+    git_install = 'sudo apt-get update && sudo apt-get install -y git python3-dev'
 
     # test uv not installed yet
     m_sh.reset_mock()
@@ -206,7 +206,7 @@ def test_install_ctl_package(
     m_command_exists.clear_existing_commands()
     m_command_exists.add_existing_commands('uv', 'apt-get')
     actions.install_ctl_package()
-    assert any(call[0][0] == git_install for call in m_sh.call_args_list), 'Expected git install'
+    assert any(call[0][0] == git_install for call in m_sh.call_args_list), 'Expected git + python3-dev install'
 
     # test uv, git already installed
     m_sh.reset_mock()
@@ -217,7 +217,7 @@ def test_install_ctl_package(
     actions.install_ctl_package()
     m_sh.assert_any_call('rm -f ./brewblox-ctl.tar.gz')
     m_sh.assert_called_with(
-        'uv pip install --upgrade --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@ctl_tag"'
+        'uv pip install --upgrade --force-reinstall --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@ctl_tag"'
     )
     assert not any(call[0][0] == uv_from_script for call in m_sh.call_args_list), 'Unexpected uv install from script'
     assert not any(call[0][0] == uv_from_pip for call in m_sh.call_args_list), 'Unexpected uv install from pip'
