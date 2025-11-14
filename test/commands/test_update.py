@@ -82,6 +82,119 @@ def test_update(m_file_exists: Mock, m_getenv: Mock, m_migration: Mock):
     assert m_migration.migrate_env_config.call_count == 1
 
 
+def test_warn_traefik_overrides(
+    m_file_exists: Mock,
+    m_read_compose: Mock,
+    m_read_yaml: Mock,
+    m_warn: Mock,
+    m_get_config,  # autouse fixture returns config object
+):
+    # Ensure brewblox.yml exists to skip migrate_env_config
+    m_file_exists.add_existing_files(const.CONFIG_FILE, const.COMPOSE_FILE, 'extra-compose.yml')
+
+    # docker-compose.yml with custom traefik image v2
+    m_read_compose.side_effect = lambda: {
+        'services': {
+            'traefik': {'image': 'traefik:2.10'},
+        }
+    }
+
+    # extra compose file with traefik service too
+    def read_yaml_side_effect(path=None):
+        if path == 'extra-compose.yml':
+            return {'services': {'traefik': {'image': 'traefik:3.5'}}}
+        return {}
+
+    m_read_yaml.side_effect = read_yaml_side_effect
+
+    # Non-default static/dynamic paths
+    cfg = m_get_config
+    cfg.compose.files = ['docker-compose.shared.yml', 'docker-compose.yml', 'extra-compose.yml']
+    cfg.traefik.static_config_file = '/config/custom-traefik.yml'
+    cfg.traefik.dynamic_config_dir = '/config/custom-dynamic'
+
+    # Run update without side-effects
+    invoke(
+        update.update,
+        f'--from-version {const.CFG_VERSION} --no-update-ctl --no-pull --no-prune --no-migrate',
+    )
+
+    # We should have emitted multiple warnings
+    warn_msgs = [str(call.args[0]) for call in m_warn.call_args_list]
+    assert any('docker-compose.yml overrides the Traefik image' in m for m in warn_msgs)
+    assert any('brewblox.yml sets traefik.static_config_file' in m for m in warn_msgs)
+    assert any('brewblox.yml sets traefik.dynamic_config_dir' in m for m in warn_msgs)
+    assert any('extra-compose.yml overrides the traefik service' in m for m in warn_msgs)
+
+
+def test_warn_traefik_branches(
+    m_file_exists: Mock,
+    m_read_compose: Mock,
+    m_warn: Mock,
+    m_get_config,
+):
+    # Only default files exist; add a non-existent extra file to trigger file-exists=false branch
+    m_file_exists.add_existing_files(const.CONFIG_FILE, const.COMPOSE_FILE)
+
+    # docker-compose.yml with traefik defined but no image -> triggers generic override warning
+    m_read_compose.side_effect = lambda: {'services': {'traefik': {}}}
+
+    cfg = m_get_config
+    cfg.compose.files = ['docker-compose.shared.yml', 'docker-compose.yml', 'nonexistent.yml']
+    cfg.traefik.static_config_file = '/config/traefik.yml'
+    cfg.traefik.dynamic_config_dir = '/config/dynamic'
+
+    invoke(
+        update.update,
+        f'--from-version {const.CFG_VERSION} --no-update-ctl --no-pull --no-prune --no-migrate',
+    )
+
+    warn_msgs = [str(call.args[0]) for call in m_warn.call_args_list]
+    assert any('docker-compose.yml overrides the traefik service' in m for m in warn_msgs)
+
+
+def test_warn_traefik_extra_branches(
+    m_file_exists: Mock,
+    m_read_compose: Mock,
+    m_read_yaml: Mock,
+    m_get_config,
+):
+    # Both default files and two extra files exist
+    m_file_exists.add_existing_files(
+        const.CONFIG_FILE,
+        const.COMPOSE_FILE,
+        'extra-a.yml',
+        'extra-b.yml',
+    )
+
+    # docker-compose.yml without traefik service -> cover branch where traefik_svc is None
+    m_read_compose.side_effect = lambda: {'services': {'redis': {}}}
+
+    def read_yaml_side_effect(path=None):
+        if path == 'extra-a.yml':
+            # Exists but no traefik service -> cover false branch at 248
+            return {'services': {'other': {}}}
+        if path == 'extra-b.yml':
+            # Has traefik with v2 image -> cover branch at 251
+            return {'services': {'traefik': {'image': 'traefik:2.10'}}}
+        return {}
+
+    m_read_yaml.side_effect = read_yaml_side_effect
+
+    cfg = m_get_config
+    cfg.compose.files = [
+        'docker-compose.shared.yml',
+        'docker-compose.yml',
+        'extra-a.yml',
+        'extra-b.yml',
+    ]
+
+    invoke(
+        update.update,
+        f'--from-version {const.CFG_VERSION} --no-update-ctl --no-pull --no-prune --no-migrate',
+    )
+
+
 def test_check_version(mocker: MockerFixture):
     mocker.patch(TESTED + '.const.CFG_VERSION', '1.2.3')
     mocker.patch(TESTED + '.SystemExit', DummyError)

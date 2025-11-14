@@ -34,6 +34,7 @@ entryPoints:
       redirections:
         entryPoint:
           to: websecure
+          scheme: https
 {% endif %}
   admin:
     address: :{{ config.ports.admin }}
