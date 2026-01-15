@@ -86,9 +86,11 @@ def m_browser(mocker: MockerFixture):
 @pytest.fixture(autouse=True)
 def m_usb(mocker: MockerFixture):
     m_dev_p1 = Mock()
+    m_dev_p1.idVendor = const.VID_PARTICLE
     m_dev_p1.idProduct = const.PID_P1
 
     m_dev_esp32 = Mock()
+    m_dev_esp32.idVendor = const.VID_ESPRESSIF
     m_dev_esp32.idProduct = const.PID_ESP32
 
     m = mocker.patch(TESTED + '.usb', autospec=True)
@@ -158,6 +160,14 @@ def test_discover_usb():
     assert next(gen, None) == DiscoveredDevice(discovery='USB', model='Spark 3', device_id='4f0052000551353432383931')
     assert next(gen, None) == DiscoveredDevice(discovery='USB', model='Spark 4', device_id='4f0052000551353432383931')
     assert next(gen, None) is None
+
+
+def test_discover_usb_permission_error(m_usb: Mock, mocker: MockerFixture):
+    m_warn = mocker.patch(TESTED + '.utils.warn')
+    m_usb.util.get_string.side_effect = ValueError('no langid')
+    devs = list(discovery.discover_usb())
+    assert devs == []
+    assert m_warn.call_count == 2  # Called for both P1 and ESP32 devices
 
 
 def test_discover_mdns():

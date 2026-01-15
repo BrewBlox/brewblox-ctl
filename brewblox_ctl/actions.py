@@ -148,11 +148,17 @@ def make_compose():
 
 def make_udev_rules():
     rules_dir = '/etc/udev/rules.d'
-    target = f'{rules_dir}/50-particle.rules'
-    if not utils.file_exists(target) and utils.command_exists('udevadm'):
-        utils.info('Adding udev rules for Particle devices ...')
-        utils.sh(f'sudo mkdir -p {rules_dir}')
-        utils.sh(f'sudo cp "{const.DIR_DEPLOYED}/50-particle.rules" {target}')
+    reload_rules = False
+
+    for rules_file in ['50-particle.rules', '50-espressif.rules']:
+        target = f'{rules_dir}/{rules_file}'
+        if not utils.file_exists(target) and utils.command_exists('udevadm'):
+            utils.info(f'Adding udev rules: {rules_file} ...')
+            utils.sh(f'sudo mkdir -p {rules_dir}')
+            utils.sh(f'sudo cp "{const.DIR_DEPLOYED}/{rules_file}" {target}')
+            reload_rules = True
+
+    if reload_rules:
         utils.sh('sudo udevadm control --reload-rules && sudo udevadm trigger', check=False)
 
 

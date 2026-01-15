@@ -73,7 +73,7 @@ def test_apt_upgrade(m_sh: Mock, m_command_exists: Mock):
 
 def test_make_udev_rules(m_sh: Mock, m_file_exists: Mock, m_command_exists: Mock):
     m_command_exists.add_existing_commands('udevadm')
-    m_file_exists.add_existing_files('/etc/udev/rules.d/50-particle.rules')
+    m_file_exists.add_existing_files('/etc/udev/rules.d/50-particle.rules', '/etc/udev/rules.d/50-espressif.rules')
     actions.make_udev_rules()
     assert m_sh.call_count == 0
 

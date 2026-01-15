@@ -137,12 +137,21 @@ def discover_usb() -> Generator[DiscoveredDevice, None, None]:
     ]
     for dev in devices:
         dev: usb.core.Device
-        id = usb.util.get_string(dev, dev.iSerialNumber).lower()
+        try:
+            id = usb.util.get_string(dev, dev.iSerialNumber).lower()
+        except ValueError:
+            # Permission error or device doesn't support string descriptors
+            # This typically happens with ESP32 devices without proper udev rules
+            utils.warn(
+                f'Could not read serial from USB device (VID={dev.idVendor:04x}, PID={dev.idProduct:04x}). '
+                'Try running with sudo or adding udev rules.'
+            )
+            continue
         model = {
             const.PID_PHOTON: 'Spark 2',
             const.PID_P1: 'Spark 3',
             const.PID_ESP32: 'Spark 4',
-            const.PID_ESP32_S3: 'Spark 5',
+            const.PID_ESP32_S3: 'Spark 4',
         }[dev.idProduct]
         yield DiscoveredDevice(discovery='USB', model=model, device_id=id)
 
