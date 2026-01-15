@@ -85,11 +85,22 @@ def m_browser(mocker: MockerFixture):
 
 @pytest.fixture(autouse=True)
 def m_usb(mocker: MockerFixture):
-    m_dev = Mock()
-    m_dev.idProduct = const.PID_P1
+    m_dev_p1 = Mock()
+    m_dev_p1.idProduct = const.PID_P1
+
+    m_dev_esp32 = Mock()
+    m_dev_esp32.idProduct = const.PID_ESP32
 
     m = mocker.patch(TESTED + '.usb', autospec=True)
-    m.core.find.return_value = [m_dev]
+
+    def find_devices(find_all, idVendor, idProduct):
+        if idVendor == const.VID_PARTICLE and idProduct == const.PID_P1:
+            return [m_dev_p1]
+        if idVendor == const.VID_ESPRESSIF and idProduct == const.PID_ESP32:
+            return [m_dev_esp32]
+        return []
+
+    m.core.find.side_effect = find_devices
     m.util.get_string.return_value = '4F0052000551353432383931'
     return m
 
@@ -143,11 +154,9 @@ def test_match_id_services():
 
 
 def test_discover_usb():
-    expected = DiscoveredDevice(discovery='USB', model='Spark 3', device_id='4f0052000551353432383931')
-
     gen = discovery.discover_usb()
-    assert next(gen, None) == expected
-    assert next(gen, None) == expected
+    assert next(gen, None) == DiscoveredDevice(discovery='USB', model='Spark 3', device_id='4f0052000551353432383931')
+    assert next(gen, None) == DiscoveredDevice(discovery='USB', model='Spark 4', device_id='4f0052000551353432383931')
     assert next(gen, None) is None
 
 
@@ -189,7 +198,7 @@ def test_choose_device(m_usb: Mock, mocker: MockerFixture):
     assert discovery.choose_device(DiscoveryType.all, None).device_id == '4f0052000551353432383931'
     assert discovery.choose_device(DiscoveryType.mdns, None).device_id == 'id1'
 
-    m_usb.core.find.return_value = []
+    m_usb.core.find.side_effect = lambda **kwargs: []
     assert discovery.choose_device(DiscoveryType.usb, None) is None
 
     assert discovery.choose_device(DiscoveryType.mqtt, None).device_id == 'id2'

@@ -132,12 +132,18 @@ def discover_usb() -> Generator[DiscoveredDevice, None, None]:
     devices = [
         *usb.core.find(find_all=True, idVendor=const.VID_PARTICLE, idProduct=const.PID_PHOTON),
         *usb.core.find(find_all=True, idVendor=const.VID_PARTICLE, idProduct=const.PID_P1),
-        # Spark 4 does not support USB control, and is not listed
+        *usb.core.find(find_all=True, idVendor=const.VID_ESPRESSIF, idProduct=const.PID_ESP32),
+        *usb.core.find(find_all=True, idVendor=const.VID_ESPRESSIF_NATIVE, idProduct=const.PID_ESP32_S3),
     ]
     for dev in devices:
         dev: usb.core.Device
         id = usb.util.get_string(dev, dev.iSerialNumber).lower()
-        model = {const.PID_PHOTON: 'Spark 2', const.PID_P1: 'Spark 3'}[dev.idProduct]
+        model = {
+            const.PID_PHOTON: 'Spark 2',
+            const.PID_P1: 'Spark 3',
+            const.PID_ESP32: 'Spark 4',
+            const.PID_ESP32_S3: 'Spark 5',
+        }[dev.idProduct]
         yield DiscoveredDevice(discovery='USB', model=model, device_id=id)
 
 
@@ -164,6 +170,7 @@ def discover_particle_spark_tty(device_id: Optional[str] = None) -> Generator[st
 
 
 def discover_esp_spark_tty() -> Generator[str, None, None]:  # pragma: no cover
+    # ESP32 with CP2102 USB-to-serial chip (ttyUSB)
     for tty in glob('/sys/class/tty/ttyUSB*'):
         tty = Path(tty)
 
@@ -178,6 +185,25 @@ def discover_esp_spark_tty() -> Generator[str, None, None]:  # pragma: no cover
             [
                 int(usb_vid, 16) == const.VID_ESPRESSIF,
                 int(usb_pid, 16) == const.PID_ESP32,
+            ]
+        ):
+            yield f'/dev/{tty.name}'
+
+    # ESP32-S3 with native USB (ttyACM)
+    for tty in glob('/sys/class/tty/ttyACM*'):
+        tty = Path(tty)
+
+        if (tty / 'device' / 'subsystem').resolve() != Path('/sys/bus/usb'):
+            continue
+
+        dev_root = (tty / 'device').resolve() / '..'
+        usb_vid = (dev_root / 'idVendor').read_text().strip()
+        usb_pid = (dev_root / 'idProduct').read_text().strip()
+
+        if all(
+            [
+                int(usb_vid, 16) == const.VID_ESPRESSIF_NATIVE,
+                int(usb_pid, 16) == const.PID_ESP32_S3,
             ]
         ):
             yield f'/dev/{tty.name}'
