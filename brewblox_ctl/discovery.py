@@ -154,14 +154,19 @@ def find_device_by_host(device_host: str) -> Optional[DiscoveredDevice]:
 def read_esp32_device_id(tty_path: str) -> Optional[str]:
     """Read device ID from ESP32 serial port by parsing the handshake message.
 
-    The ESP32 prints a handshake line on startup wrapped in angle brackets:
+    The ESP32 responds with a handshake when it receives an empty line:
     <!BREWBLOX,firmware_version,proto_version,firmware_date,proto_date,system_version,platform,reset_reason,reset_data,device_id>
     """
     try:
         with serial.Serial(tty_path, baudrate=115200, timeout=2) as ser:
-            # Read lines until we find the handshake or timeout
-            for _ in range(100):  # Max 100 lines to prevent infinite loop
+            # Send empty line to request handshake
+            ser.write(b'\n')
+            # Read response lines
+            for _ in range(100):
                 line = ser.readline().decode('utf-8', errors='ignore')
+                if not line:
+                    # No data available, stop waiting
+                    break
                 if '<!BREWBLOX' in line:
                     # Extract content between <!BREWBLOX and >
                     start = line.index('<!BREWBLOX') + 2  # Skip '<!'

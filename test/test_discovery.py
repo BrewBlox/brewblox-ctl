@@ -302,13 +302,15 @@ def test_read_esp32_device_id(mocker: MockerFixture):
     m_serial.return_value.__enter__ = Mock(return_value=m_serial_instance)
     m_serial.return_value.__exit__ = Mock(return_value=False)
 
-    # Test successful read - handshake can appear anywhere in line, with angle brackets
+    # Test successful read - sends empty line to request handshake
     m_serial_instance.readline.side_effect = [
         b'Some boot message\n',
         b'<!BREWBLOX,248f4910,0ed3826e,2026-01-14,2025-11-24,5.5.0,esp32,00,00,c4dd57670670><I (1338) wifi:>\n',
     ]
     result = discovery.read_esp32_device_id('/dev/ttyUSB0')
     assert result == 'c4dd57670670'
+    # Verify we sent empty line to request handshake
+    m_serial_instance.write.assert_called_once_with(b'\n')
 
 
 def test_read_esp32_device_id_no_handshake(mocker: MockerFixture):
@@ -317,10 +319,24 @@ def test_read_esp32_device_id_no_handshake(mocker: MockerFixture):
     m_serial.return_value.__enter__ = Mock(return_value=m_serial_instance)
     m_serial.return_value.__exit__ = Mock(return_value=False)
 
-    # Test no handshake found (timeout/max lines)
+    # Test no handshake found - empty line causes early break
+    m_serial_instance.readline.side_effect = [b'some output\n', b'']
+    result = discovery.read_esp32_device_id('/dev/ttyUSB0')
+    assert result is None
+    assert m_serial_instance.readline.call_count == 2  # Stopped after empty line
+
+
+def test_read_esp32_device_id_max_lines(mocker: MockerFixture):
+    m_serial = mocker.patch(TESTED + '.serial.Serial')
+    m_serial_instance = Mock()
+    m_serial.return_value.__enter__ = Mock(return_value=m_serial_instance)
+    m_serial.return_value.__exit__ = Mock(return_value=False)
+
+    # Test no handshake found - max lines reached without empty line
     m_serial_instance.readline.side_effect = [b'no handshake\n'] * 100
     result = discovery.read_esp32_device_id('/dev/ttyUSB0')
     assert result is None
+    assert m_serial_instance.readline.call_count == 100  # Read all 100 lines
 
 
 def test_read_esp32_device_id_error(mocker: MockerFixture):
