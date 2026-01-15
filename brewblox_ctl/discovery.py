@@ -318,10 +318,35 @@ def discover_mdns() -> Generator[DiscoveredDevice, None, None]:
 
 
 def discover_device(discovery_type: DiscoveryType) -> Generator[DiscoveredDevice, None, None]:
+    """Discover devices and merge USB/mDNS entries for the same device."""
+    devices: Dict[str, DiscoveredDevice] = {}
+
+    # Collect USB devices first
     if discovery_type in [DiscoveryType.all, DiscoveryType.usb]:
-        yield from discover_usb()
+        for dev in discover_usb():
+            if dev.device_id:
+                devices[dev.device_id] = dev
+            elif dev.usb_device_id:
+                # No device_id yet, store by usb_device_id
+                devices[f'usb:{dev.usb_device_id}'] = dev
+
+    # Collect mDNS devices and merge with USB if same device_id
     if discovery_type in [DiscoveryType.all, DiscoveryType.mdns, DiscoveryType.mqtt]:
-        yield from discover_mdns()
+        for dev in discover_mdns():
+            if dev.device_id in devices:
+                # Merge: USB device found with same device_id
+                usb_dev = devices[dev.device_id]
+                devices[dev.device_id] = DiscoveredDevice(
+                    discovery='USB+mDNS',
+                    model=dev.model,
+                    device_id=dev.device_id,
+                    usb_device_id=usb_dev.usb_device_id,
+                    device_host=dev.device_host,
+                )
+            else:
+                devices[dev.device_id] = dev
+
+    yield from devices.values()
 
 
 def list_devices(discovery_type: DiscoveryType, compose_config: Optional[dict]):

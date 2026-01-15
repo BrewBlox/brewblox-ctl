@@ -39,6 +39,11 @@ def m_find_by_host(mocker: MockerFixture):
     return m
 
 
+@pytest.fixture(autouse=True)
+def m_make_shared_compose(mocker: MockerFixture):
+    return mocker.patch(TESTED + '.actions.make_shared_compose', autospec=True)
+
+
 def test_discover_spark(m_read_compose: Mock, m_list_devices: Mock):
     m_read_compose.return_value = {'services': {}}
     invoke(add_service.discover_spark)
@@ -68,24 +73,48 @@ def test_add_spark(m_choose: Mock, m_read_compose: Mock, m_confirm: Mock):
     invoke(add_service.add_spark, '--name testey --usb-device-id USB123 --discovery usb')
 
 
-def test_add_spark_usb_esp32(m_choose: Mock, m_read_compose: Mock, m_confirm: Mock):
-    """Test Spark 4 discovered via USB with connection type prompt"""
+def test_add_spark_usb_connection_type(m_choose: Mock, m_read_compose: Mock, m_confirm: Mock):
+    """Test USB device discovered with connection type prompt"""
     m_read_compose.side_effect = lambda: {'services': {}}
     m_confirm.return_value = True
 
-    # Spark 4 discovered via USB (has usb_device_id but no device_id)
+    # Device discovered via USB
     m_choose.side_effect = lambda _1, _2=None: DiscoveredDevice(
-        discovery='USB', model='Spark 4', device_id='', usb_device_id='e032ad66fc71eb11b9af546e014bf449'
+        discovery='USB', model='Spark 4', device_id='c4dd57670670', usb_device_id='e032ad66fc71eb11b9af546e014bf449'
     )
 
     # Option 1: USB only
     invoke(add_service.add_spark, '--name testey', input='1\n')
 
-    # Option 2: Network only (requires device ID input)
-    invoke(add_service.add_spark, '--name testey', input='2\nc4dd5766bc80\n')
+    # Option 2: Network only
+    invoke(add_service.add_spark, '--name testey', input='2\n')
 
-    # Option 3: Any (requires device ID input)
-    invoke(add_service.add_spark, '--name testey', input='3\nc4dd5766bc80\n')
+    # Option 3: Any
+    invoke(add_service.add_spark, '--name testey', input='3\n')
+
+
+def test_add_spark_usb_mdns_connection_type(m_choose: Mock, m_read_compose: Mock, m_confirm: Mock):
+    """Test merged USB+mDNS device discovered with connection type prompt"""
+    m_read_compose.side_effect = lambda: {'services': {}}
+    m_confirm.return_value = True
+
+    # Device discovered via both USB and mDNS
+    m_choose.side_effect = lambda _1, _2=None: DiscoveredDevice(
+        discovery='USB+mDNS',
+        model='Spark 4',
+        device_id='c4dd57670670',
+        usb_device_id='e032ad66fc71eb11b9af546e014bf449',
+        device_host='192.168.1.100',
+    )
+
+    # Option 1: USB only
+    invoke(add_service.add_spark, '--name testey', input='1\n')
+
+    # Option 2: Network only
+    invoke(add_service.add_spark, '--name testey', input='2\n')
+
+    # Option 3: Any
+    invoke(add_service.add_spark, '--name testey', input='3\n')
 
 
 def test_add_spark_usb_proxy_already_enabled(
@@ -100,8 +129,8 @@ def test_add_spark_usb_proxy_already_enabled(
         discovery='USB', model='Spark 3', device_id='4f0052000551353432383931'
     )
 
-    # Should not prompt for USB proxy
-    invoke(add_service.add_spark, '--name testey --discovery usb')
+    # Should not prompt for USB proxy, but will prompt for connection type
+    invoke(add_service.add_spark, '--name testey --discovery usb', input='1\n')
 
 
 def test_add_spark_yes(m_read_compose: Mock, m_confirm: Mock):

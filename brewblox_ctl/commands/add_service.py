@@ -6,7 +6,7 @@ from typing import Optional
 
 import click
 
-from brewblox_ctl import click_helpers, utils
+from brewblox_ctl import actions, click_helpers, utils
 from brewblox_ctl.discovery import DiscoveryType, choose_device, find_device_by_host, list_devices
 
 
@@ -127,16 +127,13 @@ def add_spark(
             device_id = dev.device_id
             usb_device_id = dev.usb_device_id
 
-            # For Spark 4 discovered via USB, prompt for connection type
-            if dev.model == 'Spark 4' and dev.usb_device_id and not dev.device_id:
-                click.echo('')
-                click.echo('This Spark 4 was discovered via USB.')
-                click.echo('The network device ID is not known from USB discovery.')
+            # For devices with USB available, prompt for connection type
+            if dev.discovery in ['USB', 'USB+mDNS']:
                 click.echo('')
                 click.echo('Connection options:')
                 click.echo('  1. USB only - connect via USB cable')
-                click.echo('  2. Network only - connect via WiFi/Ethernet (requires device ID)')
-                click.echo('  3. Any - try USB first, then network (requires both IDs)')
+                click.echo('  2. Network only - connect via WiFi/Ethernet')
+                click.echo('  3. Any - try USB first, then network')
                 click.echo('')
                 conn_choice = click.prompt(
                     'Which connection type do you want to use?',
@@ -146,11 +143,8 @@ def add_spark(
                 if conn_choice == 1:
                     discovery_type = DiscoveryType.usb
                 elif conn_choice == 2:
-                    device_id = click.prompt('Enter the network device ID (from mDNS discovery or device display)')
-                    usb_device_id = ''
                     discovery_type = DiscoveryType.mdns
                 else:  # conn_choice == 3
-                    device_id = click.prompt('Enter the network device ID (from mDNS discovery or device display)')
                     discovery_type = DiscoveryType.all
 
         if not dev:
@@ -206,7 +200,8 @@ def add_spark(
             click.echo('USB discovery requires the USB proxy service.')
             if utils.confirm('Do you want to enable the USB proxy in brewblox.yml?'):
                 utils.update_config({'usb_proxy': {'enabled': True}})
-                click.echo('USB proxy enabled. Run `brewblox-ctl config apply` to apply changes.')
+                actions.make_shared_compose()
+                click.echo('USB proxy enabled.')
 
     click.echo(f'Added Spark service `{name}`.')
     click.echo('It will automatically show up in the UI.\n')

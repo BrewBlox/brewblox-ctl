@@ -369,14 +369,71 @@ def test_discover_device(m_esp32_serial):
     assert len(wifi_devs) == 2
     assert wifi_devs[0].device_id == 'id1'
 
+    # With discovery=all, USB and mDNS devices are merged by device_id
+    # Since the mocks have different device_ids, we get all 5 devices
     all_devs = [v for v in discovery.discover_device(DiscoveryType.all)]
-    assert all_devs == usb_devs + wifi_devs
+    assert len(all_devs) == 5
+
+
+def test_discover_device_merge(m_esp32_serial, mocker: MockerFixture):
+    """Test that USB and mDNS discoveries for the same device are merged."""
+    # Override mDNS mock to return a device with the same ID as USB ESP32
+    original_mdns = discovery.discover_mdns
+
+    def mock_discover_mdns():
+        yield DiscoveredDevice(
+            discovery='mDNS',
+            model='Spark 4',
+            device_id='c4dd57670670',  # Same as ESP32 USB device_id
+            device_host='192.168.1.100',
+        )
+
+    mocker.patch(TESTED + '.discover_mdns', mock_discover_mdns)
+
+    all_devs = list(discovery.discover_device(DiscoveryType.all))
+
+    # Should have 3 devices: P1 (USB), ESP32 (merged), ESP32-S3 (USB)
+    assert len(all_devs) == 3
+
+    # Find the merged device
+    merged = [d for d in all_devs if d.device_id == 'c4dd57670670'][0]
+    assert merged.discovery == 'USB+mDNS'
+    assert merged.usb_device_id == '4f0052000551353432383931'
+    assert merged.device_host == '192.168.1.100'
+
+
+def test_discover_device_usb_no_device_id(mocker: MockerFixture):
+    """Test USB device with no device_id (only usb_device_id) is stored correctly."""
+
+    def mock_discover_usb():
+        # ESP32 without device_id (serial read failed)
+        yield DiscoveredDevice(
+            discovery='USB',
+            model='Spark 4',
+            device_id='',
+            usb_device_id='abc123',
+        )
+        # Device with neither device_id nor usb_device_id (edge case)
+        yield DiscoveredDevice(
+            discovery='USB',
+            model='Unknown',
+            device_id='',
+            usb_device_id='',
+        )
+
+    mocker.patch(TESTED + '.discover_usb', mock_discover_usb)
+    mocker.patch(TESTED + '.discover_mdns', lambda: iter([]))
+
+    all_devs = list(discovery.discover_device(DiscoveryType.all))
+    # Device without any ID is silently dropped
+    assert len(all_devs) == 1
+    assert all_devs[0].usb_device_id == 'abc123'
 
 
 def test_list_devices(m_esp32_serial, mocker: MockerFixture):
     m_echo = mocker.patch(discovery.tabular.__name__ + '.click.echo')
     discovery.list_devices(DiscoveryType.all, None)
-    assert m_echo.call_count == 7  # headers, spacers, 2 lan, 3 usb
+    assert m_echo.call_count == 7  # headers, spacers, 5 devices (3 usb + 2 mdns, no overlap)
     m_echo.assert_called_with(matching(r'mDNS\s+Spark 4\s+id2\s+'))
 
 
