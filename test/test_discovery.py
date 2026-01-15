@@ -257,17 +257,13 @@ def test_match_id_services():
 def test_discover_usb(m_esp32_serial):
     gen = discovery.discover_usb()
     # Particle device: device_id is the USB serial
-    assert next(gen, None) == DiscoveredDevice(
-        discovery='USB', model='Spark 3', device_id='4f0052000551353432383931'
-    )
+    assert next(gen, None) == DiscoveredDevice(discovery='USB', model='Spark 3', device_id='4f0052000551353432383931')
     # ESP32 device: device_id read from serial, usb_device_id is the USB serial
     assert next(gen, None) == DiscoveredDevice(
         discovery='USB', model='Spark 4', device_id='c4dd57670670', usb_device_id='4f0052000551353432383931'
     )
     # ESP32-S3 device: MAC address is used as device_id (same for USB and network)
-    assert next(gen, None) == DiscoveredDevice(
-        discovery='USB', model='Spark 5', device_id='48ca43591234'
-    )
+    assert next(gen, None) == DiscoveredDevice(discovery='USB', model='Spark 5', device_id='48ca43591234')
     assert next(gen, None) is None
 
 
@@ -329,6 +325,7 @@ def test_read_esp32_device_id_no_handshake(mocker: MockerFixture):
 
 def test_read_esp32_device_id_error(mocker: MockerFixture):
     import serial as pyserial
+
     m_warn = mocker.patch(TESTED + '.utils.warn')
     mocker.patch(TESTED + '.serial.Serial', side_effect=pyserial.SerialException('Port not found'))
     result = discovery.read_esp32_device_id('/dev/ttyUSB0')
