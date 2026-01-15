@@ -85,15 +85,19 @@ def m_browser(mocker: MockerFixture):
 
 @pytest.fixture(autouse=True)
 def m_usb(mocker: MockerFixture):
-    m_dev = Mock()
-    m_dev.idProduct = const.PID_P1
+    m_dev_p1 = Mock()
+    m_dev_p1.idProduct = const.PID_P1
+
+    m_dev_esp32 = Mock()
+    m_dev_esp32.idProduct = const.PID_ESP32
 
     m = mocker.patch(TESTED + '.usb', autospec=True)
 
     def find_devices(find_all, idVendor, idProduct):
-        # Only return device for P1 query
         if idVendor == const.VID_PARTICLE and idProduct == const.PID_P1:
-            return [m_dev]
+            return [m_dev_p1]
+        if idVendor == const.VID_ESPRESSIF and idProduct == const.PID_ESP32:
+            return [m_dev_esp32]
         return []
 
     m.core.find.side_effect = find_devices
@@ -150,10 +154,9 @@ def test_match_id_services():
 
 
 def test_discover_usb():
-    expected = DiscoveredDevice(discovery='USB', model='Spark 3', device_id='4f0052000551353432383931')
-
     gen = discovery.discover_usb()
-    assert next(gen, None) == expected
+    assert next(gen, None) == DiscoveredDevice(discovery='USB', model='Spark 3', device_id='4f0052000551353432383931')
+    assert next(gen, None) == DiscoveredDevice(discovery='USB', model='Spark 4', device_id='4f0052000551353432383931')
     assert next(gen, None) is None
 
 
@@ -170,7 +173,7 @@ def test_discover_mdns():
 
 def test_discover_device():
     usb_devs = [v for v in discovery.discover_device(DiscoveryType.usb)]
-    assert len(usb_devs) == 1
+    assert len(usb_devs) == 2
     assert usb_devs[0].device_id == '4f0052000551353432383931'
 
     wifi_devs = [v for v in discovery.discover_device(DiscoveryType.mdns)]
@@ -184,7 +187,7 @@ def test_discover_device():
 def test_list_devices(mocker: MockerFixture):
     m_echo = mocker.patch(discovery.tabular.__name__ + '.click.echo')
     discovery.list_devices(DiscoveryType.all, None)
-    assert m_echo.call_count == 5  # headers, spacers, 2 lan, 1 usb
+    assert m_echo.call_count == 6  # headers, spacers, 2 lan, 2 usb
     m_echo.assert_called_with(matching(r'mDNS\s+Spark 4\s+id2\s+'))
 
 
