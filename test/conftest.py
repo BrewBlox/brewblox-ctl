@@ -320,7 +320,7 @@ def m_write_file_sudo(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture(autouse=True)
 def m_read_yaml(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.read_yaml)
-    m.side_effect = dict
+    m.side_effect = lambda _: {}
     monkeypatch.setattr(utils, 'read_yaml', m)
     return m
 

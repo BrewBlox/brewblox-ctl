@@ -72,6 +72,7 @@ def discover_spark(discovery_type):
     '--discover-now/--no-discover-now', default=True, help='Select from discovered devices if --device-id is not set'
 )
 @click.option('--device-id', help='Checked device ID')
+@click.option('--usb-device-id', help='USB device ID (for ESP32 devices)')
 @click.option(
     '--discovery',
     'discovery_type',
@@ -89,6 +90,7 @@ def add_spark(
     name: str,
     discover_now: bool,
     device_id: Optional[str],
+    usb_device_id: Optional[str],
     discovery_type: str,
     device_host: Optional[str],
     yes: bool,
@@ -115,7 +117,7 @@ def add_spark(
     if not yes:
         check_create_overwrite(compose, name)
 
-    if discover_now and not simulation and not device_id:
+    if discover_now and not simulation and not device_id and not usb_device_id:
         if device_host:
             dev = find_device_by_host(device_host)
         else:
@@ -123,7 +125,35 @@ def add_spark(
 
         if dev:
             device_id = dev.device_id
-        else:
+            usb_device_id = dev.usb_device_id
+
+            # For Spark 4 discovered via USB, prompt for connection type
+            if dev.model == 'Spark 4' and dev.usb_device_id and not dev.device_id:
+                click.echo('')
+                click.echo('This Spark 4 was discovered via USB.')
+                click.echo('The network device ID is not known from USB discovery.')
+                click.echo('')
+                click.echo('Connection options:')
+                click.echo('  1. USB only - connect via USB cable')
+                click.echo('  2. Network only - connect via WiFi/Ethernet (requires device ID)')
+                click.echo('  3. Any - try USB first, then network (requires both IDs)')
+                click.echo('')
+                conn_choice = click.prompt(
+                    'Which connection type do you want to use?',
+                    type=click.IntRange(1, 3),
+                    default=1,
+                )
+                if conn_choice == 1:
+                    discovery_type = DiscoveryType.usb
+                elif conn_choice == 2:
+                    device_id = click.prompt('Enter the network device ID (from mDNS discovery or device display)')
+                    usb_device_id = ''
+                    discovery_type = DiscoveryType.mdns
+                else:  # conn_choice == 3
+                    device_id = click.prompt('Enter the network device ID (from mDNS discovery or device display)')
+                    discovery_type = DiscoveryType.all
+
+        if not dev:
             # We have no device ID, and no device host. Avoid a wildcard service
             click.echo('No valid combination of device ID and device host.')
             raise SystemExit(1)
@@ -143,6 +173,7 @@ def add_spark(
 
     push_env('discovery', discovery_type)
     push_env('device_id', device_id)
+    push_env('usb_device_id', usb_device_id)
     push_env('device_host', device_host)
     push_env('simulation', simulation)
 
@@ -166,6 +197,17 @@ def add_spark(
         utils.sh(f'mkdir -m 777 -p {mount_dir}')
 
     utils.write_compose(compose)
+
+    # Enable USB proxy if USB discovery is used
+    if discovery_type in [DiscoveryType.usb, DiscoveryType.all] and not simulation:
+        config = utils.get_config()
+        if not config.usb_proxy.enabled:
+            click.echo('')
+            click.echo('USB discovery requires the USB proxy service.')
+            if utils.confirm('Do you want to enable the USB proxy in brewblox.yml?'):
+                utils.update_config({'usb_proxy': {'enabled': True}})
+                click.echo('USB proxy enabled. Run `brewblox-ctl config apply` to apply changes.')
+
     click.echo(f'Added Spark service `{name}`.')
     click.echo('It will automatically show up in the UI.\n')
     if utils.confirm('Do you want to run `brewblox-ctl up` now?'):

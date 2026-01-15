@@ -9,6 +9,7 @@ from pytest_mock import MockerFixture
 
 from brewblox_ctl.commands import add_service
 from brewblox_ctl.discovery import DiscoveredDevice, DiscoveryType
+from brewblox_ctl.models import CtlConfig
 from brewblox_ctl.testing import invoke
 
 TESTED = add_service.__name__
@@ -62,6 +63,45 @@ def test_add_spark(m_choose: Mock, m_read_compose: Mock, m_confirm: Mock):
     invoke(add_service.add_spark, '--name testey --device-host 1234')
     invoke(add_service.add_spark, '--name testey --device-id 12345 --simulation')
     invoke(add_service.add_spark, '--name testey --simulation')
+
+    # Test with usb-device-id option
+    invoke(add_service.add_spark, '--name testey --usb-device-id USB123 --discovery usb')
+
+
+def test_add_spark_usb_esp32(m_choose: Mock, m_read_compose: Mock, m_confirm: Mock):
+    """Test Spark 4 discovered via USB with connection type prompt"""
+    m_read_compose.side_effect = lambda: {'services': {}}
+    m_confirm.return_value = True
+
+    # Spark 4 discovered via USB (has usb_device_id but no device_id)
+    m_choose.side_effect = lambda _1, _2=None: DiscoveredDevice(
+        discovery='USB', model='Spark 4', device_id='', usb_device_id='e032ad66fc71eb11b9af546e014bf449'
+    )
+
+    # Option 1: USB only
+    invoke(add_service.add_spark, '--name testey', input='1\n')
+
+    # Option 2: Network only (requires device ID input)
+    invoke(add_service.add_spark, '--name testey', input='2\nc4dd5766bc80\n')
+
+    # Option 3: Any (requires device ID input)
+    invoke(add_service.add_spark, '--name testey', input='3\nc4dd5766bc80\n')
+
+
+def test_add_spark_usb_proxy_already_enabled(
+    m_get_config: CtlConfig, m_choose: Mock, m_read_compose: Mock, m_confirm: Mock
+):
+    """Test USB discovery when USB proxy is already enabled"""
+    m_read_compose.side_effect = lambda: {'services': {}}
+    m_confirm.return_value = True
+    m_get_config.usb_proxy.enabled = True
+
+    m_choose.side_effect = lambda _1, _2=None: DiscoveredDevice(
+        discovery='USB', model='Spark 3', device_id='4f0052000551353432383931'
+    )
+
+    # Should not prompt for USB proxy
+    invoke(add_service.add_spark, '--name testey --discovery usb')
 
 
 def test_add_spark_yes(m_read_compose: Mock, m_confirm: Mock):

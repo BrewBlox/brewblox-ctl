@@ -457,6 +457,26 @@ def write_yaml(outfile: PathLike_, data: Union[dict, CommentedMap]):
         yaml.dump(data, Path(outfile))
 
 
+def update_config(updates: dict):
+    """Update brewblox.yml with the given values.
+
+    The updates dict is merged into the existing config,
+    and the cache is cleared.
+    """
+    data = read_yaml(const.CONFIG_FILE)
+
+    def deep_merge(base: dict, updates: dict):
+        for key, value in updates.items():
+            if isinstance(value, dict) and isinstance(base.get(key), dict):
+                deep_merge(base[key], value)
+            else:
+                base[key] = value
+
+    deep_merge(data, updates)
+    write_yaml(const.CONFIG_FILE, data)
+    get_config.cache_clear()
+
+
 def dump_yaml(data: Union[dict, CommentedMap]) -> str:
     stream = StringIO()
     yaml.dump(data, stream)

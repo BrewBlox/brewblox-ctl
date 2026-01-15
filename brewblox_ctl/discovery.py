@@ -13,6 +13,7 @@ from typing import Dict, Generator, List, Optional
 
 import click
 import requests
+import serial
 import usb
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceStateChange, Zeroconf
 
@@ -22,7 +23,7 @@ BREWBLOX_DNS_TYPE = '_brewblox._tcp.local.'
 DISCOVER_TIMEOUT_S = 5
 DISCOVERY_LEN = 4  # USB / TCP / mDNS
 MODEL_LEN = 7  # 'Spark 2' / 'Spark 3' / 'Spark 4'
-MAX_ID_LEN = 24  # Spark 4 IDs are shorter
+MAX_ID_LEN = 32  # ESP32 USB serial IDs are 32 chars
 HOST_LEN = 4 * 3 + 3
 
 
@@ -50,9 +51,11 @@ class DiscoveredDevice:
     model: str
     device_id: str
     device_host: str = ''
+    usb_device_id: str = ''
 
     def __post_init__(self):
         self.device_id = self.device_id.lower()
+        self.usb_device_id = self.usb_device_id.lower()
 
 
 @dataclass
@@ -83,11 +86,13 @@ class HandshakeMessage:
 
 
 def match_id_services(config: Optional[dict]) -> Dict[str, str]:  # [ID, service_name]
-    """Gets the --device-id value for all Spark services in config.
+    """Gets the device ID and USB device ID values for all Spark services in config.
 
     Because IDs are yielded during discovery,
     values are returned with the ID as key,
-    and a comma-separated string of services as value
+    and a comma-separated string of services as value.
+
+    Both BREWBLOX_SPARK_DEVICE_ID and BREWBLOX_SPARK_USB_DEVICE_ID are checked.
     """
     if not config:
         return {}
@@ -96,6 +101,24 @@ def match_id_services(config: Optional[dict]) -> Dict[str, str]:  # [ID, service
     for name, service in config.get('services', {}).items():
         if not service.get('image', '').startswith('ghcr.io/brewblox/brewblox-devcon-spark'):
             continue
+
+        # Check environment variables (new format)
+        env_list = service.get('environment', [])
+        env_prefixes = ('BREWBLOX_SPARK_DEVICE_ID=', 'BREWBLOX_SPARK_USB_DEVICE_ID=')
+        env_keys = ('BREWBLOX_SPARK_DEVICE_ID', 'BREWBLOX_SPARK_USB_DEVICE_ID')
+
+        if isinstance(env_list, list):
+            for env in env_list:
+                if env.startswith(env_prefixes):
+                    id = env.split('=', 1)[1].lower()
+                    output.setdefault(id, []).append(name)
+        elif isinstance(env_list, dict):
+            for key in env_keys:
+                if key in env_list:
+                    id = str(env_list[key]).lower()
+                    output.setdefault(id, []).append(name)
+
+        # Also check command line args (legacy format)
         match = re.match(r'.*\-\-device\-id(\w|=)(?P<id>\w+)', service.get('command', ''))
         if match:
             id = match.group('id').lower()
@@ -128,6 +151,30 @@ def find_device_by_host(device_host: str) -> Optional[DiscoveredDevice]:
         return None
 
 
+def read_esp32_device_id(tty_path: str) -> Optional[str]:
+    """Read device ID from ESP32 serial port by parsing the handshake message.
+
+    The ESP32 prints a handshake line on startup wrapped in angle brackets:
+    <!BREWBLOX,firmware_version,proto_version,firmware_date,proto_date,system_version,platform,reset_reason,reset_data,device_id>
+    """
+    try:
+        with serial.Serial(tty_path, baudrate=115200, timeout=2) as ser:
+            # Read lines until we find the handshake or timeout
+            for _ in range(100):  # Max 100 lines to prevent infinite loop
+                line = ser.readline().decode('utf-8', errors='ignore')
+                if '<!BREWBLOX' in line:
+                    # Extract content between <!BREWBLOX and >
+                    start = line.index('<!BREWBLOX') + 2  # Skip '<!'
+                    end = line.index('>', start)
+                    content = line[start:end]
+                    handshake = HandshakeMessage(*content.split(','))
+                    return handshake.device_id
+        return None
+    except (serial.SerialException, OSError) as ex:
+        utils.warn(f'Could not read from serial port {tty_path}: {ex}')
+        return None
+
+
 def discover_usb() -> Generator[DiscoveredDevice, None, None]:
     devices = [
         *usb.core.find(find_all=True, idVendor=const.VID_PARTICLE, idProduct=const.PID_PHOTON),
@@ -138,7 +185,7 @@ def discover_usb() -> Generator[DiscoveredDevice, None, None]:
     for dev in devices:
         dev: usb.core.Device
         try:
-            id = usb.util.get_string(dev, dev.iSerialNumber).lower()
+            usb_serial = usb.util.get_string(dev, dev.iSerialNumber).lower()
         except ValueError:
             # Permission error or device doesn't support string descriptors
             # This typically happens with ESP32 devices without proper udev rules
@@ -147,13 +194,35 @@ def discover_usb() -> Generator[DiscoveredDevice, None, None]:
                 'Try running with sudo or adding udev rules.'
             )
             continue
+
+        is_particle = dev.idVendor == const.VID_PARTICLE
         model = {
             const.PID_PHOTON: 'Spark 2',
             const.PID_P1: 'Spark 3',
             const.PID_ESP32: 'Spark 4',
-            const.PID_ESP32_S3: 'Spark 4',
+            const.PID_ESP32_S3: 'Spark 5',
         }[dev.idProduct]
-        yield DiscoveredDevice(discovery='USB', model=model, device_id=id)
+
+        # ESP32-S3 serial is a MAC address with colons - normalize it
+        usb_serial = usb_serial.replace(':', '')
+
+        if is_particle:
+            # For Particle devices, USB serial IS the device ID
+            yield DiscoveredDevice(discovery='USB', model=model, device_id=usb_serial)
+        elif dev.idProduct == const.PID_ESP32_S3:
+            # For ESP32-S3, MAC address is used as device ID for both USB and network
+            yield DiscoveredDevice(discovery='USB', model=model, device_id=usb_serial)
+        elif dev.idProduct == const.PID_ESP32:
+            # For ESP32, read device ID from serial port
+            device_id = ''
+            for tty in discover_esp_spark_tty():
+                device_id = read_esp32_device_id(tty) or ''
+                if device_id:
+                    break
+            yield DiscoveredDevice(discovery='USB', model=model, device_id=device_id, usb_device_id=usb_serial)
+        else:  # pragma: no cover
+            # Unknown device type - should not happen with current find() filters
+            pass
 
 
 def discover_particle_spark_tty(device_id: Optional[str] = None) -> Generator[str, None, None]:  # pragma: no cover
@@ -253,11 +322,12 @@ def discover_device(discovery_type: DiscoveryType) -> Generator[DiscoveredDevice
 def list_devices(discovery_type: DiscoveryType, compose_config: Optional[dict]):
     id_services = match_id_services(compose_config)
     table = tabular.Table(
-        keys=['discovery', 'model', 'device_id', 'device_host', 'service'],
+        keys=['discovery', 'model', 'device_id', 'usb_device_id', 'device_host', 'service'],
         headers={
             'discovery': 'Discovery'.ljust(DISCOVERY_LEN),
             'model': 'Model'.ljust(MODEL_LEN),
-            'device_id': 'Device ID'.ljust(MAX_ID_LEN),
+            'device_id': 'Device ID'.ljust(12),
+            'usb_device_id': 'USB ID'.ljust(MAX_ID_LEN),
             'device_host': 'Device host'.ljust(HOST_LEN),
             'service': 'Service',
         },
@@ -266,10 +336,11 @@ def list_devices(discovery_type: DiscoveryType, compose_config: Optional[dict]):
     utils.info('Discovering devices ...')
     table.print_headers()
     for dev in discover_device(discovery_type):
+        service = id_services.get(dev.device_id, '') or id_services.get(dev.usb_device_id, '')
         table.print_row(
             {
                 **asdict(dev),
-                'service': id_services.get(dev.device_id, ''),
+                'service': service,
             }
         )
 
@@ -280,12 +351,13 @@ def choose_device(
 ) -> Optional[DiscoveredDevice]:
     id_services = match_id_services(compose_config)
     table = tabular.Table(
-        keys=['index', 'discovery', 'model', 'device_id', 'device_host', 'service'],
+        keys=['index', 'discovery', 'model', 'device_id', 'usb_device_id', 'device_host', 'service'],
         headers={
             'index': 'Index',
             'discovery': 'Discovery'.ljust(DISCOVERY_LEN),
             'model': 'Model'.ljust(MODEL_LEN),
-            'device_id': 'Device ID'.ljust(MAX_ID_LEN),
+            'device_id': 'Device ID'.ljust(12),
+            'usb_device_id': 'USB ID'.ljust(MAX_ID_LEN),
             'device_host': 'Device host'.ljust(HOST_LEN),
             'service': 'Service',
         },
@@ -299,11 +371,12 @@ def choose_device(
         if discovery_type == DiscoveryType.mqtt and dev.model != 'Spark 4':
             continue
         devs.append(dev)
+        service = id_services.get(dev.device_id, '') or id_services.get(dev.usb_device_id, '')
         table.print_row(
             {
                 **asdict(dev),
                 'index': len(devs),
-                'service': id_services.get(dev.device_id, ''),
+                'service': service,
             }
         )
 
