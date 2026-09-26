@@ -217,6 +217,14 @@ def m_optsudo(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
+def m_docker_version(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.docker_version)
+    m.return_value = None
+    monkeypatch.setattr(utils, 'docker_version', m)
+    return m
+
+
+@pytest.fixture(autouse=True)
 def m_sh(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.sh)
     m.side_effect = testing.check_sudo

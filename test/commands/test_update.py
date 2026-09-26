@@ -2,13 +2,14 @@
 Tests brewblox_ctl.commands.update
 """
 
+from subprocess import CalledProcessError
 from unittest.mock import Mock
 
 import pytest
 from packaging.version import Version
 from pytest_mock import MockerFixture
 
-from brewblox_ctl import const, utils
+from brewblox_ctl import const, testing, utils
 from brewblox_ctl.commands import update
 from brewblox_ctl.testing import invoke
 
@@ -80,6 +81,38 @@ def test_update(m_file_exists: Mock, m_getenv: Mock, m_migration: Mock):
     config.system.apt_upgrade = False
     invoke(update.update, '--from-version 0.0.1 --no-update-ctl')
     assert m_migration.migrate_env_config.call_count == 1
+
+
+def test_update_old_docker(m_file_exists: Mock, m_actions: Mock, m_sh: Mock):
+    m_file_exists.add_existing_files(const.CONFIG_FILE)
+    m_actions.check_docker_version.return_value = False
+
+    invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl', _err=True)
+
+    # The services are started again, without migrating or pulling
+    cmds = [c.args[0] for c in m_sh.call_args_list]
+    assert any('compose up' in cmd for cmd in cmds)
+    assert not any('compose pull' in cmd for cmd in cmds)
+    m_actions.make_compose.assert_not_called()
+
+
+def test_update_pull_error(m_file_exists: Mock, m_sh: Mock, m_setenv: Mock):
+    m_file_exists.add_existing_files(const.CONFIG_FILE)
+
+    def sh(cmd, *args, **kwargs):
+        if 'compose pull' in cmd:
+            raise CalledProcessError(1, cmd)
+        return testing.check_sudo(cmd, *args, **kwargs)
+
+    m_sh.side_effect = sh
+    invoke(update.update, f'--from-version {const.CFG_VERSION} --no-update-ctl --prune', _err=True)
+
+    # The services are started again, and the update stops
+    cmds = [c.args[0] for c in m_sh.call_args_list]
+    pulled = next(i for i, cmd in enumerate(cmds) if 'compose pull' in cmd)
+    assert any('compose up' in cmd for cmd in cmds[pulled:])
+    assert not any('prune' in cmd for cmd in cmds)
+    assert const.ENV_KEY_CFG_VERSION not in [c.args[0] for c in m_setenv.call_args_list]
 
 
 def test_warn_traefik_overrides(

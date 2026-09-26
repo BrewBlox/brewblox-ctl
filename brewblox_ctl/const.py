@@ -14,6 +14,10 @@ CURL_WAIT = f'{CURL} --fail --retry 60 --max-time 5 --retry-all-errors --retry-d
 # This is written to .env during updates
 CFG_VERSION = '0.11.0'
 
+# Docker before 20.10.10 blocks the clone3 system call instead of reporting it as unsupported.
+# The glibc in Brewblox images uses clone3 to start threads, so services fail on older versions.
+MIN_DOCKER_VERSION = '20.10.10'
+
 # Keys to used environment variables
 ENV_KEY_CFG_VERSION = 'BREWBLOX_CFG_VERSION'
 

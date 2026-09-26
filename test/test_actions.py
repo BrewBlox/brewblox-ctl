@@ -7,6 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 from configobj import ConfigObj
+from packaging.version import Version
 from psutil import AccessDenied, _common
 from pytest_mock import MockerFixture
 
@@ -69,6 +70,23 @@ def test_apt_upgrade(m_sh: Mock, m_command_exists: Mock):
     m_command_exists.add_existing_commands('apt-get')
     actions.apt_upgrade()
     assert m_sh.call_count > 0
+
+
+def test_check_docker_version(m_docker_version: Mock, m_confirm: Mock):
+    # Docker is not installed, or not running
+    m_docker_version.return_value = None
+    assert actions.check_docker_version()
+
+    m_docker_version.return_value = Version('20.10.10')
+    assert actions.check_docker_version()
+    assert m_confirm.call_count == 0
+
+    m_docker_version.return_value = Version('20.10.5')
+    m_confirm.return_value = False
+    assert not actions.check_docker_version()
+
+    m_confirm.return_value = True
+    assert actions.check_docker_version()
 
 
 def test_make_udev_rules(m_sh: Mock, m_file_exists: Mock, m_command_exists: Mock):
@@ -167,7 +185,7 @@ def test_install_ctl_package(
 
     actions.install_ctl_package()
     m_sh.assert_called_with(
-        'uv pip install --upgrade --force-reinstall --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@edge"'
+        'uv pip install --upgrade --force-reinstall --refresh --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@edge"'
     )
 
     m_sh.reset_mock()
@@ -175,7 +193,7 @@ def test_install_ctl_package(
     config.release = 'tag'
     actions.install_ctl_package()
     m_sh.assert_called_with(
-        'uv pip install --upgrade --force-reinstall --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@tag"'
+        'uv pip install --upgrade --force-reinstall --refresh --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@tag"'
     )
 
     m_sh.reset_mock()
@@ -217,7 +235,7 @@ def test_install_ctl_package(
     actions.install_ctl_package()
     m_sh.assert_any_call('rm -f ./brewblox-ctl.tar.gz')
     m_sh.assert_called_with(
-        'uv pip install --upgrade --force-reinstall --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@ctl_tag"'
+        'uv pip install --upgrade --force-reinstall --refresh --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match "git+https://github.com/brewblox/brewblox-ctl@ctl_tag"'
     )
     assert not any(call[0][0] == uv_from_script for call in m_sh.call_args_list), 'Unexpected uv install from script'
     assert not any(call[0][0] == uv_from_pip for call in m_sh.call_args_list), 'Unexpected uv install from pip'

@@ -182,8 +182,9 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
         - Stop services.
         - Update Avahi config.
         - Update system packages.
+        - Check the Docker version.
         - Migrate configuration files.
-        - Pull Docker images.
+        - Pull Docker images. If that fails, start the services again and stop.
         - Prune unused Docker images and volumes.
         - Start services.
         - Migrate service configuration.
@@ -282,12 +283,26 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
     if config.system.apt_upgrade:
         actions.apt_upgrade()
 
+    # After the apt upgrade, which may have updated Docker
+    if not actions.check_docker_version():
+        utils.info('Starting services ...')
+        utils.docker_up()
+        raise SystemExit(1)
+
     if migrate:
         downed_migrate(prev_version)
 
     if pull:
         utils.info('Pulling docker images ...')
-        utils.sh(f'{sudo}docker compose pull')
+        try:
+            utils.sh(f'{sudo}docker compose pull')
+        except CalledProcessError as ex:
+            # Don't leave the services down
+            utils.error(f'Failed to pull docker images: {utils.strex(ex)}')
+            utils.info('Starting services with the images already present ...')
+            utils.docker_up()
+            utils.error('The update did not finish. Fix the problem above, and run brewblox-ctl update again.')
+            raise SystemExit(1) from ex
 
     if prune:
         utils.info('Pruning unused images ...')

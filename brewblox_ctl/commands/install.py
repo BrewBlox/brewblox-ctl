@@ -43,6 +43,9 @@ class InstallOptions:
         ):
             raise SystemExit(0)
 
+        if not actions.check_docker_version():
+            raise SystemExit(0)
+
     def check_confirm_opts(self):
         self.use_defaults = False
         self.skip_confirm = True

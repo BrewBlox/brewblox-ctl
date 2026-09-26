@@ -15,6 +15,7 @@ from typing import Iterable
 import jinja2
 import psutil
 from configobj import ConfigObj
+from packaging.version import Version
 
 from . import const, utils
 from .models import CtlConfig
@@ -194,6 +195,23 @@ def apt_upgrade():
     if utils.command_exists('apt-get'):
         utils.info('Updating apt packages ...')
         utils.sh('sudo apt-get update && sudo apt-get upgrade -y')
+
+
+def check_docker_version() -> bool:
+    """
+    Check whether the Docker daemon can run Brewblox services.
+
+    Returns True if it can, or if the user chooses to continue anyway:
+    distribution packages may have backported the fix to an older version.
+    """
+    version = utils.docker_version()
+    if version is None or version >= Version(const.MIN_DOCKER_VERSION):
+        return True
+
+    utils.warn(f'Docker {version} is too old: Brewblox services need Docker {const.MIN_DOCKER_VERSION} or newer.')
+    utils.warn('Older versions block a system call that the services use to start threads.')
+    utils.warn('To update Docker, run: curl -sSL https://get.docker.com | sh')
+    return utils.confirm('Do you want to continue anyway?', default=False)
 
 
 def install_ctl_package():

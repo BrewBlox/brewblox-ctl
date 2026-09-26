@@ -5,6 +5,7 @@ Tests brewblox_ctl.commands.install
 from unittest.mock import Mock
 
 import pytest.__main__
+from packaging.version import Version
 from pytest_mock import MockerFixture
 
 from brewblox_ctl import utils
@@ -49,7 +50,7 @@ def m_snapshot_actions(mocker: MockerFixture):
     return mocker.patch(SNAPSHOT + '.actions', autospec=True)
 
 
-def test_check_compatibility(mocker: MockerFixture, m_confirm: Mock, m_is_armv6: Mock):
+def test_check_compatibility(mocker: MockerFixture, m_confirm: Mock, m_is_armv6: Mock, m_docker_version: Mock):
     opts = install.InstallOptions()
     mocker.patch(TESTED + '.SystemExit', RuntimeError)
 
@@ -63,6 +64,10 @@ def test_check_compatibility(mocker: MockerFixture, m_confirm: Mock, m_is_armv6:
 
     m_is_armv6.return_value = False
     opts.check_compatibility()
+
+    m_docker_version.return_value = Version('20.10.5')
+    with pytest.raises(RuntimeError):
+        opts.check_compatibility()
 
 
 def test_check_confirm_opts(m_confirm: Mock):

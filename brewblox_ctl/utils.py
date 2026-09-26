@@ -17,12 +17,13 @@ from functools import lru_cache
 from pathlib import Path
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
 from tempfile import NamedTemporaryFile
-from typing import Dict, Generator, List, Union
+from typing import Dict, Generator, List, Optional, Union
 
 import click
 import dotenv
 import psutil
 from dotenv.main import dotenv_values
+from packaging.version import Version
 from ruamel.yaml import YAML, CommentedMap
 from ruamel.yaml.compat import StringIO
 
@@ -282,6 +283,15 @@ def optsudo():
     return '' if has_docker_rights() else 'sudo -E env "PATH=$PATH" '
 
 
+def docker_version() -> Optional[Version]:
+    """The version of the Docker daemon, or None if it is not installed or not running."""
+    sudo = optsudo()
+    output = sh(f"{sudo}docker version -f '{{{{.Server.Version}}}}'", capture=True, check=False, silent=True)
+    # Distribution packages add suffixes, as in 20.10.5+dfsg1
+    match = re.match(r'\d+(\.\d+)*', output.strip())
+    return Version(match.group()) if match else None
+
+
 def docker_tag(release=None):
     return release or get_config().release
 
@@ -346,7 +356,7 @@ def check_ok(cmd: str) -> bool:
 def pip_install(*libs):
     return sh(
         'uv pip install '
-        + '--upgrade --no-cache --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match'
+        + '--upgrade --no-cache --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match '
         + ' '.join(libs)
     )
 
