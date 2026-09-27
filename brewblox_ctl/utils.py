@@ -8,21 +8,21 @@ import os
 import platform
 import random
 import re
-import shlex
 import shutil
 import socket
 import string
 from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
-from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
+from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, run
 from tempfile import NamedTemporaryFile
-from typing import Dict, Generator, List, Union
+from typing import Dict, List, Optional, Union
 
 import click
 import dotenv
 import psutil
 from dotenv.main import dotenv_values
+from packaging.version import Version
 from ruamel.yaml import YAML, CommentedMap
 from ruamel.yaml.compat import StringIO
 
@@ -164,16 +164,6 @@ def setenv(key, value, dotenv_path=None):
         dotenv.set_key(dotenv_path, key, str(value), quote_mode='never')
 
 
-def clearenv(key, dotenv_path=None):
-    if dotenv_path is None:
-        dotenv_path = Path('.env').resolve()
-    opts = get_opts()
-    if opts.dry_run or opts.verbose:
-        click.secho(f'{const.LOG_ENV} unset {key}', fg='magenta', color=opts.color)
-    if not opts.dry_run:
-        dotenv.unset_key(dotenv_path, key, quote_mode='never')
-
-
 def file_exists(path: PathLike_):
     return Path(path).exists()
 
@@ -184,6 +174,37 @@ def command_exists(cmd):
 
 def is_armv6() -> bool:
     return platform.machine().startswith('armv6')
+
+
+def is_armv7() -> bool:
+    return platform.machine().startswith('armv7')
+
+
+def is_x86() -> bool:
+    return platform.machine().lower() in ['x86_64', 'amd64', 'i386', 'i686']
+
+
+def total_memory_bytes() -> int:
+    """MemTotal in /proc/meminfo"""
+    return psutil.virtual_memory().total
+
+
+def available_memory_bytes() -> int:
+    """MemAvailable in /proc/meminfo"""
+    return psutil.virtual_memory().available
+
+
+def free_disk_bytes(path: PathLike_ = '.') -> int:
+    """Disk space available to users on the filesystem that holds `path`, as `df` shows it"""
+    return shutil.disk_usage(path).free
+
+
+def is_mount(path: PathLike_) -> bool:
+    return os.path.ismount(path)
+
+
+def is_symlink(path: PathLike_) -> bool:
+    return Path(path).is_symlink()
 
 
 def is_wsl() -> bool:
@@ -207,11 +228,6 @@ def has_docker_rights():
 
 def is_brewblox_dir(dir: str) -> bool:
     return (Path(dir) / 'brewblox.yml').exists() or (const.ENV_KEY_CFG_VERSION in dotenv_values(f'{dir}/.env'))
-
-
-def is_empty_dir(dir):
-    path = Path(dir)
-    return path.is_dir() and not next(path.iterdir(), None)
 
 
 def user_home_exists() -> bool:
@@ -282,6 +298,15 @@ def optsudo():
     return '' if has_docker_rights() else 'sudo -E env "PATH=$PATH" '
 
 
+def docker_version() -> Optional[Version]:
+    """The version of the Docker daemon, or None if it is not installed or not running."""
+    sudo = optsudo()
+    output = sh(f"{sudo}docker version -f '{{{{.Server.Version}}}}'", capture=True, check=False, silent=True)
+    # Distribution packages add suffixes, as in 20.10.5+dfsg1
+    match = re.match(r'\d+(\.\d+)*', output.strip())
+    return Version(match.group()) if match else None
+
+
 def docker_tag(release=None):
     return release or get_config().release
 
@@ -314,25 +339,12 @@ def sh(cmd: str, check=True, capture=False, silent=False) -> str:
     return result.stdout or ''
 
 
-def sh_stream(cmd: str) -> Generator[str, None, None]:
+def sh_read(cmd: str) -> str:
+    """Runs a command that changes nothing, also in dry-run mode, and returns its output"""
     opts = get_opts()
     if opts.verbose or opts.dry_run:
         click.secho(f'{const.LOG_SHELL} {cmd}', fg='magenta', color=opts.color)
-    if opts.dry_run:
-        return
-
-    process = Popen(
-        shlex.split(cmd),
-        stdout=PIPE,
-        universal_newlines=True,
-    )
-
-    while True:
-        output = process.stdout.readline()
-        if not output and process.poll() is not None:
-            break
-        else:
-            yield output
+    return run(cmd, shell=True, check=True, text=True, stdout=PIPE, stderr=DEVNULL).stdout
 
 
 def check_ok(cmd: str) -> bool:
@@ -346,7 +358,7 @@ def check_ok(cmd: str) -> bool:
 def pip_install(*libs):
     return sh(
         'uv pip install '
-        + '--upgrade --no-cache --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match'
+        + '--upgrade --no-cache --extra-index-url=https://www.piwheels.org/simple --index-strategy=unsafe-best-match '
         + ' '.join(libs)
     )
 
@@ -380,30 +392,16 @@ def host_url() -> str:
     return f'http://localhost:{get_config().ports.admin}'
 
 
-def history_url() -> str:
-    return f'{host_url()}/history/history'
-
-
 def datastore_url() -> str:
     return f'{host_url()}/history/datastore'
 
 
+def timeseries_url() -> str:
+    return f'{host_url()}/history/timeseries'
+
+
 def hostname() -> str:
     return socket.gethostname()
-
-
-def host_lan_ip() -> str:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.settimeout(0)
-    try:
-        # We don't expect this to be reachable
-        s.connect(('10.254.254.254', 1))
-        IP = s.getsockname()[0]
-    except Exception:
-        IP = '127.0.0.1'
-    finally:
-        s.close()
-    return IP
 
 
 def host_ip_addresses() -> List[str]:
@@ -417,10 +415,6 @@ def host_ip_addresses() -> List[str]:
             if snic.family in [socket.AF_INET, socket.AF_INET6] and not snic.address.startswith('fe80::')
         ]
     return addresses
-
-
-def read_file(infile: PathLike_) -> str:
-    return Path(infile).read_text()
 
 
 def read_file_sudo(infile: PathLike_) -> str:
@@ -494,10 +488,6 @@ def write_compose(data: Union[dict, CommentedMap]):
 
 def read_shared_compose() -> CommentedMap:
     return read_yaml(const.COMPOSE_SHARED_FILE)
-
-
-def write_shared_compose(data: Union[dict, CommentedMap]):
-    write_yaml(const.COMPOSE_SHARED_FILE, data)
 
 
 def list_services(image=None) -> List[str]:

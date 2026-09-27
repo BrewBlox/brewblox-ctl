@@ -1,3 +1,5 @@
+import os
+import time
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -75,13 +77,6 @@ def m_setenv(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def m_clearenv(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.clearenv)
-    monkeypatch.setattr(utils, 'clearenv', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
 def m_file_exists(monkeypatch: pytest.MonkeyPatch):
     existing_files = set()
 
@@ -145,6 +140,62 @@ def m_is_armv6(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
+def m_is_armv7(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.is_armv7)
+    m.return_value = False
+    monkeypatch.setattr(utils, 'is_armv7', m)
+    return m
+
+
+@pytest.fixture(autouse=True)
+def m_is_x86(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.is_x86)
+    m.return_value = False
+    monkeypatch.setattr(utils, 'is_x86', m)
+    return m
+
+
+@pytest.fixture(autouse=True)
+def m_total_memory_bytes(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.total_memory_bytes)
+    m.return_value = 4 * 2**30
+    monkeypatch.setattr(utils, 'total_memory_bytes', m)
+    return m
+
+
+@pytest.fixture(autouse=True)
+def m_available_memory_bytes(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.available_memory_bytes)
+    m.return_value = 2 * 2**30
+    monkeypatch.setattr(utils, 'available_memory_bytes', m)
+    return m
+
+
+@pytest.fixture(autouse=True)
+def m_free_disk_bytes(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.free_disk_bytes)
+    m.return_value = 100 * 2**30
+    monkeypatch.setattr(utils, 'free_disk_bytes', m)
+    return m
+
+
+@pytest.fixture(autouse=True)
+def m_is_mount(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.is_mount)
+    m.return_value = False
+    monkeypatch.setattr(utils, 'is_mount', m)
+    return m
+
+
+@pytest.fixture(autouse=True)
+def m_is_symlink(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.is_symlink)
+    m.return_value = False
+    monkeypatch.setattr(utils, 'is_symlink', m)
+    return m
+
+
+@pytest.fixture(autouse=True)
 def m_is_wsl(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.is_wsl)
     m.return_value = False
@@ -185,14 +236,6 @@ def m_is_brewblox_dir(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def m_is_empty_dir(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.is_empty_dir)
-    m.return_value = False
-    monkeypatch.setattr(utils, 'is_empty_dir', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
 def m_user_home_exists(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.user_home_exists)
     m.return_value = True
@@ -217,6 +260,14 @@ def m_optsudo(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
+def m_docker_version(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.docker_version)
+    m.return_value = None
+    monkeypatch.setattr(utils, 'docker_version', m)
+    return m
+
+
+@pytest.fixture(autouse=True)
 def m_sh(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.sh)
     m.side_effect = testing.check_sudo
@@ -225,9 +276,10 @@ def m_sh(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def m_sh_stream(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.sh_stream)
-    monkeypatch.setattr(utils, 'sh_stream', m)
+def m_sh_read(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.sh_read)
+    m.return_value = ''
+    monkeypatch.setattr(utils, 'sh_read', m)
     return m
 
 
@@ -272,26 +324,10 @@ def m_hostname(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def m_host_lan_ip(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.host_lan_ip)
-    m.return_value = '192.168.0.1'
-    monkeypatch.setattr(utils, 'host_lan_ip', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
 def m_host_ip_addresses(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.host_ip_addresses)
     m.return_value = ['192.168.0.1']
     monkeypatch.setattr(utils, 'host_ip_addresses', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
-def m_read_file(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.read_file)
-    m.return_value = ''
-    monkeypatch.setattr(utils, 'read_file', m)
     return m
 
 
@@ -362,15 +398,26 @@ def m_read_shared_compose(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def m_write_shared_compose(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.write_shared_compose)
-    monkeypatch.setattr(utils, 'write_shared_compose', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
 def m_list_services(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.list_services)
     m.side_effect = lambda _: []
     monkeypatch.setattr(utils, 'list_services', m)
     return m
+
+
+@pytest.fixture(autouse=True)
+def local_tz():
+    """Tests run in UTC, whatever the host's time zone. Call the fixture to use another one."""
+    prev = os.environ.get('TZ')
+
+    def set_tz(name: str):
+        os.environ['TZ'] = name
+        time.tzset()
+
+    set_tz('UTC')
+    yield set_tz
+    if prev is None:
+        del os.environ['TZ']
+    else:
+        os.environ['TZ'] = prev
+    time.tzset()

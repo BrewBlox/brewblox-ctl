@@ -9,6 +9,10 @@ from packaging.version import Version
 from brewblox_ctl import actions, click_helpers, const, migration, utils
 
 
+# Older brewblox-ctl releases can migrate InfluxDB history, from before configuration 0.7.0
+INFLUXDB_DOCS = 'https://brewblox.netlify.app/dev/migration/influxdb.html'
+
+
 @click.group(cls=click_helpers.OrderedGroup)
 def cli():
     """Global command group"""
@@ -104,6 +108,10 @@ def bind_spark_backup():
 
 def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
+    # Before the new configuration is generated: it must not open the old history
+    if migration.history_move_pending(prev_version):
+        migration.move_legacy_history()
+
     actions.make_dotenv(version=prev_version)
     actions.make_config_dirs()
     actions.make_tls_certificates()
@@ -127,15 +135,13 @@ def downed_migrate(prev_version):
     bind_spark_backup()
 
 
-def upped_migrate(prev_version):
+def upped_migrate(prev_version, legacy_history=None):
     """Migration commands to be executed after the services have been started"""
-    if prev_version < Version('0.7.0'):
-        utils.warn('')
-        utils.warn('Brewblox now uses a new history database.')
-        utils.warn('To migrate your data, run:')
-        utils.warn('')
-        utils.warn('    brewblox-ctl database from-influxdb')
-        utils.warn('')
+    if prev_version < Version('0.7.0') and utils.file_exists('./influxdb/'):
+        utils.warn(f'This brewblox-ctl does not migrate the InfluxDB history in ./influxdb/: see {INFLUXDB_DOCS}')
+
+    if legacy_history is not None:
+        migration.migrate_history_after_update(legacy_history)
 
 
 @cli.command()
@@ -151,7 +157,7 @@ def upped_migrate(prev_version):
     help='[ADVANCED] Override version number of active configuration.',
 )
 def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
-    r"""Download and apply updates.
+    """Download and apply updates.
 
     This is the one-stop-shop for updating your Brewblox install.
     You can use any of the options to fine-tune the update by enabling or disabling subroutines.
@@ -163,7 +169,7 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
     and then restart itself. This way, the migrate is done with the latest version of brewblox-ctl.
 
     If you're using dry run mode, you'll notice the hidden option --update-ctl-done.
-    You can use it to watch the rest of the update: it\'s a flag to avoid endless loops.
+    You can use it to watch the rest of the update: it's a flag to avoid endless loops.
 
     --pull/--no-pull. Whether to pull docker images.
     This is useful if any of your services is using a local image (not from Docker Hub).
@@ -179,14 +185,18 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
     Steps:
         - Check whether any system fixes must be applied.
         - Update brewblox-ctl.
+        - Check the disk space for the history migration.
+        - Pull the images of the new history databases.
         - Stop services.
         - Update Avahi config.
         - Update system packages.
+        - Check the Docker version.
         - Migrate configuration files.
-        - Pull Docker images.
+        - Pull Docker images. If that fails, start the services again and stop.
         - Prune unused Docker images and volumes.
         - Start services.
         - Migrate service configuration.
+        - Offer to start the history migration.
         - Write version number to .env file.
     """
     utils.check_config()
@@ -276,18 +286,42 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
 
     actions.install_compose_plugin()
 
+    # Before anything changes: aborting here leaves the system as it was
+    legacy_history = None
+    if migrate:
+        legacy_history = migration.prepare_history_update(prev_version)
+        if pull and prev_version < Version(const.HISTORY_DENSE_VERSION):
+            migration.pull_history_images()
+
     utils.info('Stopping services ...')
     utils.docker_down()
 
     if config.system.apt_upgrade:
         actions.apt_upgrade()
 
+    # After the apt upgrade, which may have updated Docker
+    if not actions.check_docker_version():
+        utils.info('Starting services ...')
+        utils.docker_up()
+        raise SystemExit(1)
+
     if migrate:
         downed_migrate(prev_version)
 
     if pull:
         utils.info('Pulling docker images ...')
-        utils.sh(f'{sudo}docker compose pull')
+        try:
+            utils.sh(f'{sudo}docker compose pull')
+        except CalledProcessError as ex:
+            # Don't leave the services down
+            utils.error(f'Failed to pull docker images: {utils.strex(ex)}')
+            utils.info('Starting services with the images already present ...')
+            try:
+                utils.docker_up()
+            finally:
+                # Also when the services fail to start
+                utils.error('The update did not finish. Fix the problem above, and run brewblox-ctl update again.')
+            raise SystemExit(1) from ex
 
     if prune:
         utils.info('Pruning unused images ...')
@@ -299,7 +333,7 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
     utils.docker_up()
 
     if migrate:
-        upped_migrate(prev_version)
+        upped_migrate(prev_version, legacy_history)
         utils.info(f'Configuration version: {prev_version} -> {shipped_version}')
         utils.setenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
 

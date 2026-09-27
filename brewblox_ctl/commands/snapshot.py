@@ -6,8 +6,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import click
+from packaging.version import Version
 
-from brewblox_ctl import actions, click_helpers, utils
+from brewblox_ctl import actions, click_helpers, const, migration, utils
 
 
 @click.group(cls=click_helpers.OrderedGroup)
@@ -110,3 +111,12 @@ def load(file):
     else:
         utils.info('No requirements.txt or brewblox-ctl.tar.gz in snapshot. Installing default version of brewblox-ctl')
         actions.install_ctl_package()
+
+    # The snapshot was generated on another host, whose memory sets the limits of the history databases
+    version = Version(utils.envdict('.env').get(const.ENV_KEY_CFG_VERSION) or '0.0.0')
+    if migration.history_move_pending(version):
+        # Generating it now would open the old history with a newer database
+        utils.info('To migrate the history, and adapt the configuration to this machine, run: brewblox-ctl update')
+    else:
+        utils.info('Adapting the configuration to this machine ...')
+        actions.make_shared_compose()

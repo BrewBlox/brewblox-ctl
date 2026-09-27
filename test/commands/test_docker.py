@@ -7,8 +7,6 @@ from unittest.mock import Mock
 from brewblox_ctl.commands import docker
 from brewblox_ctl.testing import invoke
 
-TESTED = docker.__name__
-
 
 def test_up(m_sh: Mock):
     invoke(docker.up, '--quiet svc')

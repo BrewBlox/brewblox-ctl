@@ -299,3 +299,80 @@ def test_load_backup_other_uid(mocker: MockerFixture, m_sh, m_zipf, m_getuid):
     mocker.patch(TESTED + '.NamedTemporaryFile', wraps=backup.NamedTemporaryFile)
     invoke(backup.load, 'fname')
     m_sh.assert_any_call('sudo chown 1000:1000 ./node-red/')
+
+
+# The history migration's state: it describes the history databases, which are not in the backup
+MIGRATION_STATE = {'namespace': 'brewblox-history', 'id': 'migration', 'job': 'abcd', 'phase': 'walk'}
+# Documents that share only the namespace or the id
+KEPT_VALUES = [
+    {'namespace': 'brewblox-history', 'id': 'other', 'k': 'v'},
+    {'namespace': 'brewblox-ui-store', 'id': 'migration', 'k': 'v'},
+    {'namespace': 'n1', 'id': 'id1', 'k': 'v1'},
+]
+
+
+def redis_data_with_migration():
+    return {'values': [KEPT_VALUES[0], MIGRATION_STATE, *KEPT_VALUES[1:]]}
+
+
+@httpretty.activate(allow_net_connect=False)
+def test_save_backup_skips_migration_state(mocker: MockerFixture, f_read_compose):
+    set_responses()
+    httpretty.register_uri(
+        httpretty.POST,
+        STORE_URL + '/mget',
+        body=json.dumps(redis_data_with_migration()),
+        adding_headers={'ContentType': 'application/json'},
+    )
+    mocker.patch(TESTED + '.mkdir')
+    m_zipfile = mocker.patch(TESTED + '.zipfile.ZipFile')
+
+    invoke(backup.save)
+
+    written = {c.args[0]: c.args[1] for c in m_zipfile.return_value.writestr.call_args_list}
+    assert json.loads(written['global.redis.json']) == {'values': KEPT_VALUES}
+
+
+@httpretty.activate(allow_net_connect=False)
+def test_save_backup_only_migration_state(mocker: MockerFixture, f_read_compose):
+    set_responses()
+    httpretty.register_uri(
+        httpretty.POST,
+        STORE_URL + '/mget',
+        body=json.dumps({'values': [MIGRATION_STATE]}),
+        adding_headers={'ContentType': 'application/json'},
+    )
+    mocker.patch(TESTED + '.mkdir')
+    m_zipfile = mocker.patch(TESTED + '.zipfile.ZipFile')
+
+    invoke(backup.save)
+
+    written = {c.args[0]: c.args[1] for c in m_zipfile.return_value.writestr.call_args_list}
+    assert json.loads(written['global.redis.json']) == {'values': []}
+
+
+def test_load_backup_skips_migration_state(mocker: MockerFixture, m_zipf: Mock, m_sh: Mock, m_info: Mock):
+    """A backup made before the state was skipped may contain it"""
+    contents = zipf_read()
+    contents[2] = json.dumps(redis_data_with_migration()).encode()
+    m_zipf.read.side_effect = contents
+    m_mset = mocker.patch(TESTED + '.mset', wraps=backup.mset)
+
+    invoke(backup.load, 'fname')
+
+    # The first mset loads global.redis.json
+    assert m_mset.call_args_list[0] == call({'values': KEPT_VALUES})
+    assert all(MIGRATION_STATE not in c.args[0]['values'] for c in m_mset.call_args_list)
+    m_info.assert_any_call('Loading 3 entries from Redis datastore')
+
+    # Each mset posts its data once
+    mset_cmds = [c.args[0] for c in m_sh.call_args_list if '/mset' in c.args[0]]
+    assert len(mset_cmds) == m_mset.call_count
+
+
+def test_is_migration_state():
+    assert backup.is_migration_state(MIGRATION_STATE)
+    assert backup.is_migration_state({'namespace': 'brewblox-history', 'id': 'migration'})
+    for value in KEPT_VALUES:
+        assert not backup.is_migration_state(value)
+    assert not backup.is_migration_state({})

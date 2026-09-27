@@ -7,7 +7,7 @@ from typing import Any, Dict, Tuple
 import click
 from pydantic import BaseModel
 
-from brewblox_ctl import actions, click_helpers, const, utils
+from brewblox_ctl import actions, click_helpers, const, migration, utils
 
 PROP_ORDER = [
     'title',
@@ -125,6 +125,11 @@ def apply():
     """
     utils.check_config()
     utils.confirm_mode()
+
+    if migration.history_update_pending():
+        utils.error(f'{const.VICTORIA_DIR} holds history that must be migrated by `brewblox-ctl update`.')
+        utils.error('Run `brewblox-ctl update` first.')
+        raise SystemExit(1)
 
     with utils.downed_services():
         if not utils.file_exists(const.CONFIG_FILE):

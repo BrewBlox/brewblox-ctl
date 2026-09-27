@@ -2,12 +2,15 @@
 Tests brewblox_ctl.commands.diagnostic
 """
 
+import subprocess
 from pathlib import Path
+from typing import List
 from unittest.mock import Mock
 
 import pytest
 from pytest_mock import MockerFixture
 
+from brewblox_ctl import const
 from brewblox_ctl.commands import diagnostic
 from brewblox_ctl.testing import invoke
 
@@ -64,6 +67,84 @@ def test_log():
 def test_log_service_error(m_read_compose: Mock):
     m_read_compose.side_effect = FileNotFoundError
     invoke(diagnostic.log)
+
+
+TIMESERIES_URL = 'http://localhost:9600/history/timeseries'
+LOGGED = ' >> brewblox.log 2>&1'
+
+
+def logged_cmds(m_sh: Mock) -> List[str]:
+    """Commands whose output is appended to the log"""
+    return [c.args[0][: -len(LOGGED)] for c in m_sh.call_args_list if c.args[0].endswith(LOGGED)]
+
+
+def test_log_history_status(m_sh: Mock):
+    invoke(diagnostic.log, '--no-upload')
+    cmds = logged_cmds(m_sh)
+
+    # The downsampler age, and the status of the migration
+    ping = cmds.index(f'{const.CURL} {TIMESERIES_URL}/ping')
+    migrate = cmds.index(f'{const.CURL} {TIMESERIES_URL}/migrate')
+    assert ping < migrate
+
+    # Also without system diagnostics
+    m_sh.reset_mock()
+    invoke(diagnostic.log, '--no-upload --no-add-system')
+    cmds = logged_cmds(m_sh)
+    assert f'{const.CURL} {TIMESERIES_URL}/ping' in cmds
+    assert f'{const.CURL} {TIMESERIES_URL}/migrate' in cmds
+
+
+def test_log_history_status_admin_port(m_sh: Mock, m_get_config):
+    m_get_config.ports.admin = 9601
+    invoke(diagnostic.log, '--no-upload')
+    cmds = logged_cmds(m_sh)
+    assert f'{const.CURL} http://localhost:9601/history/timeseries/ping' in cmds
+    assert f'{const.CURL} http://localhost:9601/history/timeseries/migrate' in cmds
+
+
+def test_log_host(m_sh: Mock):
+    invoke(diagnostic.log, '--no-upload')
+    cmds = logged_cmds(m_sh)
+
+    # Disk usage of the history databases
+    du = [cmd for cmd in cmds if 'du -sh' in cmd]
+    assert len(du) == 1
+    args = du[0].split()
+    assert args[:3] == ['sudo', 'du', '-sh']
+    assert set(args[3:]) == {'./victoria', './victoria-dense', './victoria-legacy'}
+
+    # The host
+    assert any('/proc/device-tree/model' in cmd for cmd in cmds)
+    assert 'free -m' in cmds
+    assert 'swapon --show' in cmds
+
+
+def test_log_no_host(m_sh: Mock):
+    invoke(diagnostic.log, '--no-upload --no-add-system')
+    cmds = logged_cmds(m_sh)
+    assert not any('du -sh' in cmd for cmd in cmds)
+    assert not any('/proc/device-tree/model' in cmd for cmd in cmds)
+    assert 'free -m' not in cmds
+    assert 'swapon --show' not in cmds
+
+
+def test_log_host_model_in_log(m_sh: Mock, tmp_path: Path):
+    invoke(diagnostic.log, '--no-upload')
+    cmd = next(c.args[0] for c in m_sh.call_args_list if '/proc/device-tree/model' in c.args[0])
+
+    # Run the command with a model file as a Raspberry Pi has it: NUL-terminated
+    model = tmp_path / 'model'
+    model.write_bytes(b'Raspberry Pi 4 Model B Rev 1.4\x00')
+    subprocess.run(
+        ['bash', '-c', cmd.replace('/proc/device-tree/model', str(model))],
+        cwd=tmp_path,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    assert 'Raspberry Pi 4 Model B Rev 1.4' in (tmp_path / 'brewblox.log').read_text(errors='replace')
 
 
 def test_coredump(m_start_esptool: Mock, m_file_netcat: Mock, m_command_exists: Mock):

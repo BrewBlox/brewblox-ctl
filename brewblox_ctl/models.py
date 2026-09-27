@@ -1,7 +1,81 @@
+import math
+import re
+from datetime import timedelta
 from glob import glob
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+# One part of a metricsql duration, as in `1d12h`
+_RETENTION_PART = re.compile(r'(-?)(\d+(?:\.\d+)?)(ms|s|m|h|d|w|y)')
+_RETENTION_UNITS = {
+    'ms': timedelta(milliseconds=1),
+    's': timedelta(seconds=1),
+    'm': timedelta(minutes=1),
+    'h': timedelta(hours=1),
+    'd': timedelta(days=1),
+    'w': timedelta(weeks=1),
+    'y': timedelta(days=365),
+}
+
+_INTERVAL = re.compile(r'(\d+)(s|m|h)')
+_INTERVAL_UNITS = {'s': 1, 'm': 60, 'h': 3600}
+
+# A Go duration, as Victoria Metrics reads -search.latencyOffset
+_GO_DURATION = re.compile(r'[-+]?(?:0|(?:(?:\d+\.?\d*|\.\d+)(?:ns|us|µs|μs|ms|s|m|h))+)')
+
+# The history service's default `follow_up_step_max`, which must not exceed `sparse_interval`
+MIN_SPARSE_INTERVAL = 10
+
+# Victoria Metrics refuses a -retentionPeriod below a day, or above 1200 months of 31 days
+MIN_RETENTION = timedelta(days=1)
+MAX_RETENTION_MONTHS = 1200
+
+
+def parse_retention(value: str) -> timedelta:
+    """Parses a retention period the way Victoria Metrics reads `-retentionPeriod`.
+
+    The history service reads it the same way.
+    A bare number or an `M` suffix counts months of 31 days.
+    Otherwise the value is a metricsql duration, whose parts can be combined (`1d12h`),
+    except that it must not end in `m`: the database refuses that as ambiguous.
+    """
+    text = str(value)
+    try:
+        return timedelta(days=31 * float(text[:-1] if text.endswith('M') else text))
+    except (ValueError, OverflowError):  # not a number, or beyond timedelta
+        pass
+
+    text = text.lower()
+    if text.endswith('m') or not re.fullmatch(f'(?:{_RETENTION_PART.pattern})+', text):
+        raise ValueError(f'Invalid retention period: {value!r}')
+
+    retention = timedelta()
+    negative = False  # As in metricsql: once a part is negative, the parts after it are too
+    try:
+        for sign, number, unit in _RETENTION_PART.findall(text):
+            negative = negative or sign == '-'
+            part = float(number) * _RETENTION_UNITS[unit]
+            retention += -part if negative else part
+    except OverflowError as ex:
+        raise ValueError(f'Invalid retention period: {value!r}') from ex
+    return retention
+
+
+def parse_interval(value: str) -> int:
+    """Parses an interval of whole seconds, minutes or hours (`60s`, `1m`, `1h`) as seconds.
+
+    The history service reads these formats the same way.
+    """
+    match = _INTERVAL.fullmatch(str(value))
+    if not match:
+        raise ValueError(f'Invalid interval: {value!r}. Use a whole number of s, m or h, as in 60s')
+    seconds = int(match[1]) * _INTERVAL_UNITS[match[2]]
+    try:
+        timedelta(seconds=seconds)  # The history service reads it as a timedelta
+    except OverflowError as ex:
+        raise ValueError(f'Invalid interval: {value!r}') from ex
+    return seconds
 
 
 def physical_interfaces() -> List[str]:
@@ -109,15 +183,81 @@ class TraefikConfig(BaseModel):
 class VictoriaConfig(BaseModel):
     retention: str = Field(
         default='100y',
-        title='Retention period for history data in the Victoria Metrics database',
-        description='Data older than this value is gradually deleted.',
+        title='Retention period for history data in the long-term Victoria Metrics database',
+        description='Data older than this value is gradually deleted. '
+        'The long-term database keeps averages of every `sparse_interval`.',
+    )
+    dense_retention: str = Field(
+        default='30d',
+        title='Retention period for raw history data in the dense database',
+        description='It must be at least 1d.',
+    )
+    sparse_interval: str = Field(
+        default='60s',
+        title='Interval of the averages in the long-term database',
+        description='Choose it before migrating history: a history migration stops when it changes, '
+        'until it is set back or the migration is discarded. '
+        'Averages keep the interval they were written with. '
+        'It must be a multiple of `minimum_step`, and at least 10s.',
+    )
+    minimum_step: str = Field(
+        default='1s',
+        title='Smallest interval between the points of a history query',
+        description='This is the finest resolution of graphs.',
     )
     search_latency: str = Field(
-        default='10s',
+        default='1s',
         title='Max duration before inserted history data is returned by queries',
         description='Newly inserted data points must be indexed before they can be queried. '
         'Every {search_latency}, all newly inserted points are indexed.',
     )
+
+    # The history service reads its settings at startup, and fails on a value it refuses.
+    # It also serves the datastore, so values are checked here first.
+
+    @field_validator('retention', 'dense_retention')
+    @classmethod
+    def _check_retention(cls, value: str) -> str:
+        months = parse_retention(value) / timedelta(days=31)
+        if not re.fullmatch(r'[\d.]+M?', value):  # A duration counts whole months
+            months = math.floor(months)
+        if months > MAX_RETENTION_MONTHS:
+            raise ValueError('The retention period must be at most 1200 months, the database maximum')
+        return value
+
+    @field_validator('retention')
+    @classmethod
+    def _check_min_retention(cls, value: str) -> str:
+        if parse_retention(value) < MIN_RETENTION:
+            raise ValueError('The retention period must be at least 1d, the database minimum')
+        return value
+
+    @field_validator('minimum_step', 'sparse_interval')
+    @classmethod
+    def _check_interval(cls, value: str) -> str:
+        parse_interval(value)
+        return value
+
+    @field_validator('search_latency')
+    @classmethod
+    def _check_search_latency(cls, value: str) -> str:
+        if not _GO_DURATION.fullmatch(str(value)):
+            raise ValueError(f'Invalid duration: {value!r}. Use a duration such as 1s, 500ms or 1m30s')
+        return value
+
+    @model_validator(mode='after')
+    def _check_dense(self) -> 'VictoriaConfig':
+        minimum_step = parse_interval(self.minimum_step)
+        sparse_interval = parse_interval(self.sparse_interval)
+        if minimum_step <= 0 or sparse_interval <= 0:
+            raise ValueError('minimum_step and sparse_interval must be positive')
+        if sparse_interval % minimum_step:
+            raise ValueError('sparse_interval must be a multiple of minimum_step')
+        if sparse_interval < MIN_SPARSE_INTERVAL:
+            raise ValueError(f'sparse_interval must be at least {MIN_SPARSE_INTERVAL}s')
+        if parse_retention(self.dense_retention) < MIN_RETENTION:
+            raise ValueError('dense_retention must be at least 1d, the database minimum')
+        return self
 
 
 class CtlConfig(BaseModel):
@@ -159,6 +299,16 @@ class CtlConfig(BaseModel):
     auth: AuthConfig = Field(default_factory=AuthConfig)
     traefik: TraefikConfig = Field(default_factory=TraefikConfig)
     victoria: VictoriaConfig = Field(default_factory=VictoriaConfig)
+
+
+class HostProfile(BaseModel):
+    """Settings of the history databases that depend on the host"""
+
+    small: bool
+    # Each database sizes its caches from this, and not from a share of the host's memory
+    memory_allowed_bytes: str
+    # Bounds the memory used to unpack raw samples for queries
+    max_concurrent_requests: int
 
 
 class CtlOpts(BaseModel):

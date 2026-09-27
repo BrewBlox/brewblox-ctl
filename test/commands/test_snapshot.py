@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest.__main__
 from pytest_mock import MockerFixture
 
-from brewblox_ctl import utils
+from brewblox_ctl import const, utils
 from brewblox_ctl.commands import snapshot
 from brewblox_ctl.testing import invoke, matching
 
@@ -111,3 +111,32 @@ def test_load_no_packages_in_snapshot(m_sh: Mock, m_file_exists: Mock, m_actions
     utils.get_opts().dry_run = True
     invoke(snapshot.load)
     m_actions.install_ctl_package.assert_called()
+
+
+@pytest.mark.parametrize(
+    'env, files, render',
+    [
+        # A snapshot of 0.12.0 or later, taken on another host
+        ({const.ENV_KEY_CFG_VERSION: '0.12.0'}, ['./victoria', './victoria-dense'], True),
+        ({const.ENV_KEY_CFG_VERSION: '0.12.0'}, ['./victoria'], True),
+        # A snapshot of before 0.12.0: the update moves its history first
+        ({const.ENV_KEY_CFG_VERSION: '0.11.0'}, ['./victoria', './victoria-dense'], True),
+        ({const.ENV_KEY_CFG_VERSION: '0.11.0'}, ['./victoria'], False),
+        ({}, ['./victoria'], False),
+    ],
+)
+def test_load_adapts_to_host(
+    m_actions: Mock, m_envdict: Mock, m_file_exists: Mock, m_info: Mock, env: dict, files: list, render: bool
+):
+    utils.get_opts().dry_run = True
+    m_envdict.side_effect = lambda _: env
+    m_file_exists.add_existing_files(*files)
+
+    invoke(snapshot.load)
+
+    m_envdict.assert_called_with('.env')
+    assert m_actions.make_shared_compose.called is render
+    if not render:
+        m_info.assert_any_call(
+            'To migrate the history, and adapt the configuration to this machine, run: brewblox-ctl update'
+        )
