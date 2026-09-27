@@ -8,16 +8,15 @@ import os
 import platform
 import random
 import re
-import shlex
 import shutil
 import socket
 import string
 from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
-from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, Popen, run
+from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, run
 from tempfile import NamedTemporaryFile
-from typing import Dict, Generator, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import click
 import dotenv
@@ -165,16 +164,6 @@ def setenv(key, value, dotenv_path=None):
         dotenv.set_key(dotenv_path, key, str(value), quote_mode='never')
 
 
-def clearenv(key, dotenv_path=None):
-    if dotenv_path is None:
-        dotenv_path = Path('.env').resolve()
-    opts = get_opts()
-    if opts.dry_run or opts.verbose:
-        click.secho(f'{const.LOG_ENV} unset {key}', fg='magenta', color=opts.color)
-    if not opts.dry_run:
-        dotenv.unset_key(dotenv_path, key, quote_mode='never')
-
-
 def file_exists(path: PathLike_):
     return Path(path).exists()
 
@@ -239,11 +228,6 @@ def has_docker_rights():
 
 def is_brewblox_dir(dir: str) -> bool:
     return (Path(dir) / 'brewblox.yml').exists() or (const.ENV_KEY_CFG_VERSION in dotenv_values(f'{dir}/.env'))
-
-
-def is_empty_dir(dir):
-    path = Path(dir)
-    return path.is_dir() and not next(path.iterdir(), None)
 
 
 def user_home_exists() -> bool:
@@ -363,27 +347,6 @@ def sh_read(cmd: str) -> str:
     return run(cmd, shell=True, check=True, text=True, stdout=PIPE, stderr=DEVNULL).stdout
 
 
-def sh_stream(cmd: str) -> Generator[str, None, None]:
-    opts = get_opts()
-    if opts.verbose or opts.dry_run:
-        click.secho(f'{const.LOG_SHELL} {cmd}', fg='magenta', color=opts.color)
-    if opts.dry_run:
-        return
-
-    process = Popen(
-        shlex.split(cmd),
-        stdout=PIPE,
-        universal_newlines=True,
-    )
-
-    while True:
-        output = process.stdout.readline()
-        if not output and process.poll() is not None:
-            break
-        else:
-            yield output
-
-
 def check_ok(cmd: str) -> bool:
     try:
         run(cmd, shell=True, stderr=DEVNULL, check=True)
@@ -429,10 +392,6 @@ def host_url() -> str:
     return f'http://localhost:{get_config().ports.admin}'
 
 
-def history_url() -> str:
-    return f'{host_url()}/history/history'
-
-
 def datastore_url() -> str:
     return f'{host_url()}/history/datastore'
 
@@ -443,20 +402,6 @@ def timeseries_url() -> str:
 
 def hostname() -> str:
     return socket.gethostname()
-
-
-def host_lan_ip() -> str:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.settimeout(0)
-    try:
-        # We don't expect this to be reachable
-        s.connect(('10.254.254.254', 1))
-        IP = s.getsockname()[0]
-    except Exception:
-        IP = '127.0.0.1'
-    finally:
-        s.close()
-    return IP
 
 
 def host_ip_addresses() -> List[str]:
@@ -470,10 +415,6 @@ def host_ip_addresses() -> List[str]:
             if snic.family in [socket.AF_INET, socket.AF_INET6] and not snic.address.startswith('fe80::')
         ]
     return addresses
-
-
-def read_file(infile: PathLike_) -> str:
-    return Path(infile).read_text()
 
 
 def read_file_sudo(infile: PathLike_) -> str:
@@ -547,10 +488,6 @@ def write_compose(data: Union[dict, CommentedMap]):
 
 def read_shared_compose() -> CommentedMap:
     return read_yaml(const.COMPOSE_SHARED_FILE)
-
-
-def write_shared_compose(data: Union[dict, CommentedMap]):
-    write_yaml(const.COMPOSE_SHARED_FILE, data)
 
 
 def list_services(image=None) -> List[str]:

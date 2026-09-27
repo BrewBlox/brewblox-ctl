@@ -77,13 +77,6 @@ def m_setenv(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def m_clearenv(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.clearenv)
-    monkeypatch.setattr(utils, 'clearenv', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
 def m_file_exists(monkeypatch: pytest.MonkeyPatch):
     existing_files = set()
 
@@ -243,14 +236,6 @@ def m_is_brewblox_dir(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def m_is_empty_dir(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.is_empty_dir)
-    m.return_value = False
-    monkeypatch.setattr(utils, 'is_empty_dir', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
 def m_user_home_exists(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.user_home_exists)
     m.return_value = True
@@ -299,13 +284,6 @@ def m_sh_read(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def m_sh_stream(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.sh_stream)
-    monkeypatch.setattr(utils, 'sh_stream', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
 def m_check_ok(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.check_ok)
     m.return_value = True
@@ -346,26 +324,10 @@ def m_hostname(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def m_host_lan_ip(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.host_lan_ip)
-    m.return_value = '192.168.0.1'
-    monkeypatch.setattr(utils, 'host_lan_ip', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
 def m_host_ip_addresses(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.host_ip_addresses)
     m.return_value = ['192.168.0.1']
     monkeypatch.setattr(utils, 'host_ip_addresses', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
-def m_read_file(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.read_file)
-    m.return_value = ''
-    monkeypatch.setattr(utils, 'read_file', m)
     return m
 
 
@@ -432,13 +394,6 @@ def m_write_compose(monkeypatch: pytest.MonkeyPatch):
 def m_read_shared_compose(monkeypatch: pytest.MonkeyPatch):
     m = Mock(spec=utils.read_shared_compose)
     monkeypatch.setattr(utils, 'read_shared_compose', m)
-    return m
-
-
-@pytest.fixture(autouse=True)
-def m_write_shared_compose(monkeypatch: pytest.MonkeyPatch):
-    m = Mock(spec=utils.write_shared_compose)
-    monkeypatch.setattr(utils, 'write_shared_compose', m)
     return m
 
 

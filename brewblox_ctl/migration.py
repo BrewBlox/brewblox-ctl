@@ -2,7 +2,6 @@
 Manual migration steps
 """
 
-import json
 import math
 import os
 import re
@@ -13,211 +12,15 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from subprocess import CalledProcessError
-from tempfile import NamedTemporaryFile
 from time import sleep
 from typing import Dict, List, Optional, Tuple
 
 import click
 import requests
-import urllib3
 from packaging.version import Version
 
 from . import actions, const, utils
 from .models import parse_retention
-
-
-def _influx_measurements() -> List[str]:
-    """
-    Fetch all known measurements from Influx
-    This requires an InfluxDB docker container with name 'influxdb-migrate'
-    to have been started.
-    """
-    sudo = utils.optsudo()
-
-    raw_measurements = list(
-        utils.sh_stream(
-            f"{sudo}docker exec influxdb-migrate influx -database brewblox -execute 'SHOW MEASUREMENTS' -format csv"
-        )
-    )
-
-    measurements = [
-        s.strip().split(',')[1]
-        for s in raw_measurements[1:]  # ignore line with headers
-        if s.strip()
-    ]
-
-    return measurements
-
-
-def _influx_line_count(service: str, args: str) -> Optional[int]:
-    sudo = utils.optsudo()
-    measurement = f'"brewblox"."downsample_1m"."{service}"'
-    points_field = '"m_ Combined Influx points"'
-    json_result = utils.sh(
-        f'{sudo}docker exec influxdb-migrate influx '
-        '-database brewblox '
-        f"-execute 'SELECT count({points_field}) FROM {measurement} {args}' "
-        '-format json',
-        capture=True,
-    )
-
-    result = json.loads(json_result)
-
-    try:
-        return result['results'][0]['series'][0]['values'][0][1]
-    except (IndexError, KeyError):
-        return None
-
-
-def _copy_influx_measurement(
-    service: str,
-    date: str,
-    duration: str,
-    target: str,
-    offset: int = 0,
-):
-    """
-    Export measurement from Influx, and copy/import to `target`.
-    This requires an InfluxDB docker container with name 'influxdb-migrate'
-    to have been started.
-    """
-    QUERY_BATCH_SIZE = 5000
-    FILE_BATCH_SIZE = 50000
-    FILE_DIR = './influxdb-export'
-    sudo = utils.optsudo()
-    measurement = f'"brewblox"."downsample_1m"."{service}"'
-    args = f'where time > now() - {duration}' if duration else ''
-
-    total_lines = _influx_line_count(service, args)
-    offset = max(offset, 0)
-    offset -= offset % QUERY_BATCH_SIZE  # Round down to multiple of batch size
-    num_lines = offset
-
-    if target == 'file':
-        utils.sh(f'mkdir -p {FILE_DIR}')
-
-    if total_lines is None:
-        return
-
-    while True:
-        generator = utils.sh_stream(
-            f'{sudo}docker exec influxdb-migrate influx '
-            '-database brewblox '
-            f"-execute 'SELECT * FROM {measurement} {args} ORDER BY time LIMIT {QUERY_BATCH_SIZE} OFFSET {offset}' "
-            '-format csv'
-        )
-
-        headers = next(generator, '').strip()
-        time = None
-
-        if not headers:
-            return
-
-        fields = [
-            f[2:].replace(' ', '\\ ')  # Remove 'm_' prefix and escape spaces
-            for f in headers.split(',')[2:]  # Ignore 'name' and 'time' columns
-        ]
-
-        with NamedTemporaryFile('w') as tmp:
-            for line in generator:
-                if not line:
-                    continue
-
-                num_lines += 1
-                values = line.strip().split(',')
-                name = values[0]
-                time = values[1]
-
-                # Influx line protocol:
-                # MEASUREMENT k1=1,k2=2,k3=3 TIMESTAMP
-                tmp.write(f'{name} ')
-                tmp.write(','.join((f'{f}={v}' for f, v in zip(fields, values[2:]) if v)))
-                tmp.write(f' {time}\n')
-
-            tmp.flush()
-
-            if target == 'victoria':
-                with open(tmp.name, 'rb') as rtmp:
-                    url = f'{utils.host_url()}/victoria/write'
-                    urllib3.disable_warnings()
-                    requests.get(url, data=rtmp, verify=False)
-
-            elif target == 'file':
-                idx = str(offset // FILE_BATCH_SIZE + 1).rjust(3, '0')
-                fname = f'{FILE_DIR}/{service}__{date}__{duration or "all"}__{idx}.lines'
-                utils.sh(f'cat "{tmp.name}" >> "{fname}"')
-
-            else:
-                raise ValueError(f'Invalid target: {target}')
-
-        offset = 0
-        args = f'where time > {time}'
-        utils.info(f'{service}: exported {num_lines}/{total_lines} lines')
-
-
-def migrate_influxdb(
-    target: str = 'victoria',
-    duration: str = '',
-    services: List[str] = [],
-    offsets: List[Tuple[str, int]] = [],
-):
-    """Exports InfluxDB history data.
-
-    The exported data is either immediately imported to the new history database,
-    or saved to file.
-    """
-    opts = utils.get_opts()
-    sudo = utils.optsudo()
-    date = datetime.now().strftime('%Y%m%d_%H%M')
-
-    utils.warn('Depending on the amount of data, this may take some hours.')
-    utils.warn('You can use your system as normal while the migration is in progress.')
-    utils.warn('The migration can safely be stopped and restarted or resumed.')
-    utils.warn('For more info, see https://brewblox.netlify.app/dev/migration/influxdb.html')
-
-    if opts.dry_run:
-        utils.info('Dry run. Skipping migration ...')
-        return
-
-    if not utils.file_exists('./influxdb/'):
-        utils.info('influxdb/ dir not found. Skipping migration ...')
-        return
-
-    utils.info('Starting InfluxDB container ...')
-
-    # Stop container in case previous migration was cancelled
-    utils.sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
-
-    # Start standalone container
-    # We'll communicate using 'docker exec', so no need to publish a port
-    utils.sh(
-        f'{sudo}docker run '
-        '--rm -d '
-        '--name influxdb-migrate '
-        '-v "$(pwd)/influxdb:/var/lib/influxdb" '
-        'influxdb:1.8 '
-        '> /dev/null'
-    )
-
-    # Do a health check until startup is done
-    inner_cmd = 'curl --output /dev/null --silent --fail http://localhost:8086/health'
-    bash_cmd = f'until $({inner_cmd}); do sleep 1 ; done'
-    utils.sh(f"{sudo}docker exec influxdb-migrate bash -c '{bash_cmd}'")
-
-    # Determine relevant measurement
-    # Export all of them if not specified by user
-    if not services:
-        services = _influx_measurements()
-
-    utils.info(f'Exporting services: {", ".join(services)}')
-
-    # Export data and import to target
-    for svc in services:
-        offset = next((v for v in offsets if v[0] == svc), ('default', 0))[1]
-        _copy_influx_measurement(svc, date, duration, target, offset)
-
-    # Stop migration container
-    utils.sh(f'{sudo}docker stop influxdb-migrate > /dev/null', check=False)
 
 
 def migrate_ghcr_images():
@@ -463,11 +266,9 @@ def legacy_history_unmoved() -> bool:
 
     The migration needs it moved to ./victoria-legacy, before a newer database opens it.
     From 0.12.0 on, ./victoria-dense exists next to ./victoria.
-    Without the dense database, ./victoria keeps its history, and nothing moves.
     """
     return (
-        utils.get_config().victoria.dense_enabled
-        and utils.file_exists(const.VICTORIA_DIR)
+        utils.file_exists(const.VICTORIA_DIR)
         and not utils.file_exists(const.VICTORIA_LEGACY_DIR)
         and not utils.file_exists(const.VICTORIA_DENSE_DIR)
     )
@@ -489,10 +290,8 @@ def history_update_pending() -> bool:
 
 def history_migration_pending(version: Version) -> bool:
     """Whether an update from `version` offers the history migration"""
-    return (
-        version < Version(const.HISTORY_DENSE_VERSION)
-        and utils.get_config().victoria.dense_enabled
-        and (legacy_history_unmoved() or utils.file_exists(const.VICTORIA_LEGACY_DIR))
+    return version < Version(const.HISTORY_DENSE_VERSION) and (
+        legacy_history_unmoved() or utils.file_exists(const.VICTORIA_LEGACY_DIR)
     )
 
 
@@ -959,7 +758,7 @@ def prepare_history_update(prev_version: Version) -> Optional[LegacyHistory]:
 
     ./victoria must be movable, and the migration must fit on disk.
     Returns None when the update does not concern the migration:
-    it is already at 0.12.0, or the dense database is disabled.
+    it is already at 0.12.0, or there is no legacy history.
     Otherwise it returns the size of the legacy history (no months when it is empty),
     and where to start migrating it (None to migrate nothing).
     """
@@ -1081,14 +880,8 @@ def migrate_history(dense_days: Optional[int]):
 
 
 def _migrate_history(dense_days: Optional[int]):
-    config = utils.get_config()
-
     if not utils.file_exists(const.VICTORIA_LEGACY_DIR):
         utils.error(f'There is no legacy history to migrate: {const.VICTORIA_LEGACY_DIR} does not exist.')
-        raise SystemExit(1)
-
-    if not config.victoria.dense_enabled:
-        utils.error('The history migration needs the dense database, and `victoria.dense_enabled` is false.')
         raise SystemExit(1)
 
     status = migration_status()

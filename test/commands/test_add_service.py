@@ -145,20 +145,17 @@ USB_PROXY_ENABLED = {'usb_proxy': {'enabled': True}}
 
 
 @pytest.mark.parametrize(
-    'version, files, dense_enabled',
+    'version, files',
     [
         # Up to date
-        (const.CFG_VERSION, ['./victoria'], True),
-        (const.CFG_VERSION, ['./victoria', './victoria-dense'], True),
+        (const.CFG_VERSION, ['./victoria']),
+        (const.CFG_VERSION, ['./victoria', './victoria-dense']),
         # The update moved the history, but did not finish
-        ('0.11.0', ['./victoria', './victoria-dense', './victoria-legacy'], True),
-        # Without the dense database, the history stays where it is
-        ('0.11.0', ['./victoria'], False),
+        ('0.11.0', ['./victoria', './victoria-dense', './victoria-legacy']),
         # No history
-        ('0.11.0', [], True),
-        # No BREWBLOX_CFG_VERSION in .env: never set up, and its history counts as old
-        (None, ['./victoria'], False),
-        (None, ['./victoria', './victoria-dense'], True),
+        ('0.11.0', []),
+        # No BREWBLOX_CFG_VERSION in .env, and the history is not the legacy one
+        (None, ['./victoria', './victoria-dense']),
     ],
 )
 def test_add_spark_usb_proxy_render(
@@ -171,14 +168,12 @@ def test_add_spark_usb_proxy_render(
     m_make_shared_compose: Mock,
     version,
     files,
-    dense_enabled,
 ):
     """Enabling the USB proxy renders docker-compose.shared.yml when no history update is pending"""
     m_read_compose.side_effect = lambda: {'services': {}}
     m_confirm.return_value = True
     m_getenv.return_value = version
     m_file_exists.add_existing_files(const.CONFIG_FILE, *files)
-    m_get_config.victoria.dense_enabled = dense_enabled
 
     result = invoke(add_service.add_spark, '--name testey --device-id 1234 --discovery usb')
 
@@ -188,7 +183,7 @@ def test_add_spark_usb_proxy_render(
     assert 'brewblox-ctl update' not in result.stdout
 
 
-@pytest.mark.parametrize('version', ['0.11.0', '0.10.0'])
+@pytest.mark.parametrize('version', ['0.11.0', '0.10.0', None])
 def test_add_spark_usb_proxy_update_pending(
     m_getenv: Mock,
     m_file_exists: Mock,

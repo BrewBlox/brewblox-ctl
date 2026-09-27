@@ -16,12 +16,9 @@ from pytest_mock import MockerFixture
 
 from brewblox_ctl import const, migration, testing, utils
 from brewblox_ctl.commands import update
-from brewblox_ctl.models import CtlConfig
 from brewblox_ctl.testing import invoke
 
 TESTED = update.__name__
-
-STORE_URL = 'https://localhost:9600/history/datastore'
 
 
 class DummyError(Exception):
@@ -513,34 +510,29 @@ def test_update_moves_legacy_history(update_log: List[str], m_real_move: Mock, m
 
 
 @pytest.mark.parametrize(
-    'version, files, dense_enabled',
+    'version, files',
     [
         # Moved by an update that did not finish
-        ('0.11.0', ['./victoria', './victoria-legacy'], True),
-        ('0.11.0', ['./victoria', './victoria-dense', './victoria-legacy'], True),
+        ('0.11.0', ['./victoria', './victoria-legacy']),
+        ('0.11.0', ['./victoria', './victoria-dense', './victoria-legacy']),
         # The dense database exists: ./victoria is the long-term database (a restored older .env)
-        ('0.11.0', ['./victoria', './victoria-dense'], True),
+        ('0.11.0', ['./victoria', './victoria-dense']),
         # No history
-        ('0.11.0', [], True),
-        ('0.11.0', ['./victoria-dense'], True),
-        # Without the dense database, ./victoria keeps its history
-        ('0.11.0', ['./victoria'], False),
+        ('0.11.0', []),
+        ('0.11.0', ['./victoria-dense']),
         # Already at 0.12.0
-        ('0.12.0', ['./victoria'], True),
-        (const.CFG_VERSION, ['./victoria'], True),
+        ('0.12.0', ['./victoria']),
+        (const.CFG_VERSION, ['./victoria']),
     ],
 )
 def test_update_no_move(
     update_log: List[str],
     m_real_move: Mock,
     m_file_exists: Mock,
-    m_get_config: CtlConfig,
     version: str,
     files: List[str],
-    dense_enabled: bool,
 ):
     m_file_exists.add_existing_files(const.CONFIG_FILE, *files)
-    m_get_config.victoria.dense_enabled = dense_enabled
 
     invoke(update.update, f'--from-version {version} {UPDATE_ARGS}')
 
@@ -682,6 +674,26 @@ def test_upped_migrate(m_migration: Mock):
     m_migration.migrate_history_after_update.assert_called_once_with(sentinel.legacy_history)
 
 
+@pytest.mark.parametrize(
+    'version, influxdb, warned',
+    [
+        ('0.6.0', True, True),
+        ('0.6.0', False, False),
+        ('0.7.0', True, False),
+    ],
+)
+def test_upped_migrate_influxdb(m_migration: Mock, m_file_exists: Mock, m_warn: Mock, version, influxdb, warned):
+    # This version no longer migrates InfluxDB history: the docs point to an older brewblox-ctl
+    if influxdb:
+        m_file_exists.add_existing_files('./influxdb/')
+    update.upped_migrate(Version(version))
+    assert m_warn.call_count == (1 if warned else 0)
+    if warned:
+        m_warn.assert_called_once_with(
+            f'This brewblox-ctl does not migrate the InfluxDB history in ./influxdb/: see {update.INFLUXDB_DOCS}'
+        )
+
+
 # The update with the real history migration, in a Brewblox directory with history of before 0.12.0
 
 NOW = datetime(2026, 9, 26, 12, tzinfo=timezone.utc)
@@ -720,7 +732,7 @@ def migrate_requests():
 
 
 @httpretty.activate(allow_net_connect=False)
-def test_update_history_release_1(
+def test_update_history_legacy(
     real_history: Path, update_log: List[str], m_file_exists: Mock, m_confirm: Mock, m_setenv: Mock
 ):
     make_partitions(real_history / 'victoria', '2024_01', '2024_02')
@@ -751,7 +763,7 @@ def test_update_history_release_1(
 
 
 @httpretty.activate(allow_net_connect=False)
-def test_update_history_release_1_declined(
+def test_update_history_legacy_declined(
     real_history: Path, update_log: List[str], m_file_exists: Mock, m_confirm: Mock, m_warn: Mock
 ):
     make_partitions(real_history / 'victoria', '2024_01')

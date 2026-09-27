@@ -42,7 +42,6 @@ ENV_KEY_CFG_VERSION = 'BREWBLOX_CFG_VERSION'
 
 # Prefixes for log messages
 LOG_SHELL = 'SHELL'.ljust(10)
-LOG_PYTHON = 'PYTHON'.ljust(10)
 LOG_ENV = 'ENV'.ljust(10)
 LOG_CONFIG = 'CONFIG'.ljust(10)
 LOG_INFO = 'INFO'.ljust(10)

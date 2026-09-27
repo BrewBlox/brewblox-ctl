@@ -185,14 +185,7 @@ class VictoriaConfig(BaseModel):
         default='100y',
         title='Retention period for history data in the long-term Victoria Metrics database',
         description='Data older than this value is gradually deleted. '
-        'With `dense_enabled`, the long-term database keeps averages of every `sparse_interval`.',
-    )
-    dense_enabled: bool = Field(
-        default=True,
-        title='Keep raw history data in a separate dense database',
-        description='The dense database keeps every raw sample for `dense_retention`, '
-        'and the long-term database keeps averages of every `sparse_interval`. '
-        'If disabled, the long-term database keeps the raw samples.',
+        'The long-term database keeps averages of every `sparse_interval`.',
     )
     dense_retention: str = Field(
         default='30d',
@@ -254,9 +247,6 @@ class VictoriaConfig(BaseModel):
 
     @model_validator(mode='after')
     def _check_dense(self) -> 'VictoriaConfig':
-        # The history service only checks these with the dense database
-        if not self.dense_enabled:
-            return self
         minimum_step = parse_interval(self.minimum_step)
         sparse_interval = parse_interval(self.sparse_interval)
         if minimum_step <= 0 or sparse_interval <= 0:

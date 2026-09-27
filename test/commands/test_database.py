@@ -20,7 +20,6 @@ from brewblox_ctl.commands import database
 from brewblox_ctl.models import CtlConfig, CtlOpts
 from brewblox_ctl.testing import invoke, matching
 
-TESTED = database.__name__
 
 # The real clock, before the autouse fixture replaces it
 REAL_NOW = migration._now
@@ -141,12 +140,6 @@ def m_sleep(mocker: MockerFixture):
 
 
 @pytest.fixture
-def m_migration(mocker: MockerFixture):
-    m = mocker.patch(TESTED + '.migration', autospec=True)
-    return m
-
-
-@pytest.fixture
 def m_legacy_months(mocker: MockerFixture):
     return mocker.patch.object(migration, 'legacy_months', return_value=dict(MONTHS))
 
@@ -162,12 +155,6 @@ def legacy(m_file_exists: Mock):
     m_file_exists.add_existing_files(const.VICTORIA_LEGACY_DIR)
 
 
-def test_from_influxdb(m_migration: Mock, m_confirm_mode: Mock):
-    invoke(database.from_influxdb, '--duration=1d --offset s1 1000 --offset s2 5000 s1 s2')
-    m_confirm_mode.assert_called_once()
-    m_migration.migrate_influxdb.assert_called_once_with('victoria', '1d', ['s1', 's2'], [('s1', 1000), ('s2', 5000)])
-
-
 def test_now():
     now = REAL_NOW()
     assert now.tzinfo == timezone.utc
@@ -181,15 +168,6 @@ def test_migrate_history_no_legacy(m_error: Mock, m_confirm: Mock):
     result = invoke(database.migrate_history, '', _err=True)
     assert_exit(result, 1)
     m_error.assert_any_call(matching(r'.*no legacy history.*\./victoria-legacy does not exist'))
-    assert sent() == []
-    m_confirm.assert_not_called()
-
-
-def test_migrate_history_dense_disabled(legacy, m_get_config: CtlConfig, m_error: Mock, m_confirm: Mock):
-    m_get_config.victoria.dense_enabled = False
-    result = invoke(database.migrate_history, '', _err=True)
-    assert_exit(result, 1)
-    m_error.assert_any_call(matching(r'.*needs the dense database.*dense_enabled.*false'))
     assert sent() == []
     m_confirm.assert_not_called()
 

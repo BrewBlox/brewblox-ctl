@@ -11,7 +11,6 @@ from pytest_mock import MockerFixture
 
 from brewblox_ctl import const, migration, testing, utils
 from brewblox_ctl.commands import install
-from brewblox_ctl.models import CtlConfig
 from brewblox_ctl.testing import invoke
 
 TESTED = install.__name__
@@ -39,13 +38,6 @@ def m_opts(mocker: MockerFixture):
 @pytest.fixture
 def m_actions(mocker: MockerFixture):
     return mocker.patch(TESTED + '.actions', autospec=True)
-
-
-@pytest.fixture
-def m_auth_users(mocker: MockerFixture):
-    m = mocker.patch(TESTED + '.auth_users', autospec=True)
-    m.prompt_user_info.return_value = ('username', 'password')
-    return m
 
 
 @pytest.fixture
@@ -243,18 +235,6 @@ def test_check_init_opts_history_dirs(m_confirm: Mock, m_file_exists: Mock, dirs
     assert opts.move_legacy_history is False
 
 
-def test_check_init_opts_dense_disabled(m_get_config: CtlConfig, m_confirm: Mock, m_file_exists: Mock):
-    """Without the dense database, ./victoria keeps its history"""
-    opts = install.InstallOptions()
-    m_file_exists.add_existing_files('./victoria/')
-    m_get_config.victoria.dense_enabled = False
-    m_confirm.return_value = True
-
-    opts.check_init_opts()
-    assert opts.init_history is False
-    assert opts.move_legacy_history is False
-
-
 def test_check_init_opts_legacy_not_movable(
     m_confirm: Mock, m_file_exists: Mock, m_is_mount: Mock, m_is_symlink: Mock, m_error: Mock
 ):
@@ -424,7 +404,7 @@ def test_install_history_not_kept(install_log: List[str], m_confirm: Mock, m_fil
     assert_no_migrate_hint(m_info)
 
 
-def test_install_history_not_kept_release_1(
+def test_install_history_not_kept_legacy(
     install_log: List[str], m_confirm: Mock, m_file_exists: Mock, m_is_mount: Mock, m_info: Mock
 ):
     """Nothing is moved: a mount point does not stop the install"""
@@ -440,7 +420,7 @@ def test_install_history_not_kept_release_1(
     assert_no_migrate_hint(m_info)
 
 
-def test_install_keep_release_1(
+def test_install_keep_legacy(
     install_log: List[str], m_confirm: Mock, m_file_exists: Mock, m_setenv: Mock, m_info: Mock
 ):
     """Kept history of before 0.12.0 is moved to ./victoria-legacy, as the update does"""
@@ -483,7 +463,7 @@ def test_install_keep_release_1(
         ['./victoria-dense/'],
     ],
 )
-def test_install_keep_release_2(
+def test_install_keep_dense_setup(
     install_log: List[str], m_confirm: Mock, m_file_exists: Mock, m_info: Mock, dirs: List[str]
 ):
     """Kept history of 0.12.0 stays where it is"""
@@ -498,22 +478,8 @@ def test_install_keep_release_2(
     assert_no_migrate_hint(m_info)
 
 
-def test_install_keep_dense_disabled(
-    install_log: List[str], m_get_config: CtlConfig, m_confirm: Mock, m_file_exists: Mock, m_info: Mock
-):
-    m_file_exists.add_existing_files('./victoria/')
-    m_get_config.victoria.dense_enabled = False
-    m_confirm.return_value = True
-
-    invoke(install.install)
-
-    assert 'check_legacy_movable' not in install_log
-    assert history_cmds(install_log) == ['mkdir -p ./victoria/ ./victoria-dense/']
-    assert_no_migrate_hint(m_info)
-
-
 @pytest.mark.parametrize('mount, symlink', [(True, False), (False, True)])
-def test_install_keep_release_1_not_movable(
+def test_install_keep_legacy_not_movable(
     install_log: List[str],
     m_actions: Mock,
     m_confirm: Mock,
@@ -538,7 +504,7 @@ def test_install_keep_release_1_not_movable(
     m_setenv.assert_not_called()
 
 
-def test_install_keep_release_1_symlink(install_log: List[str], m_confirm: Mock, m_file_exists: Mock, m_is_symlink):
+def test_install_keep_legacy_symlink(install_log: List[str], m_confirm: Mock, m_file_exists: Mock, m_is_symlink):
     """The user may choose to move a symbolic link"""
     m_file_exists.add_existing_files('./victoria/')
     m_is_symlink.return_value = True

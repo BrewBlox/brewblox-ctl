@@ -378,7 +378,6 @@ def test_discover_device(m_esp32_serial):
 def test_discover_device_merge(m_esp32_serial, mocker: MockerFixture):
     """Test that USB and mDNS discoveries for the same device are merged."""
     # Override mDNS mock to return a device with the same ID as USB ESP32
-    original_mdns = discovery.discover_mdns
 
     def mock_discover_mdns():
         yield DiscoveredDevice(

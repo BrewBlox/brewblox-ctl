@@ -36,8 +36,7 @@ services:
         source: ./mosquitto
         target: /mosquitto/include
 
-  # The long-term history database.
-  # With victoria.dense_enabled, it holds the averages of every victoria.sparse_interval.
+  # The long-term history database: the averages of every victoria.sparse_interval
   victoria:
     image: {{ victoria_image }}
     restart: unless-stopped
@@ -62,7 +61,6 @@ services:
         source: ./victoria
         target: /victoria-metrics-data
 
-{% if config.victoria.dense_enabled %}
   # Every raw history sample, kept for victoria.dense_retention
   victoria-dense:
     image: {{ victoria_image }}
@@ -86,7 +84,6 @@ services:
       - type: bind
         source: ./victoria-dense
         target: /victoria-metrics-data
-{% endif %}
 
 {% if legacy_history %}
   # The history database from before configuration version 0.12.0, until its history is migrated.
@@ -126,7 +123,6 @@ services:
     image: ghcr.io/brewblox/brewblox-history:${BREWBLOX_RELEASE}
     restart: unless-stopped
     environment:
-      - BREWBLOX_HISTORY_DENSE_ENABLED={{ config.victoria.dense_enabled }}
       - BREWBLOX_HISTORY_DENSE_RETENTION={{ config.victoria.dense_retention }}
       - BREWBLOX_HISTORY_SPARSE_INTERVAL={{ config.victoria.sparse_interval }}
       - BREWBLOX_HISTORY_MINIMUM_STEP={{ config.victoria.minimum_step }}

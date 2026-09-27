@@ -6,8 +6,6 @@ import click
 
 from brewblox_ctl import click_helpers
 
-TESTED = click_helpers.__name__
-
 
 @click.group(cls=click_helpers.OrderedGroup)
 def cli_one():

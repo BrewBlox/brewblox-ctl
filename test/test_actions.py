@@ -174,7 +174,6 @@ def test_make_shared_compose_defaults(m_write_file: Mock, m_file_exists: Mock):
     assert history['image'] == 'ghcr.io/brewblox/brewblox-history:${BREWBLOX_RELEASE}'
     # ctl renders only these settings of history
     assert env_of(history) == {
-        'BREWBLOX_HISTORY_DENSE_ENABLED': 'True',
         'BREWBLOX_HISTORY_DENSE_RETENTION': '30d',
         'BREWBLOX_HISTORY_SPARSE_INTERVAL': '60s',
         'BREWBLOX_HISTORY_MINIMUM_STEP': '1s',
@@ -208,46 +207,19 @@ def test_make_shared_compose_config(m_write_file: Mock, m_get_config: CtlConfig)
     assert dense['VM_search_latencyOffset'] == '2s'
 
     assert env_of(services['history']) == {
-        'BREWBLOX_HISTORY_DENSE_ENABLED': 'True',
         'BREWBLOX_HISTORY_DENSE_RETENTION': '14d',
         'BREWBLOX_HISTORY_SPARSE_INTERVAL': '5m',
         'BREWBLOX_HISTORY_MINIMUM_STEP': '10s',
     }
 
 
-def test_make_shared_compose_dense_disabled(m_write_file: Mock, m_get_config: CtlConfig):
-    m_get_config.victoria = VictoriaConfig(dense_enabled=False, retention='10y')
-    actions.make_shared_compose()
-    services = rendered_shared_compose(m_write_file)['services']
-
-    assert 'victoria-dense' not in services
-    assert 'victoria-legacy' not in services
-
-    # The long-term database gets the raw samples
-    victoria = services['victoria']
-    assert victoria['image'] == 'victoriametrics/victoria-metrics:v1.152.0'
-    assert env_of(victoria)['VM_retentionPeriod'] == '10y'
-    assert env_of(victoria)['VM_influxMeasurementFieldSeparator'] == '/'
-
-    # The settings are rendered either way
-    assert env_of(services['history']) == {
-        'BREWBLOX_HISTORY_DENSE_ENABLED': 'False',
-        'BREWBLOX_HISTORY_DENSE_RETENTION': '30d',
-        'BREWBLOX_HISTORY_SPARSE_INTERVAL': '60s',
-        'BREWBLOX_HISTORY_MINIMUM_STEP': '1s',
-    }
-
-
-@pytest.mark.parametrize('dense_enabled', [True, False])
-def test_make_shared_compose_legacy(
-    m_write_file: Mock, m_file_exists: Mock, m_get_config: CtlConfig, dense_enabled: bool
-):
-    m_get_config.victoria = VictoriaConfig(dense_enabled=dense_enabled, retention='10y')
+def test_make_shared_compose_legacy(m_write_file: Mock, m_file_exists: Mock, m_get_config: CtlConfig):
+    m_get_config.victoria = VictoriaConfig(retention='10y')
     m_file_exists.add_existing_files('./victoria-legacy')
     actions.make_shared_compose()
     services = rendered_shared_compose(m_write_file)['services']
 
-    assert ('victoria-dense' in services) == dense_enabled
+    assert 'victoria-dense' in services
 
     legacy = services['victoria-legacy']
     # The version that last wrote the directory: a newer one migrates its index, with no way back

@@ -6,7 +6,6 @@ import json
 import math
 import os
 from datetime import datetime, timedelta, timezone
-from functools import partial
 from pathlib import Path
 from subprocess import CalledProcessError
 from typing import List, Optional
@@ -21,149 +20,6 @@ from pytest_mock import MockerFixture
 from brewblox_ctl import const, migration, utils
 
 TESTED = migration.__name__
-
-
-STORE_URL = 'https://localhost/history/datastore'
-
-
-def csv_measurement_stream(cmd):
-    yield 'name,name'
-    yield 'name,s1'
-    yield 'name,s2'
-
-
-def csv_data_stream(opts, cmd):
-    if opts.setdefault('calls', 0) < 3:
-        opts['calls'] += 1
-        yield 'name,time,m_k1,m_k2,m_k3'
-        yield 'sparkey,1626096480000000000,10,20,30'
-        yield 'sparkey,1626096480000000001,11,21,31'
-        yield 'sparkey,1626096480000000002,12,22,32'
-        yield 'sparkey,1626096480000000003,13,23,33'
-        yield ''
-    else:
-        return
-
-
-@pytest.fixture
-def m_actions(mocker: MockerFixture):
-    m = mocker.patch(TESTED + '.actions', autospec=True)
-    return m
-
-
-@pytest.fixture
-def m_utils(m_getenv: Mock, m_read_compose: Mock):
-    m_getenv.return_value = '/usr/local/bin'
-    m_read_compose.side_effect = lambda: {
-        'services': {
-            'spark-one': {
-                'image': 'ghcr.io/brewblox/brewblox-devcon-spark:rpi-edge',
-                'depends_on': ['datastore'],
-            },
-            'plaato': {
-                'image': 'brewblox/brewblox-plaato:rpi-edge',
-            },
-            'automation': {
-                'image': 'brewblox/brewblox-automation:${BREWBLOX_RELEASE}',
-            },
-        }
-    }
-
-
-def test_influx_measurements(m_sh_stream: Mock):
-    m_sh_stream.side_effect = csv_measurement_stream
-
-    assert migration._influx_measurements() == ['s1', 's2']
-
-
-def test_influx_line_count(m_sh: Mock):
-    m_sh.return_value = (
-        '{"results":[{"series":[{"name":"spark-one","columns":["time","count"],"values":[[0,825518]]}]}]}'
-    )
-    assert migration._influx_line_count('spark-one', '') == 825518
-
-    m_sh.return_value = '{"results":[{}]}'
-    assert migration._influx_line_count('spark-one', '') is None
-
-
-def test_copy_influx_measurement_file(mocker: MockerFixture, m_sh: Mock, m_sh_stream: Mock):
-    m_sh_stream.side_effect = partial(csv_data_stream, {})
-    mocker.patch(TESTED + '.NamedTemporaryFile', wraps=migration.NamedTemporaryFile)
-    mocker.patch(TESTED + '._influx_line_count', return_value=1000)
-
-    migration._copy_influx_measurement('sparkey', 'today', '1d', 'file')
-    assert m_sh.call_count == 4
-
-
-@httpretty.activate(allow_net_connect=False)
-def test_copy_influx_measurement_victoria(mocker: MockerFixture, m_sh: Mock, m_sh_stream: Mock):
-    m_sh_stream.side_effect = partial(csv_data_stream, {})
-    mocker.patch(TESTED + '.NamedTemporaryFile', wraps=migration.NamedTemporaryFile)
-    mocker.patch(TESTED + '._influx_line_count', return_value=1000)
-
-    httpretty.register_uri(
-        httpretty.GET,
-        'http://localhost:9600/victoria/write',
-    )
-
-    migration._copy_influx_measurement('sparkey', 'today', '1d', 'victoria')
-    assert len(httpretty.latest_requests()) == 3
-    assert m_sh.call_count == 0
-
-
-def test_copy_influx_measurement_empty(mocker: MockerFixture, m_sh_stream: Mock):
-    def empty(cmd):
-        yield ''
-
-    m_sh_stream.side_effect = empty
-    m_tmp = mocker.patch(TESTED + '.NamedTemporaryFile', wraps=migration.NamedTemporaryFile)
-    mocker.patch(TESTED + '._influx_line_count', return_value=None)
-
-    migration._copy_influx_measurement('sparkey', 'today', '1d', 'file')
-    assert m_tmp.call_count == 0
-
-
-def test_copy_influx_measurement_error(mocker: MockerFixture, m_sh_stream: Mock):
-    m_sh_stream.side_effect = partial(csv_data_stream, {})
-    mocker.patch(TESTED + '.NamedTemporaryFile', wraps=migration.NamedTemporaryFile)
-    mocker.patch(TESTED + '._influx_line_count', return_value=1000)
-
-    with pytest.raises(ValueError):
-        migration._copy_influx_measurement('sparkey', 'today', '1d', 'space magic')
-
-
-def test_migrate_influxdb(mocker: MockerFixture, m_file_exists: Mock):
-    opts = utils.get_opts()
-    m_meas = mocker.patch(TESTED + '._influx_measurements')
-    m_meas.return_value = ['s1', 's2']
-    m_copy = mocker.patch(TESTED + '._copy_influx_measurement')
-
-    # Dry run noop
-    opts.dry_run = True
-    m_file_exists.add_existing_files('./influxdb')
-    migration.migrate_influxdb('victoria', '1d', [])
-    assert m_meas.call_count == 0
-    assert m_copy.call_count == 0
-
-    # No influx data dir found
-    opts.dry_run = False
-    m_file_exists.clear_existing_files()
-    migration.migrate_influxdb('victoria', '1d', [])
-    assert m_meas.call_count == 0
-    assert m_copy.call_count == 0
-
-    # preconditions OK, services predefined
-    opts.dry_run = False
-    m_file_exists.add_existing_files('./influxdb')
-    migration.migrate_influxdb('victoria', '1d', ['s1', 's2', 's3'])
-    assert m_meas.call_count == 0
-    assert m_copy.call_count == 3
-
-    # preconditions OK, services wildcard
-    opts.dry_run = False
-    migration.migrate_influxdb('victoria', '1d', [])
-    assert m_meas.call_count == 1
-    assert m_copy.call_count == 3 + 2
 
 
 def test_migrate_ghcr_images(m_read_compose: Mock, m_write_compose: Mock):
@@ -558,44 +414,35 @@ def test_legacy_history_unmoved(m_file_exists: Mock, files: List[str], expected:
     assert migration.legacy_history_unmoved() is expected
 
 
-def test_legacy_history_unmoved_dense_disabled(m_file_exists: Mock):
-    utils.get_config().victoria.dense_enabled = False
-    m_file_exists.add_existing_files('./victoria')
-    assert not migration.legacy_history_unmoved()
-
-
 @pytest.mark.parametrize(
-    'version, files, dense, expected',
+    'version, files, expected',
     [
-        ('0.11.0', ['./victoria'], True, True),
-        ('0.9.0', ['./victoria'], True, True),
-        ('0.12.0', ['./victoria'], True, False),
-        ('0.13.0', ['./victoria'], True, False),
-        ('0.11.0', ['./victoria', './victoria-legacy'], True, False),
-        ('0.11.0', ['./victoria', './victoria-dense'], True, False),
-        ('0.11.0', [], True, False),
-        ('0.11.0', ['./victoria'], False, False),
+        ('0.11.0', ['./victoria'], True),
+        ('0.9.0', ['./victoria'], True),
+        ('0.12.0', ['./victoria'], False),
+        ('0.13.0', ['./victoria'], False),
+        ('0.11.0', ['./victoria', './victoria-legacy'], False),
+        ('0.11.0', ['./victoria', './victoria-dense'], False),
+        ('0.11.0', [], False),
     ],
 )
-def test_history_move_pending(m_file_exists: Mock, version: str, files: List[str], dense: bool, expected: bool):
-    utils.get_config().victoria.dense_enabled = dense
+def test_history_move_pending(m_file_exists: Mock, version: str, files: List[str], expected: bool):
     m_file_exists.add_existing_files(*files)
     assert migration.history_move_pending(Version(version)) is expected
 
 
 @pytest.mark.parametrize(
-    'env_version, files, dense, expected',
+    'env_version, files, expected',
     [
-        ('0.11.0', ['./victoria'], True, True),
-        ('0.11.0', ['./victoria'], False, False),
-        ('0.11.0', ['./victoria', './victoria-legacy'], True, False),
-        ('0.11.0', ['./victoria', './victoria-dense'], True, False),
-        ('0.11.0', [], True, False),
-        ('0.12.0', ['./victoria'], True, False),
+        ('0.11.0', ['./victoria'], True),
+        ('0.11.0', ['./victoria', './victoria-legacy'], False),
+        ('0.11.0', ['./victoria', './victoria-dense'], False),
+        ('0.11.0', [], False),
+        ('0.12.0', ['./victoria'], False),
         # Without a version, the directory was never set up: its history counts as old
-        (None, ['./victoria'], True, True),
-        ('', ['./victoria'], True, True),
-        (None, ['./victoria', './victoria-dense'], True, False),
+        (None, ['./victoria'], True),
+        ('', ['./victoria'], True),
+        (None, ['./victoria', './victoria-dense'], False),
     ],
 )
 def test_history_update_pending(
@@ -603,10 +450,8 @@ def test_history_update_pending(
     m_file_exists: Mock,
     env_version: Optional[str],
     files: List[str],
-    dense: bool,
     expected: bool,
 ):
-    utils.get_config().victoria.dense_enabled = dense
     m_getenv.return_value = env_version
     m_file_exists.add_existing_files(*files)
     assert migration.history_update_pending() is expected
@@ -614,23 +459,20 @@ def test_history_update_pending(
 
 
 @pytest.mark.parametrize(
-    'version, files, dense, expected',
+    'version, files, expected',
     [
-        ('0.11.0', ['./victoria'], True, True),
-        ('0.11.0', ['./victoria-legacy'], True, True),
+        ('0.11.0', ['./victoria'], True),
+        ('0.11.0', ['./victoria-legacy'], True),
         # Moved by an update that did not finish
-        ('0.11.0', ['./victoria', './victoria-legacy', './victoria-dense'], True, True),
+        ('0.11.0', ['./victoria', './victoria-legacy', './victoria-dense'], True),
         # A restored older .env
-        ('0.11.0', ['./victoria', './victoria-dense'], True, False),
-        ('0.11.0', [], True, False),
-        ('0.12.0', ['./victoria'], True, False),
-        ('0.12.0', ['./victoria', './victoria-legacy', './victoria-dense'], True, False),
-        ('0.11.0', ['./victoria'], False, False),
-        ('0.11.0', ['./victoria-legacy'], False, False),
+        ('0.11.0', ['./victoria', './victoria-dense'], False),
+        ('0.11.0', [], False),
+        ('0.12.0', ['./victoria'], False),
+        ('0.12.0', ['./victoria', './victoria-legacy', './victoria-dense'], False),
     ],
 )
-def test_history_migration_pending(m_file_exists: Mock, version: str, files: List[str], dense: bool, expected: bool):
-    utils.get_config().victoria.dense_enabled = dense
+def test_history_migration_pending(m_file_exists: Mock, version: str, files: List[str], expected: bool):
     m_file_exists.add_existing_files(*files)
     assert migration.history_migration_pending(Version(version)) is expected
 
@@ -821,7 +663,7 @@ def test_legacy_months_unreadable(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 @pytest.mark.parametrize('vanished', ['file', 'part'])
 def test_legacy_months_vanished(tmp_path: Path, mocker: MockerFixture, m_sh: Mock, vanished: str):
     """
-    Before the update, release 1's database still runs: it merges the parts of the current month,
+    Before the update, the legacy database still runs: it merges the parts of the current month,
     and removes the merged ones. Files that disappear during the scan are not counted.
     """
     legacy = tmp_path / 'victoria'
@@ -1619,10 +1461,6 @@ def test_prepare_history_update_not_pending(mocker: MockerFixture, m_file_exists
     assert migration.prepare_history_update(Version('0.12.0')) is None
 
     m_file_exists.add_existing_files('./victoria', './victoria-dense')
-    assert migration.prepare_history_update(Version('0.11.0')) is None
-
-    m_file_exists.add_existing_files('./victoria')
-    utils.get_config().victoria.dense_enabled = False
     assert migration.prepare_history_update(Version('0.11.0')) is None
 
     assert m_months.call_count == 0

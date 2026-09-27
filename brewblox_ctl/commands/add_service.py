@@ -110,7 +110,6 @@ def add_spark(
     utils.check_config()
     utils.confirm_mode()
 
-    sudo = utils.optsudo()
     compose: dict = utils.read_compose()
     discovery_type: DiscoveryType = DiscoveryType[discovery_type]
 
@@ -227,7 +226,6 @@ def add_tilt(yes):
     utils.confirm_mode()
 
     name = 'tilt'
-    sudo = utils.optsudo()
     compose = utils.read_compose()
 
     if not yes:

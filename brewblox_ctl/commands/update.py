@@ -9,6 +9,10 @@ from packaging.version import Version
 from brewblox_ctl import actions, click_helpers, const, migration, utils
 
 
+# Older brewblox-ctl releases can migrate InfluxDB history, from before configuration 0.7.0
+INFLUXDB_DOCS = 'https://brewblox.netlify.app/dev/migration/influxdb.html'
+
+
 @click.group(cls=click_helpers.OrderedGroup)
 def cli():
     """Global command group"""
@@ -133,13 +137,8 @@ def downed_migrate(prev_version):
 
 def upped_migrate(prev_version, legacy_history=None):
     """Migration commands to be executed after the services have been started"""
-    if prev_version < Version('0.7.0'):
-        utils.warn('')
-        utils.warn('Brewblox now uses a new history database.')
-        utils.warn('To migrate your data, run:')
-        utils.warn('')
-        utils.warn('    brewblox-ctl database from-influxdb')
-        utils.warn('')
+    if prev_version < Version('0.7.0') and utils.file_exists('./influxdb/'):
+        utils.warn(f'This brewblox-ctl does not migrate the InfluxDB history in ./influxdb/: see {INFLUXDB_DOCS}')
 
     if legacy_history is not None:
         migration.migrate_history_after_update(legacy_history)

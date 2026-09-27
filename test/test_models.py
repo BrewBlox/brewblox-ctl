@@ -104,7 +104,6 @@ def test_parse_interval_invalid(value: str):
 
 def test_victoria_defaults():
     config = VictoriaConfig()
-    assert config.dense_enabled is True
     assert config.dense_retention == '30d'
     assert config.sparse_interval == '60s'
     assert config.minimum_step == '1s'
@@ -114,10 +113,15 @@ def test_victoria_defaults():
     # A brewblox.yml of before 0.12.0 gets the new fields from the defaults
     config = CtlConfig.model_validate({'victoria': {'retention': '10y'}})
     assert config.victoria.retention == '10y'
-    assert config.victoria.dense_enabled is True
     assert config.victoria.dense_retention == '30d'
     assert config.victoria.sparse_interval == '60s'
     assert config.victoria.minimum_step == '1s'
+
+
+def test_victoria_unknown_keys():
+    # A setting that was removed before it was released is ignored
+    config = CtlConfig.model_validate({'victoria': {'dense_enabled': False}})
+    assert not hasattr(config.victoria, 'dense_enabled')
 
 
 @pytest.mark.parametrize(
@@ -142,12 +146,11 @@ def test_victoria_defaults():
     ],
 )
 def test_victoria_valid(values: dict):
-    config = VictoriaConfig.model_validate({'dense_enabled': True, **values})
+    config = VictoriaConfig.model_validate(values)
     for key, value in values.items():
         assert getattr(config, key) == value
 
 
-@pytest.mark.parametrize('dense_enabled', [True, False])
 @pytest.mark.parametrize(
     ('retention', 'match'),
     [
@@ -164,10 +167,9 @@ def test_victoria_valid(values: dict):
         ('-1', 'The retention period must be at least 1d'),
     ],
 )
-def test_victoria_retention_invalid(dense_enabled: bool, retention: str, match: str):
-    # The long-term retention is checked with or without the dense database
+def test_victoria_retention_invalid(retention: str, match: str):
     with pytest.raises(ValidationError, match=match) as exc_info:
-        VictoriaConfig(dense_enabled=dense_enabled, retention=retention)
+        VictoriaConfig(retention=retention)
     assert exc_info.value.errors()[0]['loc'] == ('retention',)
 
 
@@ -184,7 +186,7 @@ def test_victoria_retention_max(retention: str):
         {'retention': '1000y'},
         {'retention': '1201'},
         {'retention': '1300M'},
-        {'dense_enabled': True, 'dense_retention': '200y'},
+        {'dense_retention': '200y'},
     ],
 )
 def test_victoria_retention_above_max(values: dict):
@@ -229,35 +231,12 @@ def test_victoria_retention_above_max(values: dict):
 )
 def test_victoria_dense_invalid(values: dict, match: str):
     with pytest.raises(ValidationError, match=match):
-        VictoriaConfig.model_validate({'dense_enabled': True, **values})
+        VictoriaConfig.model_validate(values)
 
     # utils.get_config() reads brewblox.yml as CtlConfig
     with pytest.raises(ValidationError, match=match) as exc_info:
         CtlConfig.model_validate({'victoria': values})
     assert exc_info.value.errors()[0]['loc'][0] == 'victoria'
-
-
-@pytest.mark.parametrize(
-    'values',
-    [
-        {'minimum_step': '0s'},
-        {'sparse_interval': '0s'},
-        {'minimum_step': '45s'},
-        {'minimum_step': '120s'},
-        {'sparse_interval': '15s', 'minimum_step': '10s'},
-        {'sparse_interval': '5s', 'minimum_step': '1s'},
-        {'sparse_interval': '9s'},
-        {'dense_retention': '23h'},
-        {'dense_retention': '0'},
-        {'dense_retention': '-1'},
-    ],
-)
-def test_victoria_dense_disabled(values: dict):
-    # History checks these only with the dense database, and must start whatever they are
-    config = VictoriaConfig.model_validate({'dense_enabled': False, **values})
-    assert config.dense_enabled is False
-    for key, value in values.items():
-        assert getattr(config, key) == value
 
 
 @pytest.mark.parametrize(
@@ -270,10 +249,9 @@ def test_victoria_dense_disabled(values: dict):
         {'dense_retention': 'x'},
     ],
 )
-def test_victoria_dense_disabled_unreadable(values: dict):
-    # History reads the formats with or without the dense database
+def test_victoria_unreadable(values: dict):
     with pytest.raises(ValidationError):
-        VictoriaConfig.model_validate({'dense_enabled': False, **values})
+        VictoriaConfig.model_validate(values)
 
 
 @pytest.mark.parametrize('value', ['1s', '10s', '500ms', '1m30s', '0', '1.5s'])
