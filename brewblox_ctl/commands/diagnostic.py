@@ -66,6 +66,7 @@ def log(add_compose, add_system, upload):
         - Append service logs.
         - Append content of docker-compose.yml (optional).
         - Append content of docker-compose.shared.yml (optional).
+        - Append history status.
         - Append blocks from Spark services.
         - Append system diagnostics.
         - Upload file to termbin.com for shareable link (optional).
@@ -121,6 +122,15 @@ def log(add_compose, add_system, upload):
     else:
         utils.info('Skipping docker compose configuration ...')
 
+    # Add history status
+    # The downsampler age is the only sign of a broken downsampler, while graphs read the dense database
+    utils.info('Writing history status ...')
+    header('History')
+    append(f'{const.CURL} {utils.timeseries_url()}/ping')
+    append('echo')
+    append(f'{const.CURL} {utils.timeseries_url()}/migrate')
+    append('echo')
+
     # Add blocks
     host_url = utils.host_url()
     services = utils.list_services('ghcr.io/brewblox/brewblox-devcon-spark')
@@ -140,6 +150,12 @@ def log(add_compose, add_system, upload):
         append('sudo journalctl -u avahi-daemon | tail -100')
         header('disk usage')
         append('df -hl')
+        append('sudo du -sh ./victoria ./victoria-dense ./victoria-legacy')
+        header('host')
+        append("tr -d '\\0' < /proc/device-tree/model")
+        append('echo')
+        append('free -m')
+        append('swapon --show')
         header('/var/log/syslog')
         append('sudo tail -n 500 /var/log/syslog')
         header('dmesg')

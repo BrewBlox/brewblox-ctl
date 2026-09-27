@@ -10,7 +10,7 @@ from contextlib import closing, suppress
 from copy import deepcopy
 from pathlib import Path
 from subprocess import CalledProcessError
-from typing import Iterable
+from typing import Iterable, Optional
 
 import jinja2
 import psutil
@@ -18,7 +18,12 @@ from configobj import ConfigObj
 from packaging.version import Version
 
 from . import const, utils
-from .models import CtlConfig
+from .models import CtlConfig, HostProfile
+
+# Hosts with less memory, or a 32-bit ARM system, are small
+SMALL_HOST_MEMORY = 1.5 * 2**30
+# Hosts with at least this memory, or an x86 system, are large
+LARGE_HOST_MEMORY = 3 * 2**30
 
 JINJA_ENV = jinja2.Environment(
     loader=jinja2.PackageLoader('brewblox_ctl'),
@@ -44,7 +49,8 @@ def make_config_dirs():
         './traefik/dynamic',
         './auth',
         './redis',
-        './victoria',
+        const.VICTORIA_DIR,
+        const.VICTORIA_DENSE_DIR,
         './mosquitto',
         './spark/backup',
     ]
@@ -124,12 +130,37 @@ def make_traefik_config():
     utils.write_file('./traefik/dynamic/brewblox-provider.yml', content)
 
 
-def make_shared_compose():
+def host_profile() -> HostProfile:
+    """
+    Settings of the history databases for this host.
+
+    By default, each database sizes its caches from a share of the host's memory,
+    which is too much for three databases on a 1 GB Raspberry Pi.
+    """
+    memory = utils.total_memory_bytes()
+    if memory < SMALL_HOST_MEMORY or utils.is_armv7():
+        return HostProfile(small=True, memory_allowed_bytes='96MB', max_concurrent_requests=2)
+    if memory < LARGE_HOST_MEMORY and not utils.is_x86():
+        return HostProfile(small=False, memory_allowed_bytes='128MB', max_concurrent_requests=4)
+    return HostProfile(small=False, memory_allowed_bytes='256MB', max_concurrent_requests=4)
+
+
+def make_shared_compose(legacy_history: Optional[bool] = None):
     config = utils.get_config()
+
+    # The legacy database is served until its directory is removed
+    if legacy_history is None:
+        legacy_history = utils.file_exists(const.VICTORIA_LEGACY_DIR)
 
     utils.info('Generating docker-compose.shared.yml ...')
     template = JINJA_ENV.get_template('docker-compose.shared.yml.j2')
-    content = template.render(config=config)
+    content = template.render(
+        config=config,
+        profile=host_profile(),
+        legacy_history=legacy_history,
+        victoria_image=const.VICTORIA_IMAGE,
+        victoria_legacy_image=const.VICTORIA_LEGACY_IMAGE,
+    )
     utils.write_file('./docker-compose.shared.yml', content)
 
 

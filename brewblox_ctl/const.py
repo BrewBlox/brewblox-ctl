@@ -12,11 +12,30 @@ CURL_WAIT = f'{CURL} --fail --retry 60 --max-time 5 --retry-all-errors --retry-d
 
 # The configuration version installed by brewblox-ctl
 # This is written to .env during updates
-CFG_VERSION = '0.11.0'
+CFG_VERSION = '0.12.0'
 
 # Docker before 20.10.10 blocks the clone3 system call instead of reporting it as unsupported.
 # The glibc in Brewblox images uses clone3 to start threads, so services fail on older versions.
 MIN_DOCKER_VERSION = '20.10.10'
+
+# The configuration version that splits history into a long-term and a dense database
+HISTORY_DENSE_VERSION = '0.12.0'
+
+# History database images. The legacy database stays on the version that wrote it:
+# from v1.133 on, Victoria Metrics migrates the index of older data, which older versions cannot read.
+VICTORIA_IMAGE = 'victoriametrics/victoria-metrics:v1.152.0'
+VICTORIA_LEGACY_IMAGE = 'victoriametrics/victoria-metrics:v1.129.1'
+
+# History database directories
+VICTORIA_DIR = './victoria'
+VICTORIA_DENSE_DIR = './victoria-dense'
+# The database from before configuration version 0.12.0, kept apart until its history is migrated
+VICTORIA_LEGACY_DIR = './victoria-legacy'
+# The legacy database as the history service reaches it on the Docker network
+VICTORIA_LEGACY_URL = 'http://victoria-legacy:8428/victoria-legacy'
+# The history migration's state in the datastore
+MIGRATION_NAMESPACE = 'brewblox-history'
+MIGRATION_ID = 'migration'
 
 # Keys to used environment variables
 ENV_KEY_CFG_VERSION = 'BREWBLOX_CFG_VERSION'

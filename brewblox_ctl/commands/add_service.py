@@ -6,7 +6,7 @@ from typing import Optional
 
 import click
 
-from brewblox_ctl import actions, click_helpers, utils
+from brewblox_ctl import actions, click_helpers, migration, utils
 from brewblox_ctl.discovery import DiscoveryType, choose_device, find_device_by_host, list_devices
 
 
@@ -200,8 +200,11 @@ def add_spark(
             click.echo('USB discovery requires the USB proxy service.')
             if utils.confirm('Do you want to enable the USB proxy in brewblox.yml?'):
                 utils.update_config({'usb_proxy': {'enabled': True}})
-                actions.make_shared_compose()
-                click.echo('USB proxy enabled.')
+                if migration.history_update_pending():
+                    click.echo('USB proxy enabled in brewblox.yml. Run `brewblox-ctl update` to apply it.')
+                else:
+                    actions.make_shared_compose()
+                    click.echo('USB proxy enabled.')
 
     click.echo(f'Added Spark service `{name}`.')
     click.echo('It will automatically show up in the UI.\n')

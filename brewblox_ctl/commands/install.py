@@ -6,7 +6,7 @@ from time import sleep
 
 import click
 
-from .. import actions, click_helpers, const, utils
+from .. import actions, click_helpers, const, migration, utils
 from . import snapshot
 
 
@@ -33,6 +33,8 @@ class InstallOptions:
         self.init_auth: bool = True
         self.init_datastore: bool = True
         self.init_history: bool = True
+        self.move_legacy_history: bool = False
+        self.discard_migration: bool = False
         self.init_gateway: bool = True
         self.init_eventbus: bool = True
 
@@ -126,10 +128,20 @@ class InstallOptions:
                 'This directory already contains Redis datastore files. ' + 'Do you want to keep them?'
             )
 
-        if utils.file_exists('./victoria/'):
+        if any(utils.file_exists(d) for d in [const.VICTORIA_DIR, const.VICTORIA_DENSE_DIR, const.VICTORIA_LEGACY_DIR]):
             self.init_history = not utils.confirm(
                 'This directory already contains Victoria history files. ' + 'Do you want to keep them?'
             )
+
+        # History from before configuration version 0.12.0 must be migrated
+        self.move_legacy_history = not self.init_history and migration.history_move_pending(migration.cfg_version())
+        if self.move_legacy_history:
+            migration.check_legacy_movable()
+
+        # The kept datastore may hold the state of a migration whose legacy history is removed
+        self.discard_migration = (
+            self.init_history and not self.init_datastore and utils.file_exists(const.VICTORIA_LEGACY_DIR)
+        )
 
         if utils.file_exists('./traefik/'):
             self.init_gateway = not utils.confirm(
@@ -182,7 +194,8 @@ def install(ctx: click.Context, snapshot_file):
             - Check for port conflicts.
             - Create docker compose configuration files.
             - Create datastore (Redis) directory.
-            - Create history (Victoria) directory.
+            - Create history (Victoria) directories.
+            - Or move history from before 0.12.0 to ./victoria-legacy.
             - Create gateway (Traefik) directory.
             - Create SSL certificates.
             - Create eventbus (Mosquitto) directory.
@@ -249,6 +262,10 @@ def install(ctx: click.Context, snapshot_file):
         utils.info('Checking for port conflicts ...')
         actions.check_ports()
 
+        # The services are stopped: move the history before a new configuration can open it
+        if opts.move_legacy_history:
+            migration.move_legacy_history()
+
         if opts.init_compose:
             utils.sh('rm -f ./docker-compose.yml')
 
@@ -259,7 +276,7 @@ def install(ctx: click.Context, snapshot_file):
         # Stop after we're sure we have a compose file
         if utils.is_compose_up():
             utils.info('Stopping services ...')
-            utils.docker_down('--remove-orphans')
+            utils.docker_down(['--remove-orphans'])
 
         if opts.init_datastore:
             utils.info('Creating datastore directory ...')
@@ -270,8 +287,12 @@ def install(ctx: click.Context, snapshot_file):
             utils.sh('sudo rm -rf ./auth/; mkdir ./auth/')
 
         if opts.init_history:
-            utils.info('Creating history directory ...')
-            utils.sh('sudo rm -rf ./victoria/; mkdir ./victoria/')
+            utils.info('Creating history directories ...')
+            utils.sh(
+                'sudo rm -rf ./victoria/ ./victoria-dense/ ./victoria-legacy/; mkdir ./victoria/ ./victoria-dense/'
+            )
+        else:
+            utils.sh('mkdir -p ./victoria/ ./victoria-dense/')
 
         if opts.init_gateway:
             utils.info('Creating gateway directory ...')
@@ -300,6 +321,19 @@ def install(ctx: click.Context, snapshot_file):
         utils.sh(f'{sudo}docker compose pull')
 
     utils.info('All done!')
+
+    if opts.move_legacy_history:
+        utils.info(f'History from before this install is kept in {const.VICTORIA_LEGACY_DIR}.')
+        utils.info('Once Brewblox runs (`brewblox-ctl up`), migrate it with:')
+        if not opts.init_datastore:
+            # The datastore may hold the state of an earlier migration
+            utils.info(f'    {migration.DISCARD_CMD}')
+        utils.info(f'    {migration.MIGRATE_CMD}')
+
+    if opts.discard_migration:
+        utils.info('The datastore may hold the state of an earlier history migration.')
+        utils.info('Once Brewblox runs (`brewblox-ctl up`), discard it with:')
+        utils.info(f'    {migration.DISCARD_CMD}')
 
     # Reboot
     if opts.reboot_needed:

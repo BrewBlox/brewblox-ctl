@@ -26,7 +26,9 @@ Located by default in `$HOME/brewblox`, the Brewblox installation directory incl
   - `mosquitto/`
   - `traefik/`
   - `redis/`
-  - `victoria/`
+  - `victoria/`: long-term history.
+  - `victoria-dense/`: recent raw history.
+  - `victoria-legacy/`: history from before configuration version 0.12.0, until it is migrated and removed with `brewblox-ctl database remove-legacy-history`.
 - `backup/`: contains zipped configuration backups.
 - `brewblox-ctl.tar.gz`: the sdist tarball for the last installed brewblox-ctl package.
 

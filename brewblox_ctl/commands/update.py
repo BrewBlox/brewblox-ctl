@@ -104,6 +104,10 @@ def bind_spark_backup():
 
 def downed_migrate(prev_version):
     """Migration commands to be executed without any running services"""
+    # Before the new configuration is generated: it must not open the old history
+    if migration.history_move_pending(prev_version):
+        migration.move_legacy_history()
+
     actions.make_dotenv(version=prev_version)
     actions.make_config_dirs()
     actions.make_tls_certificates()
@@ -127,7 +131,7 @@ def downed_migrate(prev_version):
     bind_spark_backup()
 
 
-def upped_migrate(prev_version):
+def upped_migrate(prev_version, legacy_history=None):
     """Migration commands to be executed after the services have been started"""
     if prev_version < Version('0.7.0'):
         utils.warn('')
@@ -136,6 +140,9 @@ def upped_migrate(prev_version):
         utils.warn('')
         utils.warn('    brewblox-ctl database from-influxdb')
         utils.warn('')
+
+    if legacy_history is not None:
+        migration.migrate_history_after_update(legacy_history)
 
 
 @cli.command()
@@ -151,7 +158,7 @@ def upped_migrate(prev_version):
     help='[ADVANCED] Override version number of active configuration.',
 )
 def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
-    r"""Download and apply updates.
+    """Download and apply updates.
 
     This is the one-stop-shop for updating your Brewblox install.
     You can use any of the options to fine-tune the update by enabling or disabling subroutines.
@@ -163,7 +170,7 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
     and then restart itself. This way, the migrate is done with the latest version of brewblox-ctl.
 
     If you're using dry run mode, you'll notice the hidden option --update-ctl-done.
-    You can use it to watch the rest of the update: it\'s a flag to avoid endless loops.
+    You can use it to watch the rest of the update: it's a flag to avoid endless loops.
 
     --pull/--no-pull. Whether to pull docker images.
     This is useful if any of your services is using a local image (not from Docker Hub).
@@ -179,6 +186,8 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
     Steps:
         - Check whether any system fixes must be applied.
         - Update brewblox-ctl.
+        - Check the disk space for the history migration.
+        - Pull the images of the new history databases.
         - Stop services.
         - Update Avahi config.
         - Update system packages.
@@ -188,6 +197,7 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
         - Prune unused Docker images and volumes.
         - Start services.
         - Migrate service configuration.
+        - Offer to start the history migration.
         - Write version number to .env file.
     """
     utils.check_config()
@@ -277,6 +287,13 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
 
     actions.install_compose_plugin()
 
+    # Before anything changes: aborting here leaves the system as it was
+    legacy_history = None
+    if migrate:
+        legacy_history = migration.prepare_history_update(prev_version)
+        if pull and prev_version < Version(const.HISTORY_DENSE_VERSION):
+            migration.pull_history_images()
+
     utils.info('Stopping services ...')
     utils.docker_down()
 
@@ -300,8 +317,11 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
             # Don't leave the services down
             utils.error(f'Failed to pull docker images: {utils.strex(ex)}')
             utils.info('Starting services with the images already present ...')
-            utils.docker_up()
-            utils.error('The update did not finish. Fix the problem above, and run brewblox-ctl update again.')
+            try:
+                utils.docker_up()
+            finally:
+                # Also when the services fail to start
+                utils.error('The update did not finish. Fix the problem above, and run brewblox-ctl update again.')
             raise SystemExit(1) from ex
 
     if prune:
@@ -314,7 +334,7 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
     utils.docker_up()
 
     if migrate:
-        upped_migrate(prev_version)
+        upped_migrate(prev_version, legacy_history)
         utils.info(f'Configuration version: {prev_version} -> {shipped_version}')
         utils.setenv(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
 

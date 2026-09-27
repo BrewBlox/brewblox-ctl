@@ -36,9 +36,13 @@ services:
         source: ./mosquitto
         target: /mosquitto/include
 
+  # The long-term history database.
+  # With victoria.dense_enabled, it holds the averages of every victoria.sparse_interval.
   victoria:
-    image: victoriametrics/victoria-metrics:v1.129.1
+    image: {{ victoria_image }}
     restart: unless-stopped
+    # A graceful stop writes the samples in memory to disk
+    stop_grace_period: 30s
     command: --envflag.enable=true --envflag.prefix=VM_
     labels:
       - traefik.http.services.victoria.loadbalancer.server.port=8428
@@ -47,10 +51,65 @@ services:
       - VM_influxMeasurementFieldSeparator=/
       - VM_retentionPeriod={{ config.victoria.retention }}
       - VM_search_latencyOffset={{ config.victoria.search_latency }}
+      - VM_dedup_minScrapeInterval=1ms
+      - VM_inmemoryDataFlushInterval=10m
+      - VM_memory_allowedBytes={{ profile.memory_allowed_bytes }}
+      - VM_search_maxConcurrentRequests={{ profile.max_concurrent_requests }}
+      - VM_search_maxWorkersPerQuery=2
+      - VM_search_inmemoryBufSizeBytes=4MB
     volumes:
       - type: bind
         source: ./victoria
         target: /victoria-metrics-data
+
+{% if config.victoria.dense_enabled %}
+  # Every raw history sample, kept for victoria.dense_retention
+  victoria-dense:
+    image: {{ victoria_image }}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    command: --envflag.enable=true --envflag.prefix=VM_
+    labels:
+      - traefik.http.services.victoria-dense.loadbalancer.server.port=8428
+    environment:
+      - VM_http_pathPrefix=/victoria-dense
+      - VM_influxMeasurementFieldSeparator=/
+      - VM_retentionPeriod={{ config.victoria.dense_retention }}
+      - VM_search_latencyOffset={{ config.victoria.search_latency }}
+      - VM_dedup_minScrapeInterval=1ms
+      - VM_inmemoryDataFlushInterval=5m
+      - VM_memory_allowedBytes={{ profile.memory_allowed_bytes }}
+      - VM_search_maxConcurrentRequests={{ profile.max_concurrent_requests }}
+      - VM_search_maxWorkersPerQuery=2
+      - VM_search_inmemoryBufSizeBytes=4MB
+    volumes:
+      - type: bind
+        source: ./victoria-dense
+        target: /victoria-metrics-data
+{% endif %}
+
+{% if legacy_history %}
+  # The history database from before configuration version 0.12.0, until its history is migrated.
+  # No history is written to it, and it stays on the version that wrote it.
+  victoria-legacy:
+    image: {{ victoria_legacy_image }}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    command: --envflag.enable=true --envflag.prefix=VM_
+    labels:
+      - traefik.http.routers.victoria-legacy.entrypoints=admin
+      - traefik.http.services.victoria-legacy.loadbalancer.server.port=8428
+    environment:
+      - VM_http_pathPrefix=/victoria-legacy
+      - VM_influxMeasurementFieldSeparator=/
+      - VM_retentionPeriod=100y
+      - VM_memory_allowedBytes={{ profile.memory_allowed_bytes }}
+      - VM_search_maxConcurrentRequests={{ profile.max_concurrent_requests }}
+    volumes:
+      - type: bind
+        source: ./victoria-legacy
+        target: /victoria-metrics-data
+{% endif %}
 
   redis:
     image: redis:7.4
@@ -66,6 +125,11 @@ services:
   history:
     image: ghcr.io/brewblox/brewblox-history:${BREWBLOX_RELEASE}
     restart: unless-stopped
+    environment:
+      - BREWBLOX_HISTORY_DENSE_ENABLED={{ config.victoria.dense_enabled }}
+      - BREWBLOX_HISTORY_DENSE_RETENTION={{ config.victoria.dense_retention }}
+      - BREWBLOX_HISTORY_SPARSE_INTERVAL={{ config.victoria.sparse_interval }}
+      - BREWBLOX_HISTORY_MINIMUM_STEP={{ config.victoria.minimum_step }}
     volumes:
       - type: bind
         source: /etc/localtime

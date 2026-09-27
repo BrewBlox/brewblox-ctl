@@ -187,6 +187,37 @@ def is_armv6() -> bool:
     return platform.machine().startswith('armv6')
 
 
+def is_armv7() -> bool:
+    return platform.machine().startswith('armv7')
+
+
+def is_x86() -> bool:
+    return platform.machine().lower() in ['x86_64', 'amd64', 'i386', 'i686']
+
+
+def total_memory_bytes() -> int:
+    """MemTotal in /proc/meminfo"""
+    return psutil.virtual_memory().total
+
+
+def available_memory_bytes() -> int:
+    """MemAvailable in /proc/meminfo"""
+    return psutil.virtual_memory().available
+
+
+def free_disk_bytes(path: PathLike_ = '.') -> int:
+    """Disk space available to users on the filesystem that holds `path`, as `df` shows it"""
+    return shutil.disk_usage(path).free
+
+
+def is_mount(path: PathLike_) -> bool:
+    return os.path.ismount(path)
+
+
+def is_symlink(path: PathLike_) -> bool:
+    return Path(path).is_symlink()
+
+
 def is_wsl() -> bool:
     return bool(re.match(r'.*(Microsoft|WSL)', platform.version(), flags=re.IGNORECASE))
 
@@ -324,6 +355,14 @@ def sh(cmd: str, check=True, capture=False, silent=False) -> str:
     return result.stdout or ''
 
 
+def sh_read(cmd: str) -> str:
+    """Runs a command that changes nothing, also in dry-run mode, and returns its output"""
+    opts = get_opts()
+    if opts.verbose or opts.dry_run:
+        click.secho(f'{const.LOG_SHELL} {cmd}', fg='magenta', color=opts.color)
+    return run(cmd, shell=True, check=True, text=True, stdout=PIPE, stderr=DEVNULL).stdout
+
+
 def sh_stream(cmd: str) -> Generator[str, None, None]:
     opts = get_opts()
     if opts.verbose or opts.dry_run:
@@ -396,6 +435,10 @@ def history_url() -> str:
 
 def datastore_url() -> str:
     return f'{host_url()}/history/datastore'
+
+
+def timeseries_url() -> str:
+    return f'{host_url()}/history/timeseries'
 
 
 def hostname() -> str:

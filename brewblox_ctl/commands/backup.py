@@ -96,7 +96,9 @@ def save(save_compose, ignore_spark_error):
     utils.info('Exporting datastore')
     resp = requests.post(store_url + '/mget', json={'namespace': '', 'filter': '*'}, verify=False)
     resp.raise_for_status()
-    zipf.writestr('global.redis.json', resp.text)
+    store_data = resp.json()
+    store_data['values'] = [v for v in store_data['values'] if not is_migration_state(v)]
+    zipf.writestr('global.redis.json', json.dumps(store_data))
 
     if save_compose:
         utils.info('Exporting docker-compose.yml')
@@ -125,6 +127,15 @@ def save(save_compose, ignore_spark_error):
     zipf.close()
     click.echo(Path(file).resolve())
     utils.info('Done!')
+
+
+def is_migration_state(value: dict) -> bool:
+    """
+    The history migration's state in the datastore.
+
+    It is not saved or loaded: it describes the history databases, which are not in the backup.
+    """
+    return value.get('namespace') == const.MIGRATION_NAMESPACE and value.get('id') == const.MIGRATION_ID
 
 
 def mset(data):
@@ -226,6 +237,7 @@ def load(archive, load_env, load_compose, load_datastore, load_spark, load_node_
 
         if redis_file in available:
             data = json.loads(zipf.read(redis_file).decode())
+            data['values'] = [v for v in data['values'] if not is_migration_state(v)]
             utils.info(f'Loading {len(data["values"])} entries from Redis datastore')
             mset(data)
 
