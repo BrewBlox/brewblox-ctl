@@ -49,5 +49,5 @@ jobs:
           --container-name ctl
           --sas-token "${{ secrets.CTL_SAS_TOKEN }}"
           --name "${{ env.TAG }}/brewblox-ctl.tar.gz"
-          --file "./dist/brewblox_ctl-1.0.0.tar.gz"
+          --file ./dist/brewblox_ctl-*.tar.gz
           --overwrite
