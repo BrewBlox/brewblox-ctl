@@ -364,11 +364,11 @@ def test_format_bytes(value: float, expected: str):
 @pytest.mark.parametrize(
     'minutes, expected',
     [
-        (1, '~1 min'),
-        (89, '~89 min'),
-        (90, '~2 h'),
-        (125, '~2 h'),
-        (600, '~10 h'),
+        (1, 'up to 1 min'),
+        (89, 'up to 89 min'),
+        (90, 'up to 2 h'),
+        (125, 'up to 2 h'),
+        (600, 'up to 10 h'),
     ],
 )
 def test_format_minutes(minutes: int, expected: str):
@@ -1396,7 +1396,9 @@ def stdout(capsys) -> List[str]:
 def test_print_migration_started(m_info: Mock):
     migration.print_migration_started(utc(2019, 3, 1), 30, 125)
     msgs = messages(m_info)
-    assert 'Graphs fill in backwards from the update: first the last 30 days, then back to 2019-03-01 (~2 h).' in msgs
+    assert (
+        'Graphs fill in backwards from the update: first the last 30 days, then back to 2019-03-01 (up to 2 h).' in msgs
+    )
     assert any('in the background' in m for m in msgs)
     assert any('continues after restarts' in m for m in msgs)
     assert msgs.index(f'    {migration.STATUS_CMD}') < msgs.index(f'    {migration.REMOVE_CMD}')
@@ -1409,7 +1411,7 @@ def test_offer_migration(m_now: Mock, m_confirm: Mock, m_info: Mock, m_sleep: Mo
 
     assert migration.offer_migration(utc(2019, 3, 1), 30) is True
     m_confirm.assert_called_once_with(
-        'Start the history migration in the background? It migrates history since 2019-03-01 (~4 h).'
+        'Start the history migration in the background? It migrates history since 2019-03-01 (up to 4 h).'
     )
     assert json.loads(httpretty.last_request().body) == START_BODY
     assert f'    {migration.STATUS_CMD}' in messages(m_info)
@@ -1424,7 +1426,7 @@ def test_offer_migration_clamped(m_now: Mock, m_confirm: Mock, m_sleep: Mock):
     assert migration.offer_migration(utc(2019, 3, 1), 30) is True
     # 29 days: 26.5 days of 5 s data and 2.5 days of 1 s data
     m_confirm.assert_called_once_with(
-        'Start the history migration in the background? It migrates history since 2026-08-28 (~12 min).'
+        'Start the history migration in the background? It migrates history since 2026-08-28 (up to 12 min).'
     )
     assert json.loads(httpretty.last_request().body) == {
         **START_BODY,
@@ -1643,7 +1645,7 @@ def test_migrate_history_after_update(
     assert events == [
         ('sh', f'{const.CURL_WAIT} {PING_URL}'),
         ('DELETE', {'discard': ['true']}),
-        ('confirm', 'Start the history migration in the background? It migrates history since 2019-03-01 (~4 h).'),
+        ('confirm', 'Start the history migration in the background? It migrates history since 2019-03-01 (up to 4 h).'),
         ('POST', START_BODY),
     ]
     assert m_warn.call_count == 0
@@ -1814,7 +1816,7 @@ def test_migrate_history_after_update_dry_run(m_now: Mock, m_sh: Mock, m_confirm
     m_confirm.return_value = True
     migration.migrate_history_after_update(LEGACY)
     assert httpretty.latest_requests() == []
-    m_sh.assert_called_once_with(f'{const.CURL_WAIT} {PING_URL}')
+    m_sh.assert_called_once_with(f'{const.CURL_WAIT} {PING_URL}', silent=True)
     assert m_confirm.call_count == 1
     assert DENSE_NOTICE in messages(m_info)
 

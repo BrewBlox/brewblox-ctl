@@ -768,7 +768,8 @@ def test_update_history_legacy_declined(
 ):
     make_partitions(real_history / 'victoria', '2024_01')
     m_file_exists.add_existing_files(const.CONFIG_FILE, './victoria')
-    m_confirm.return_value = False
+    # Continue with the update, but do not start the migration
+    m_confirm.side_effect = lambda question, *args, **kwargs: 'continue' in question
     register_migrate()
 
     invoke(update.update, f'--from-version 0.11.0 {UPDATE_ARGS}')
@@ -791,7 +792,8 @@ def test_update_history_discard_fails(
     invoke(update.update, f'--from-version 0.11.0 {UPDATE_ARGS}')
 
     assert all(method == 'DELETE' for method, _ in migrate_requests())
-    m_confirm.assert_not_called()
+    # Only the question before the update: the migration is not offered
+    m_confirm.assert_called_once_with('Do you want to continue with the update?')
     m_warn.assert_any_call(f'    {migration.DISCARD_CMD}')
     m_warn.assert_any_call(f'    {migration.MIGRATE_CMD}')
     m_setenv.assert_called_once_with(const.ENV_KEY_CFG_VERSION, const.CFG_VERSION)
@@ -871,3 +873,29 @@ def test_update_history_mount_point(
     assert not any('compose' in entry for entry in update_log)
     assert MOVE_CMD not in update_log
     assert m_error.call_count > 0
+
+
+def test_update_history_explained(real_history: Path, update_log: List[str], m_file_exists: Mock, m_confirm: Mock):
+    """Before anything changes, the update says why history moves, and asks to continue"""
+    make_partitions(real_history / 'victoria', '2024_01')
+    m_file_exists.add_existing_files(const.CONFIG_FILE, './victoria')
+    m_confirm.return_value = False
+
+    result = invoke(update.update, f'--from-version 0.11.0 {UPDATE_ARGS}', _err=True)
+
+    assert result.exit_code == 1
+    assert 'History moves to two databases (configuration version 0.12.0):' in result.stdout
+    assert '1. Moves your history to ./victoria-legacy, unchanged.' in result.stdout
+    m_confirm.assert_called_once_with('Do you want to continue with the update?')
+    # Nothing changed: no pull, no down, no move
+    assert not any('docker' in entry or entry.startswith('mv ') for entry in update_log)
+
+
+def test_update_configuration_version(update_log: List[str], m_file_exists: Mock, m_info: Mock):
+    m_file_exists.add_existing_files(const.CONFIG_FILE)
+    invoke(update.update, f'--from-version 0.11.0 {UPDATE_ARGS}')
+    m_info.assert_any_call(f'Updating the configuration from version 0.11.0 to {const.CFG_VERSION} ...')
+
+    m_info.reset_mock()
+    invoke(update.update, f'--from-version {const.CFG_VERSION} {UPDATE_ARGS}')
+    assert not any('Updating the configuration' in c.args[0] for c in m_info.call_args_list)

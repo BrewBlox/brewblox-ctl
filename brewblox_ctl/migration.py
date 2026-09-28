@@ -227,9 +227,10 @@ def format_bytes(value: float) -> str:
 
 
 def format_minutes(minutes: int) -> str:
+    # The estimate is for a slow host: others are done sooner
     if minutes < 90:
-        return f'~{minutes} min'
-    return f'~{round(minutes / 60)} h'
+        return f'up to {minutes} min'
+    return f'up to {round(minutes / 60)} h'
 
 
 def format_date(value: datetime) -> str:
@@ -752,6 +753,33 @@ def offer_migration(earliest: datetime, dense_days: int) -> bool:
     return True
 
 
+def explain_history_update(moving: bool):
+    """Why history moves to two databases, and what the update does with it"""
+    victoria = utils.get_config().victoria
+    legacy = const.VICTORIA_LEGACY_DIR
+    lines = [
+        '',
+        f'History moves to two databases (configuration version {const.HISTORY_DENSE_VERSION}):',
+        f'  - {const.VICTORIA_DENSE_DIR} keeps every value as it was logged, for {victoria.dense_retention}.',
+        f'  - {const.VICTORIA_DIR} keeps averages of every {victoria.sparse_interval}, for {victoria.retention}.',
+        'Graphs of recent days show every value, and graphs of months or years stay fast.',
+        'Long-term history takes far less disk space than when every value is kept,',
+        'and both databases write to disk less often, which spares SD cards.',
+        '',
+        'This update:',
+        f'  1. Moves your history to {legacy}, unchanged.'
+        if moving
+        else f'  1. Keeps your history in {legacy}: an earlier update moved it there.',
+        '  2. Creates the new databases.',
+        '  3. When the services run again, offers to migrate your history in the background:',
+        f'     the last {MIGRATION_DENSE_DAYS} days with every value, and older history as averages.',
+        f'Your history from before the update stays in {legacy} until you remove it.',
+        '',
+    ]
+    for line in lines:
+        click.echo(line)
+
+
 def prepare_history_update(prev_version: Version) -> Optional[LegacyHistory]:
     """
     Before the update changes anything: check the history migration.
@@ -765,11 +793,13 @@ def prepare_history_update(prev_version: Version) -> Optional[LegacyHistory]:
     if not history_migration_pending(prev_version):
         return None
 
-    if history_move_pending(prev_version):
-        utils.info(
-            f'This update moves your history to {const.VICTORIA_LEGACY_DIR}, creates new history databases, '
-            + 'and offers to migrate the history in the background.'
-        )
+    moving = history_move_pending(prev_version)
+    explain_history_update(moving)
+    if not utils.confirm('Do you want to continue with the update?'):
+        utils.info('Nothing changed.')
+        raise SystemExit(1)
+
+    if moving:
         check_legacy_movable()
         legacy_dir = const.VICTORIA_DIR
     else:  # moved by an update that did not finish
@@ -810,7 +840,8 @@ def migrate_history_after_update(legacy: LegacyHistory):
 
     utils.info('Waiting for the history service ...')
     try:
-        utils.sh(f'{const.CURL_WAIT} {utils.datastore_url()}/ping')
+        # It answers errors while it starts: only the outcome matters
+        utils.sh(f'{const.CURL_WAIT} {utils.datastore_url()}/ping', silent=True)
     except CalledProcessError:
         utils.warn('The history service did not answer, and the history migration did not start.')
         utils.warn('To see why, run `brewblox-ctl follow history`. Once it runs, start the migration with:')

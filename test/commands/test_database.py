@@ -207,7 +207,7 @@ def test_migrate_history_new(
 
     # The confirm prompt shows the first date migrated, and an estimate
     m_confirm.assert_called_once_with(
-        'Start the history migration in the background? It migrates history since 2024-03-01 (~2 h).'
+        'Start the history migration in the background? It migrates history since 2024-03-01 (up to 2 h).'
     )
 
     assert sent() == [('GET', MIGRATE_PATH), ('POST', MIGRATE_PATH)]
@@ -764,10 +764,10 @@ def test_migrate_history_post_not_answering(
     'dense_days, armv7, memory, estimate',
     [
         # 939.5 days of 5 s data, 2.5 of them at 1 s: 2 * (937 * 7 + 2.5 * 17) s, plus 20 min for 30 dense days
-        (30, False, 4 * GiB, '~2 h'),  # 5761 s: 97 min
-        (30, True, 4 * GiB, '~4 h'),  # Small: 14403 s, 241 min
-        (30, False, 1 * GiB, '~4 h'),
-        (0, False, 4 * GiB, '~89 min'),  # 13203 s / 2.5: 5281.2 s, 88.02 min
+        (30, False, 4 * GiB, 'up to 2 h'),  # 5761 s: 97 min
+        (30, True, 4 * GiB, 'up to 4 h'),  # Small: 14403 s, 241 min
+        (30, False, 1 * GiB, 'up to 4 h'),
+        (0, False, 4 * GiB, 'up to 89 min'),  # 13203 s / 2.5: 5281.2 s, 88.02 min
     ],
 )
 def test_migrate_history_estimate(
