@@ -20,10 +20,11 @@ if [[ -z "${AZURE_STORAGE_SAS_TOKEN:-}" ]]; then
     exit 1
 fi
 
+rm -rf ./dist
 uv build --sdist
 
 az storage blob upload \
     --account-name brewblox \
     --container-name ctl \
     --name "${TAG}/brewblox-ctl.tar.gz" \
-    --file "./dist/brewblox_ctl-1.0.0.tar.gz"
+    --file ./dist/brewblox_ctl-*.tar.gz
