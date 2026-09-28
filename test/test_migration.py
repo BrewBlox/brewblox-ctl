@@ -364,11 +364,11 @@ def test_format_bytes(value: float, expected: str):
 @pytest.mark.parametrize(
     'minutes, expected',
     [
-        (1, '~1 min'),
-        (89, '~89 min'),
-        (90, '~2 h'),
-        (125, '~2 h'),
-        (600, '~10 h'),
+        (1, 'up to 1 min'),
+        (89, 'up to 89 min'),
+        (90, 'up to 2 h'),
+        (125, 'up to 2 h'),
+        (600, 'up to 10 h'),
     ],
 )
 def test_format_minutes(minutes: int, expected: str):
@@ -1396,7 +1396,9 @@ def stdout(capsys) -> List[str]:
 def test_print_migration_started(m_info: Mock):
     migration.print_migration_started(utc(2019, 3, 1), 30, 125)
     msgs = messages(m_info)
-    assert 'Graphs fill in backwards from the update: first the last 30 days, then back to 2019-03-01 (~2 h).' in msgs
+    assert (
+        'Graphs fill in backwards from the update: first the last 30 days, then back to 2019-03-01 (up to 2 h).' in msgs
+    )
     assert any('in the background' in m for m in msgs)
     assert any('continues after restarts' in m for m in msgs)
     assert msgs.index(f'    {migration.STATUS_CMD}') < msgs.index(f'    {migration.REMOVE_CMD}')
@@ -1409,7 +1411,7 @@ def test_offer_migration(m_now: Mock, m_confirm: Mock, m_info: Mock, m_sleep: Mo
 
     assert migration.offer_migration(utc(2019, 3, 1), 30) is True
     m_confirm.assert_called_once_with(
-        'Start the history migration in the background? It migrates history since 2019-03-01 (~4 h).'
+        'Start the history migration in the background? It migrates history since 2019-03-01 (up to 4 h).'
     )
     assert json.loads(httpretty.last_request().body) == START_BODY
     assert f'    {migration.STATUS_CMD}' in messages(m_info)
@@ -1424,7 +1426,7 @@ def test_offer_migration_clamped(m_now: Mock, m_confirm: Mock, m_sleep: Mock):
     assert migration.offer_migration(utc(2019, 3, 1), 30) is True
     # 29 days: 26.5 days of 5 s data and 2.5 days of 1 s data
     m_confirm.assert_called_once_with(
-        'Start the history migration in the background? It migrates history since 2026-08-28 (~12 min).'
+        'Start the history migration in the background? It migrates history since 2026-08-28 (up to 12 min).'
     )
     assert json.loads(httpretty.last_request().body) == {
         **START_BODY,
@@ -1643,7 +1645,7 @@ def test_migrate_history_after_update(
     assert events == [
         ('sh', f'{const.CURL_WAIT} {PING_URL}'),
         ('DELETE', {'discard': ['true']}),
-        ('confirm', 'Start the history migration in the background? It migrates history since 2019-03-01 (~4 h).'),
+        ('confirm', 'Start the history migration in the background? It migrates history since 2019-03-01 (up to 4 h).'),
         ('POST', START_BODY),
     ]
     assert m_warn.call_count == 0
@@ -1814,7 +1816,7 @@ def test_migrate_history_after_update_dry_run(m_now: Mock, m_sh: Mock, m_confirm
     m_confirm.return_value = True
     migration.migrate_history_after_update(LEGACY)
     assert httpretty.latest_requests() == []
-    m_sh.assert_called_once_with(f'{const.CURL_WAIT} {PING_URL}')
+    m_sh.assert_called_once_with(f'{const.CURL_WAIT} {PING_URL}', silent=True)
     assert m_confirm.call_count == 1
     assert DENSE_NOTICE in messages(m_info)
 
@@ -1931,3 +1933,49 @@ def test_copy_legacy_history_fails(m_sh: Mock, m_error: Mock):
         'SUDO docker compose start victoria-legacy',
     ]
     m_error.assert_called_with('Nothing was removed, and /media/usb stick/victoria-legacy was removed again.')
+
+
+INTERVAL_CHANGED = [
+    'The history migration stopped: it started with a sparse_interval of 60s, and now it is 30s.',
+    'To resume it where it stopped, set `victoria.sparse_interval` back to 60s in brewblox.yml, and run:',
+    '    brewblox-ctl config apply',
+    'Or discard it, and start again at 30s. The averages already made at 60s stay:',
+    f'    {migration.DISCARD_CMD}',
+    f'    {migration.MIGRATE_CMD}',
+]
+
+
+@pytest.mark.parametrize(
+    'status',
+    [
+        make_status(running=False, last_error='The migration started with sparse_interval 60s, now it is 30s'),
+        # Cancelled: a resume would be refused
+        make_status(running=False, cancelled=True),
+        # After a restart of history, before it wrote the reason
+        make_status(running=False),
+    ],
+)
+def test_print_migration_status_interval_changed(capsys, m_get_config, m_file_exists: Mock, status: dict):
+    """Setting the interval back resumes the migration: the status offers that, and the discard"""
+    m_get_config.victoria.sparse_interval = '30s'
+    m_file_exists.add_existing_files(const.VICTORIA_LEGACY_DIR)
+    migration.print_migration_status(status)
+    assert stdout(capsys) == INTERVAL_CHANGED
+
+
+def test_print_migration_status_interval_same(capsys, m_get_config, m_file_exists: Mock):
+    # The other stop (the legacy database grew after a rollback): only a discard gets past it
+    m_get_config.victoria.sparse_interval = '1m'
+    m_file_exists.add_existing_files(const.VICTORIA_LEGACY_DIR)
+    migration.print_migration_status(make_status(running=False, last_error='The legacy database has newer samples'))
+    out = stdout(capsys)
+    assert out[0] == 'The history migration stopped: The legacy database has newer samples'
+    assert 'brewblox-ctl config apply' not in '\n'.join(out)
+    assert out[-2:] == [f'    {migration.DISCARD_CMD}', f'    {migration.MIGRATE_CMD}']
+
+
+def test_print_migration_status_interval_running(capsys, m_get_config, m_file_exists: Mock):
+    # A running migration is not stopped, whatever the configuration says now
+    m_get_config.victoria.sparse_interval = '30s'
+    migration.print_migration_status(make_status())
+    assert 'brewblox-ctl config apply' not in '\n'.join(stdout(capsys))

@@ -289,6 +289,8 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
     # Before anything changes: aborting here leaves the system as it was
     legacy_history = None
     if migrate:
+        if prev_version < shipped_version:
+            utils.info(f'Updating the configuration from version {prev_version} to {shipped_version} ...')
         legacy_history = migration.prepare_history_update(prev_version)
         if pull and prev_version < Version(const.HISTORY_DENSE_VERSION):
             migration.pull_history_images()

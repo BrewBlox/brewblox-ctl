@@ -12,7 +12,7 @@ api:
   dashboard: true
 providers:
   docker:
-    constraints: "LabelRegex(`com.docker.compose.project`, `{{ config.compose.project }}`)"
+    constraints: "Label(`com.docker.compose.project`, `{{ config.compose.project }}`)"
     defaultRule: 'PathPrefix(`/{% raw %}{{ index .Labels "com.docker.compose.service" }}{% endraw %}`)'
   file:
     directory: {{ config.traefik.dynamic_config_dir }}
