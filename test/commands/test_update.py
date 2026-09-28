@@ -669,9 +669,12 @@ def test_upped_migrate(m_migration: Mock):
     update.upped_migrate(Version('0.11.0'))
     update.upped_migrate(Version('0.11.0'), None)
     m_migration.migrate_history_after_update.assert_not_called()
+    # Without a migration to offer, the update shows how far the migration is
+    assert m_migration.remind_legacy_history.call_count == 2
 
     update.upped_migrate(Version('0.11.0'), sentinel.legacy_history)
     m_migration.migrate_history_after_update.assert_called_once_with(sentinel.legacy_history)
+    assert m_migration.remind_legacy_history.call_count == 2
 
 
 @pytest.mark.parametrize(
@@ -821,16 +824,32 @@ def test_update_history_after_partial_update(
 def test_update_history_migration_running(
     real_history: Path, update_log: List[str], m_file_exists: Mock, m_confirm: Mock
 ):
-    """A later update leaves a running migration alone"""
+    """A later update leaves a running migration alone, and shows how far it is"""
     make_partitions(real_history / 'victoria-legacy', '2025_06')
     m_file_exists.add_existing_files(const.CONFIG_FILE, './victoria', './victoria-dense', './victoria-legacy')
     m_confirm.return_value = True
     register_migrate()
+    running = {
+        'phase': 'walk',
+        'running': True,
+        'cancelled': False,
+        'earliest': 1748736000,
+        'sparse_interval': 60,
+        'started': 1790583815,
+        'chunks_done': 30,
+        'chunks_total': 120,
+        'last_error': None,
+    }
+    httpretty.register_uri(
+        httpretty.GET, MIGRATE_URL, body=json.dumps(running), adding_headers={'Content-Type': 'application/json'}
+    )
 
-    invoke(update.update, f'--from-version {const.CFG_VERSION} {UPDATE_ARGS}')
+    result = invoke(update.update, f'--from-version {const.CFG_VERSION} {UPDATE_ARGS}')
 
     assert not any(entry.startswith('mv ') for entry in update_log)
-    assert migrate_requests() == []
+    # Only the status: no discard, no start
+    assert migrate_requests() == [('GET', '/history/timeseries/migrate')]
+    assert '30 of 120 periods done (25%)' in result.stdout
     m_confirm.assert_not_called()
 
 

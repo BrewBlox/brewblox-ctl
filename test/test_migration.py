@@ -361,20 +361,6 @@ def test_format_bytes(value: float, expected: str):
     assert migration.format_bytes(value) == expected
 
 
-@pytest.mark.parametrize(
-    'minutes, expected',
-    [
-        (1, 'up to 1 min'),
-        (89, 'up to 89 min'),
-        (90, 'up to 2 h'),
-        (125, 'up to 2 h'),
-        (600, 'up to 10 h'),
-    ],
-)
-def test_format_minutes(minutes: int, expected: str):
-    assert migration.format_minutes(minutes) == expected
-
-
 def test_format_date():
     assert migration.format_date(utc(2019, 3, 1)) == '2019-03-01'
     assert migration.format_date(utc(2020, 12, 31, 23, 59)) == '2020-12-31'
@@ -942,47 +928,6 @@ def test_clamp_earliest(m_now: Mock, retention: str, earliest: datetime, expecte
     assert migration.clamp_earliest(earliest) == expected
 
 
-@pytest.mark.parametrize(
-    'memory, armv7, earliest, dense_days, expected',
-    [
-        # 30 days: 27.5 days of 5 s data and 2.5 days of 1 s data, twice, and the seed
-        (GiB, False, NOW - timedelta(days=30), 30, 28),
-        (4 * GiB, True, NOW - timedelta(days=30), 30, 28),
-        (4 * GiB, False, NOW - timedelta(days=30), 30, 12),
-        # The seed scales with its days
-        (GiB, False, NOW - timedelta(days=30), 0, 8),
-        (GiB, False, NOW - timedelta(days=30), 60, 48),
-        # Only 1 s data
-        (GiB, False, utc(2026, 9, 24), 0, 2),
-        # 2766.5 days
-        (GiB, False, utc(2019, 3, 1), 30, 667),
-        (4 * GiB, False, utc(2019, 3, 1), 30, 267),
-        # At least a minute
-        (GiB, False, NOW, 0, 1),
-        (GiB, False, NOW + timedelta(days=1), 0, 1),
-    ],
-)
-def test_estimate_minutes(
-    m_now: Mock,
-    m_total_memory_bytes: Mock,
-    m_is_armv7: Mock,
-    memory: int,
-    armv7: bool,
-    earliest: datetime,
-    dense_days: int,
-    expected: int,
-):
-    m_total_memory_bytes.return_value = memory
-    m_is_armv7.return_value = armv7
-    assert migration.estimate_minutes(earliest, dense_days) == expected
-
-
-def test_estimate_minutes_before_1s(m_now: Mock, m_total_memory_bytes: Mock):
-    m_now.return_value = utc(2026, 1, 1)
-    m_total_memory_bytes.return_value = GiB
-    assert migration.estimate_minutes(utc(2025, 1, 1), 0) == 86
-
-
 def test_request(m_request: Mock, m_sleep: Mock):
     m_request.return_value = response(200)
     assert migration._request('GET') is m_request.return_value
@@ -1233,41 +1178,49 @@ MISSING = [f'spark-one/sensor-{i}/value[degC]' for i in range(22)]
 def test_print_migration_losses(capsys):
     migration.print_migration_losses(make_status(lost_chunks=LOST, missing_series=MISSING))
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == 'Periods of 1 h without averages: 25. Fields without averages: 22.'
-    assert lines[1] == '    period ending 2020-01-01 01:00'
-    assert lines[20] == '    period ending 2020-01-01 20:00'
+    assert lines[0] == '25 periods of 1 h could not be migrated:'
+    assert lines[1] == '    the period ending 2020-01-01 01:00'
+    assert lines[20] == '    the period ending 2020-01-01 20:00'
     assert lines[21] == '    ... and 5 more periods'
-    assert lines[22] == '    field spark-one/sensor-0/value[degC]'
-    assert lines[41] == '    field spark-one/sensor-19/value[degC]'
-    assert lines[42] == '    ... and 2 more fields'
-    assert len(lines) == 43
+    assert lines[22] == '22 fields could not be migrated:'
+    assert lines[23] == '    spark-one/sensor-0/value[degC]'
+    assert lines[42] == '    spark-one/sensor-19/value[degC]'
+    assert lines[43] == '    ... and 2 more fields'
+    assert len(lines) == 44
 
     migration.print_migration_losses(make_status(lost_chunks=LOST[:2], missing_series=MISSING[:2]), limit=2)
     assert capsys.readouterr().out.splitlines() == [
-        'Periods of 1 h without averages: 2. Fields without averages: 2.',
-        '    period ending 2020-01-01 01:00',
-        '    period ending 2020-01-01 02:00',
-        '    field spark-one/sensor-0/value[degC]',
-        '    field spark-one/sensor-1/value[degC]',
+        '2 periods of 1 h could not be migrated:',
+        '    the period ending 2020-01-01 01:00',
+        '    the period ending 2020-01-01 02:00',
+        '2 fields could not be migrated:',
+        '    spark-one/sensor-0/value[degC]',
+        '    spark-one/sensor-1/value[degC]',
     ]
 
     migration.print_migration_losses(make_status(lost_chunks=LOST[:3], missing_series=MISSING[:1]), limit=2)
     assert capsys.readouterr().out.splitlines() == [
-        'Periods of 1 h without averages: 3. Fields without averages: 1.',
-        '    period ending 2020-01-01 01:00',
-        '    period ending 2020-01-01 02:00',
+        '3 periods of 1 h could not be migrated:',
+        '    the period ending 2020-01-01 01:00',
+        '    the period ending 2020-01-01 02:00',
         '    ... and 1 more periods',
-        '    field spark-one/sensor-0/value[degC]',
+        '1 field could not be migrated:',
+        '    spark-one/sensor-0/value[degC]',
+    ]
+
+    # Without the period size
+    migration.print_migration_losses({'lost_chunks': LOST[:1]})
+    migration.print_migration_losses({'chunk': 90, 'lost_chunks': LOST[:1]})
+    assert capsys.readouterr().out.splitlines() == [
+        '1 period could not be migrated:',
+        '    the period ending 2020-01-01 01:00',
+        '1 period of 90 s could not be migrated:',
+        '    the period ending 2020-01-01 01:00',
     ]
 
     migration.print_migration_losses(make_status())
     migration.print_migration_losses({})
-    migration.print_migration_losses({'chunk': 90})
-    assert capsys.readouterr().out.splitlines() == [
-        'Periods of 1 h without averages: 0. Fields without averages: 0.',
-        'Periods without averages: 0. Fields without averages: 0.',
-        'Periods of 90 s without averages: 0. Fields without averages: 0.',
-    ]
+    assert capsys.readouterr().out.splitlines() == ['Every field was migrated, with no gaps.'] * 2
 
 
 RUNNING_SINCE = 'The history migration (started at 2026-09-26 10:00) is averaging history since 2019-03-01'
@@ -1320,10 +1273,11 @@ RESUMING = ['The history service is resuming the migration. Ask again in a minut
             ),
             [
                 f'{DONE_SINCE}, and finished at 2026-09-27 08:15.',
-                'Periods of 1 h without averages: 2. Fields without averages: 1.',
-                '    period ending 2020-01-01 01:00',
-                '    period ending 2020-01-01 02:00',
-                '    field spark-one/old/value',
+                '2 periods of 1 h could not be migrated:',
+                '    the period ending 2020-01-01 01:00',
+                '    the period ending 2020-01-01 02:00',
+                '1 field could not be migrated:',
+                '    spark-one/old/value',
                 'Check your graphs, and then remove the legacy history with:',
                 f'    {migration.REMOVE_CMD}',
             ],
@@ -1332,7 +1286,7 @@ RESUMING = ['The history service is resuming the migration. Ask again in a minut
             make_status(phase='done', running=False, chunks_done=1000, finished=None),
             [
                 f'{DONE_SINCE}, and finished at unknown.',
-                'Periods of 1 h without averages: 0. Fields without averages: 0.',
+                'Every field was migrated, with no gaps.',
                 'Check your graphs, and then remove the legacy history with:',
                 f'    {migration.REMOVE_CMD}',
             ],
@@ -1376,7 +1330,7 @@ def test_print_migration_status(capsys, m_file_exists: Mock, status: Optional[di
             make_status(phase='done', running=False, chunks_done=1000, finished=FINISHED),
             [
                 f'{DONE_SINCE}, and finished at 2026-09-27 08:15.',
-                'Periods of 1 h without averages: 0. Fields without averages: 0.',
+                'Every field was migrated, with no gaps.',
                 'The legacy history was removed.',
             ],
         ),
@@ -1394,11 +1348,9 @@ def stdout(capsys) -> List[str]:
 
 
 def test_print_migration_started(m_info: Mock):
-    migration.print_migration_started(utc(2019, 3, 1), 30, 125)
+    migration.print_migration_started(utc(2019, 3, 1), 30)
     msgs = messages(m_info)
-    assert (
-        'Graphs fill in backwards from the update: first the last 30 days, then back to 2019-03-01 (up to 2 h).' in msgs
-    )
+    assert 'Graphs fill in backwards from the update: first the last 30 days, then back to 2019-03-01.' in msgs
     assert any('in the background' in m for m in msgs)
     assert any('continues after restarts' in m for m in msgs)
     assert msgs.index(f'    {migration.STATUS_CMD}') < msgs.index(f'    {migration.REMOVE_CMD}')
@@ -1411,7 +1363,7 @@ def test_offer_migration(m_now: Mock, m_confirm: Mock, m_info: Mock, m_sleep: Mo
 
     assert migration.offer_migration(utc(2019, 3, 1), 30) is True
     m_confirm.assert_called_once_with(
-        'Start the history migration in the background? It migrates history since 2019-03-01 (up to 4 h).'
+        'Start the history migration in the background? It migrates history since 2019-03-01.'
     )
     assert json.loads(httpretty.last_request().body) == START_BODY
     assert f'    {migration.STATUS_CMD}' in messages(m_info)
@@ -1426,7 +1378,7 @@ def test_offer_migration_clamped(m_now: Mock, m_confirm: Mock, m_sleep: Mock):
     assert migration.offer_migration(utc(2019, 3, 1), 30) is True
     # 29 days: 26.5 days of 5 s data and 2.5 days of 1 s data
     m_confirm.assert_called_once_with(
-        'Start the history migration in the background? It migrates history since 2026-08-28 (up to 12 min).'
+        'Start the history migration in the background? It migrates history since 2026-08-28.'
     )
     assert json.loads(httpretty.last_request().body) == {
         **START_BODY,
@@ -1645,7 +1597,7 @@ def test_migrate_history_after_update(
     assert events == [
         ('sh', f'{const.CURL_WAIT} {PING_URL}'),
         ('DELETE', {'discard': ['true']}),
-        ('confirm', 'Start the history migration in the background? It migrates history since 2019-03-01 (up to 4 h).'),
+        ('confirm', 'Start the history migration in the background? It migrates history since 2019-03-01.'),
         ('POST', START_BODY),
     ]
     assert m_warn.call_count == 0
@@ -1867,16 +1819,6 @@ def test_check_legacy_movable_override(m_file_exists: Mock, m_read_yaml: Mock, m
     assert m_sh.call_count == 0
 
 
-def test_dir_size(tmp_path: Path, mocker: MockerFixture, m_sh_read: Mock):
-    (tmp_path / 'part.bin').write_bytes(os.urandom(5000))
-    assert migration.dir_size(str(tmp_path)) == file_blocks(tmp_path)
-
-    mocker.patch(TESTED + '._disk_usage', side_effect=PermissionError(13, 'Permission denied'))
-    m_sh_read.return_value = '12\t./victoria-legacy\n'
-    assert migration.dir_size('./victoria-legacy') == 12 * 1024
-    m_sh_read.assert_called_once_with("sudo sh -c 'du -sk ./victoria-legacy'")
-
-
 def test_detail():
     assert migration._detail(response(409, {'detail': 'The migration is running'})) == 'The migration is running'
     assert migration._detail(response(409, ['not', 'a', 'dict'])) == '["not", "a", "dict"]'
@@ -1914,25 +1856,6 @@ def test_pull_history_images(m_sh: Mock, m_error: Mock):
     with pytest.raises(SystemExit):
         migration.pull_history_images()
     m_error.assert_called_with('Nothing changed. Fix the problem above, and run brewblox-ctl update again.')
-
-
-def test_copy_legacy_history_fails(m_sh: Mock, m_error: Mock):
-    def sh(cmd, *args, **kwargs):
-        if 'cp -RH' in cmd:
-            raise CalledProcessError(1, cmd)
-        return DEFAULT
-
-    m_sh.side_effect = sh
-    with pytest.raises(SystemExit):
-        migration._copy_legacy_history('/media/usb stick')
-    cmds = [c[0][0] for c in m_sh.call_args_list]
-    assert cmds == [
-        'SUDO docker compose stop victoria-legacy',
-        "sudo cp -RH --preserve=timestamps -- ./victoria-legacy '/media/usb stick/victoria-legacy'",
-        "sudo rm -rf -- '/media/usb stick/victoria-legacy'",
-        'SUDO docker compose start victoria-legacy',
-    ]
-    m_error.assert_called_with('Nothing was removed, and /media/usb stick/victoria-legacy was removed again.')
 
 
 INTERVAL_CHANGED = [
@@ -1979,3 +1902,68 @@ def test_print_migration_status_interval_running(capsys, m_get_config, m_file_ex
     m_get_config.victoria.sparse_interval = '30s'
     migration.print_migration_status(make_status())
     assert 'brewblox-ctl config apply' not in '\n'.join(stdout(capsys))
+
+
+@pytest.mark.parametrize(
+    'seconds, expected',
+    [
+        (60, 'one value per minute'),
+        (3600, 'one value per hour'),
+        (86400, 'one value per day'),
+        (300, 'one value every 300 s'),
+    ],
+)
+def test_format_interval(seconds: int, expected: str):
+    assert migration.format_interval(seconds) == expected
+
+
+def test_print_migration_losses_fields_only(capsys):
+    migration.print_migration_losses({'chunk': 3600, 'missing_series': ['spark-one/a']})
+    assert capsys.readouterr().out.splitlines() == ['1 field could not be migrated:', '    spark-one/a']
+
+
+REMINDER = './victoria-legacy still holds your history from before configuration version 0.12.0 (about 1.0 GB).'
+
+
+@pytest.fixture
+def m_reminder(mocker: MockerFixture, m_file_exists: Mock):
+    m_file_exists.add_existing_files(const.VICTORIA_LEGACY_DIR)
+    return mocker.patch(TESTED + '.legacy_months', return_value={utc(2024, 1, 1): GiB // 2, utc(2024, 2, 1): GiB // 2})
+
+
+def test_remind_legacy_history_none(m_file_exists: Mock, m_sh: Mock, m_request: Mock, m_info: Mock):
+    migration.remind_legacy_history()
+    m_sh.assert_not_called()
+    m_request.assert_not_called()
+    m_info.assert_not_called()
+
+
+def test_remind_legacy_history_done(m_reminder, m_sh: Mock, m_request: Mock, m_info: Mock, capsys):
+    m_request.return_value = response(200, make_status(phase='done', running=False))
+    migration.remind_legacy_history()
+    m_info.assert_called_once_with(REMINDER)
+    # A short wait: services just started
+    m_sh.assert_called_once_with(f'{migration.REMINDER_WAIT} {PING_URL}', silent=True)
+    out = stdout(capsys)
+    assert any(line.startswith('The history migration is done.') for line in out)
+    assert out[-1] == f'    {migration.REMOVE_CMD}'
+
+
+def test_remind_legacy_history_running(m_reminder, m_sh: Mock, m_request: Mock, capsys):
+    m_request.return_value = response(200, make_status(chunks_done=250))
+    migration.remind_legacy_history()
+    assert '250 of 1000 periods done (25%)' in ' '.join(stdout(capsys))
+
+
+@pytest.mark.parametrize('failure', ['wait', 'request'])
+def test_remind_legacy_history_not_answering(m_reminder, m_sh: Mock, m_request: Mock, m_info: Mock, failure: str):
+    if failure == 'wait':
+        m_sh.side_effect = CalledProcessError(22, 'curl')
+    else:
+        m_request.side_effect = requests.ConnectionError('refused')
+    migration.remind_legacy_history()
+    assert [c.args[0] for c in m_info.call_args_list] == [
+        REMINDER,
+        'The history service did not answer yet. To see whether its migration is done, run:',
+        f'    {migration.STATUS_CMD}',
+    ]
