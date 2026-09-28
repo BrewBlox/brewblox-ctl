@@ -304,7 +304,6 @@ class CtlConfig(BaseModel):
 class HostProfile(BaseModel):
     """Settings of the history databases that depend on the host"""
 
-    small: bool
     # Each database sizes its caches from this, and not from a share of the host's memory
     memory_allowed_bytes: str
     # Bounds the memory used to unpack raw samples for queries

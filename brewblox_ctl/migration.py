@@ -5,7 +5,6 @@ Manual migration steps
 import math
 import os
 import re
-import shlex
 from collections import defaultdict
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
@@ -172,19 +171,12 @@ MIGRATION_WINDOWS = [
     ('the last 6 months', timedelta(days=183)),
 ]
 
-# Work per day of legacy history on a Raspberry Pi 3: 5 s data, and 1 s data since the Spark logs every second.
-# The job pauses as long as each chunk took, so it takes about twice as long.
-MIGRATION_DAY_SECONDS = 7
-MIGRATION_DAY_SECONDS_1S = 17
-MIGRATION_1S_SINCE = datetime(2026, 9, 24, tzinfo=timezone.utc)
-# Copying 30 days of raw samples into the dense database on a Raspberry Pi 3
-MIGRATION_SEED_SECONDS = 20 * 60
-# Hosts that are not small are about this many times faster (a Pi 4)
-MIGRATION_SPEEDUP = 2.5
 
 # Retries while history, or the legacy database it reads, is starting
 HTTP_RETRIES = 30
 HTTP_RETRY_DELAY = 10
+# How long a reminder after the update waits for the history service: about a minute and a half
+REMINDER_WAIT = f'{const.CURL} --fail --retry 6 --max-time 5 --retry-all-errors --retry-delay 10 -o /dev/null'
 # Starting a migration reads the legacy database before the answer
 START_TIMEOUT = 300
 # The answer to a start while the job runs
@@ -226,11 +218,16 @@ def format_bytes(value: float) -> str:
     return f'{math.ceil(value / 2**20)} MB'
 
 
-def format_minutes(minutes: int) -> str:
-    # The estimate is for a slow host: others are done sooner
-    if minutes < 90:
-        return f'up to {minutes} min'
-    return f'up to {round(minutes / 60)} h'
+def _count(n: int, noun: str) -> str:
+    return f'{n} {noun}' if n == 1 else f'{n} {noun}s'
+
+
+def format_interval(seconds: int) -> str:
+    """How often a value is kept, as in `with one value per minute`"""
+    names = {60: 'minute', 3600: 'hour', 86400: 'day'}
+    if seconds in names:
+        return f'one value per {names[seconds]}'
+    return f'one value every {seconds} s'
 
 
 def format_date(value: datetime) -> str:
@@ -371,14 +368,6 @@ def _sudo_read(cmd: str) -> str:
     except CalledProcessError as ex:
         utils.error(f'Failed to read the history database: {utils.strex(ex)}')
         raise SystemExit(1) from ex
-
-
-def dir_size(path: str) -> int:
-    """Bytes on disk of a database directory, read with sudo if needed"""
-    try:
-        return _disk_usage(path)
-    except PermissionError:
-        return int(_sudo_read(f'du -sk {path}').split()[0]) * 1024
 
 
 def legacy_months(legacy_dir: str) -> Dict[datetime, int]:
@@ -541,18 +530,6 @@ def clamp_earliest(earliest: datetime) -> datetime:
         return earliest
 
 
-def estimate_minutes(earliest: datetime, dense_days: int) -> int:
-    """A rough estimate of how long the migration runs"""
-    now = _now()
-    days = max((now - earliest).total_seconds() / 86400, 0)
-    days_1s = max((now - max(earliest, MIGRATION_1S_SINCE)).total_seconds() / 86400, 0)
-    work = (days - days_1s) * MIGRATION_DAY_SECONDS + days_1s * MIGRATION_DAY_SECONDS_1S
-    seconds = 2 * work + MIGRATION_SEED_SECONDS * dense_days / 30
-    if not actions.host_profile().small:
-        seconds /= MIGRATION_SPEEDUP
-    return max(math.ceil(seconds / 60), 1)
-
-
 def _migrate_url() -> str:
     return f'{utils.timeseries_url()}/migrate'
 
@@ -626,19 +603,27 @@ def start_migration(
 
 
 def print_migration_losses(status: dict, limit: int = 20):
+    """What the migration could not copy to the long-term database"""
     lost = status.get('lost_chunks') or []
     missing = status.get('missing_series') or []
-    chunk = status.get('chunk')
-    period = '' if not chunk else f' of {chunk // 3600} h' if chunk % 3600 == 0 else f' of {chunk} s'
-    click.echo(f'Periods{period} without averages: {len(lost)}. Fields without averages: {len(missing)}.')
-    for value in lost[:limit]:
-        click.echo(f'    period ending {format_timestamp(value)}')
-    if len(lost) > limit:
-        click.echo(f'    ... and {len(lost) - limit} more periods')
-    for name in missing[:limit]:
-        click.echo(f'    field {name}')
-    if len(missing) > limit:
-        click.echo(f'    ... and {len(missing) - limit} more fields')
+    if not lost and not missing:
+        click.echo('Every field was migrated, with no gaps.')
+        return
+
+    if lost:
+        chunk = status.get('chunk')
+        period = '' if not chunk else f' of {chunk // 3600} h' if chunk % 3600 == 0 else f' of {chunk} s'
+        click.echo(f'{_count(len(lost), "period")}{period} could not be migrated:')
+        for value in lost[:limit]:
+            click.echo(f'    the period ending {format_timestamp(value)}')
+        if len(lost) > limit:
+            click.echo(f'    ... and {len(lost) - limit} more periods')
+    if missing:
+        click.echo(f'{_count(len(missing), "field")} could not be migrated:')
+        for name in missing[:limit]:
+            click.echo(f'    {name}')
+        if len(missing) > limit:
+            click.echo(f'    ... and {len(missing) - limit} more fields')
 
 
 def interval_changed(status: dict) -> bool:
@@ -722,13 +707,11 @@ def print_migration_status(status: Optional[dict]):
     click.echo('The history service is resuming the migration. Ask again in a minute.')
 
 
-def print_migration_started(earliest: datetime, dense_days: int, minutes: int):
+def print_migration_started(earliest: datetime, dense_days: int):
     seed = f'first the last {dense_days} days, then ' if dense_days else ''
     utils.info('The history migration runs in the background, inside the history service.')
     utils.info('It continues after restarts, and when your SSH session ends: you do not have to wait for it.')
-    utils.info(
-        f'Graphs fill in backwards from the update: {seed}back to {format_date(earliest)} ({format_minutes(minutes)}).'
-    )
+    utils.info(f'Graphs fill in backwards from the update: {seed}back to {format_date(earliest)}.')
     utils.info('Until the migration reaches a period, graphs of that period are empty.')
     utils.info('New history is logged and shown as usual.')
     utils.info('To follow the migration, run:')
@@ -760,15 +743,13 @@ def print_dense_notice():
 def offer_migration(earliest: datetime, dense_days: int) -> bool:
     """Asks to start a new migration since `earliest`. Returns whether it started."""
     earliest = clamp_earliest(earliest)
-    minutes = estimate_minutes(earliest, dense_days)
     if not utils.confirm(
-        'Start the history migration in the background? '
-        + f'It migrates history since {format_date(earliest)} ({format_minutes(minutes)}).'
+        f'Start the history migration in the background? It migrates history since {format_date(earliest)}.'
     ):
         return False
 
     start_migration(earliest, dense_days)
-    print_migration_started(earliest, dense_days, minutes)
+    print_migration_started(earliest, dense_days)
     return True
 
 
@@ -846,6 +827,31 @@ def pull_history_images():
         utils.error(f'Failed to pull docker images: {utils.strex(ex)}')
         utils.error('Nothing changed. Fix the problem above, and run brewblox-ctl update again.')
         raise SystemExit(1) from ex
+
+
+def remind_legacy_history():
+    """
+    After an update: the legacy history takes disk space until it is removed.
+
+    Shows the state of its migration, and how to remove it once that is done.
+    """
+    legacy = const.VICTORIA_LEGACY_DIR
+    if not utils.file_exists(legacy):
+        return
+
+    size = sum(legacy_months(legacy).values())
+    utils.info(
+        f'{legacy} still holds your history from before configuration version {const.HISTORY_DENSE_VERSION} '
+        + f'(about {format_bytes(size)}).'
+    )
+    try:
+        utils.sh(f'{REMINDER_WAIT} {utils.datastore_url()}/ping', silent=True)
+        status = migration_status()
+    except (CalledProcessError, requests.RequestException, MigrationConflictError):
+        utils.info('The history service did not answer yet. To see whether its migration is done, run:')
+        utils.info(f'    {STATUS_CMD}')
+        return
+    print_migration_status(status)
 
 
 def migrate_history_after_update(legacy: LegacyHistory):
@@ -995,24 +1001,6 @@ def discard_migration_confirmed():
         utils.info(f'    {MIGRATE_CMD}')
 
 
-def _copy_legacy_history(backup_dir: str):
-    """Copies the legacy history. Only the legacy database stops: it must not change during the copy."""
-    legacy = const.VICTORIA_LEGACY_DIR
-    sudo = utils.optsudo()
-    target = Path(backup_dir, Path(legacy).name)
-    utils.sh(f'{sudo}docker compose stop victoria-legacy', check=False)
-    utils.info(f'Copying {legacy} to {backup_dir} ...')
-    try:
-        # Follows a link to the history, and does not keep the owner: FAT disks cannot
-        utils.sh(f'sudo cp -RH --preserve=timestamps -- {legacy} {shlex.quote(str(target))}')
-    except CalledProcessError as ex:
-        utils.sh(f'sudo rm -rf -- {shlex.quote(str(target))}', check=False)
-        utils.sh(f'{sudo}docker compose start victoria-legacy', check=False)
-        utils.error(f'Failed to copy {legacy}: {utils.strex(ex)}')
-        utils.error(f'Nothing was removed, and {target} was removed again.')
-        raise SystemExit(1) from ex
-
-
 def remove_legacy_history(force: bool):
     """Removes the legacy history once the migration is done"""
     legacy = const.VICTORIA_LEGACY_DIR
@@ -1048,18 +1036,18 @@ def remove_legacy_history(force: bool):
         utils.error(f'    {REMOVE_CMD} --force')
         raise SystemExit(1)
 
-    config = utils.get_config()
     if done:
         since = migrated_since(status)
         print_migration_losses(status)
-        utils.warn(
-            f'This removes {legacy}. History since {format_date(since)} is then kept '
-            + f'as averages of every {config.victoria.sparse_interval}.'
+        utils.info(
+            f'The migration copied your history since {format_date(since)} to the long-term database, '
+            + f'with {format_interval(status["sparse_interval"])}.'
         )
         months = legacy_months(legacy)
         # The migration plans its start up to a few intervals before or after the month it was given
         if months and min(months) < since - timedelta(days=1):
-            utils.warn(f'History before {format_date(since)} was not migrated, and is removed.')
+            utils.warn(f'History before {format_date(since)} was not migrated.')
+        utils.warn(f'This removes {legacy}, with the original history: every value as it was logged.')
     else:
         utils.warn(f'This removes {legacy}, with the history from before the update that was not migrated.')
     if utils.is_symlink(legacy):
@@ -1068,33 +1056,8 @@ def remove_legacy_history(force: bool):
         utils.warn(f'Remove {target} yourself once you do not need it.')
     utils.warn('This cannot be undone.')
 
-    backup_dir = os.path.expanduser(
-        utils.select(
-            f'To copy {legacy} to another disk first, type a directory on that disk. To skip the copy, press ENTER.'
-        ).strip()
-    )
-    if backup_dir:
-        if not Path(backup_dir).is_dir():
-            utils.error(f'{backup_dir} is not a directory. Nothing changed.')
-            raise SystemExit(1)
-        if Path(backup_dir, Path(legacy).name).exists():
-            utils.error(f'{backup_dir} already contains {Path(legacy).name}. Nothing changed.')
-            raise SystemExit(1)
-        size = dir_size(legacy)
-        free = utils.free_disk_bytes(backup_dir)
-        if size > free:
-            utils.error(
-                f'{backup_dir} has {format_bytes(free)} free, and the copy needs {format_bytes(size)}. Nothing changed.'
-            )
-            raise SystemExit(1)
-        if os.stat(backup_dir).st_dev == os.stat(legacy).st_dev:
-            utils.warn(f'{backup_dir} is on the same disk as {legacy}: the copy is lost if that disk fails.')
-
     if not utils.confirm(f'Do you want to remove {legacy}?', default=False):
         return
-
-    if backup_dir:
-        _copy_legacy_history(backup_dir)
 
     # An unfinished migration would try forever to read the removed history
     if status is not None and not done:

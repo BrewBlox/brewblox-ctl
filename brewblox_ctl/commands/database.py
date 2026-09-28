@@ -76,16 +76,16 @@ def remove_legacy_history(force):
     """Remove the legacy history in ./victoria-legacy.
 
     Once `brewblox-ctl database migrate-history` is done, the legacy history in ./victoria-legacy can be removed.
-    The migrated history is then kept as averages in the long-term database.
+    The migration copied it to the long-term database, with one value per minute (by default).
+    Removing ./victoria-legacy removes the original history, with every value as it was logged.
 
     This cannot be undone.
-    You can copy ./victoria-legacy to another disk first.
+    To keep a copy, copy ./victoria-legacy to another disk before you run this command.
 
     \b
     Steps:
         - Check that the migration is done, unless --force is used.
         - Show the periods and fields that were not migrated.
-        - Copy ./victoria-legacy to another disk (optional).
         - Discard an unfinished migration (with --force).
         - Stop services.
         - Generate the configuration without the legacy database.

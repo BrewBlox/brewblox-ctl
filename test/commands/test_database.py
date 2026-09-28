@@ -6,7 +6,6 @@ import json
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, List, Tuple
 from unittest.mock import Mock
 
@@ -207,7 +206,7 @@ def test_migrate_history_new(
 
     # The confirm prompt shows the first date migrated, and an estimate
     m_confirm.assert_called_once_with(
-        'Start the history migration in the background? It migrates history since 2024-03-01 (up to 2 h).'
+        'Start the history migration in the background? It migrates history since 2024-03-01.'
     )
 
     assert sent() == [('GET', MIGRATE_PATH), ('POST', MIGRATE_PATH)]
@@ -263,7 +262,7 @@ def test_migrate_history_clamp(
 
     invoke(database.migrate_history, '')
     assert posted()['earliest'] == earliest
-    m_confirm.assert_called_once_with(matching(f'.*since {earliest[:10]} '))
+    m_confirm.assert_called_once_with(matching(f'.*since {earliest[:10]}\\.$'))
 
 
 def test_migrate_history_partitions(
@@ -308,7 +307,7 @@ def test_migrate_history_partitions_confirm(
 
     invoke(database.migrate_history, '')
 
-    m_confirm.assert_called_once_with(matching(r'.*It migrates history since 2001-01-01 \('))
+    m_confirm.assert_called_once_with(matching(r'.*It migrates history since 2001-01-01\.$'))
 
 
 DU_OUTPUT = """8\t./victoria-legacy/data/small/2023_11
@@ -484,7 +483,7 @@ def test_migrate_history_space_choice(
         assert 'Please type a number from 0 to 2, and press ENTER.' in result.output
 
     assert posted()['earliest'] == earliest
-    m_confirm.assert_called_once_with(matching(f'.*since {earliest[:10]} '))
+    m_confirm.assert_called_once_with(matching(f'.*since {earliest[:10]}\\.$'))
 
 
 def test_migrate_history_space_all_windows(
@@ -760,43 +759,6 @@ def test_migrate_history_post_not_answering(
     m_error.assert_any_call(matching(r'The history service at .* did not answer \(ConnectionError\)'))
 
 
-@pytest.mark.parametrize(
-    'dense_days, armv7, memory, estimate',
-    [
-        # 939.5 days of 5 s data, 2.5 of them at 1 s: 2 * (937 * 7 + 2.5 * 17) s, plus 20 min for 30 dense days
-        (30, False, 4 * GiB, 'up to 2 h'),  # 5761 s: 97 min
-        (30, True, 4 * GiB, 'up to 4 h'),  # Small: 14403 s, 241 min
-        (30, False, 1 * GiB, 'up to 4 h'),
-        (0, False, 4 * GiB, 'up to 89 min'),  # 13203 s / 2.5: 5281.2 s, 88.02 min
-    ],
-)
-def test_migrate_history_estimate(
-    legacy,
-    m_legacy_months: Mock,
-    m_is_armv7: Mock,
-    m_total_memory_bytes: Mock,
-    m_confirm: Mock,
-    m_info: Mock,
-    dense_days: int,
-    armv7: bool,
-    memory: int,
-    estimate: str,
-):
-    seed = f'first the last {dense_days} days, then ' if dense_days else ''
-    m_is_armv7.return_value = armv7
-    m_total_memory_bytes.return_value = memory
-    m_confirm.return_value = True
-    reply('GET', (200, None))
-    reply('POST', (200, make_status()))
-
-    invoke(database.migrate_history, f'--dense-days {dense_days}')
-
-    m_confirm.assert_called_once_with(
-        f'Start the history migration in the background? It migrates history since 2024-03-01 ({estimate}).'
-    )
-    m_info.assert_any_call(f'Graphs fill in backwards from the update: {seed}back to 2024-03-01 ({estimate}).')
-
-
 # migrate-history: an existing migration
 
 
@@ -1000,8 +962,8 @@ def test_migrate_history_done(legacy, m_legacy_months: Mock, m_confirm: Mock):
     result = invoke(database.migrate_history, '')
 
     assert 'The history migration is done. It migrated history since 2024-03-01' in result.output
-    assert 'Periods of 1 h without averages: 1. Fields without averages: 1.' in result.output
-    assert '    field spark-one/Temp sensor/value[degC]' in result.output
+    assert '1 period of 1 h could not be migrated:' in result.output
+    assert '    spark-one/Temp sensor/value[degC]' in result.output
     assert '    brewblox-ctl database remove-legacy-history' in result.output
     assert sent() == [('GET', MIGRATE_PATH)]
     m_confirm.assert_not_called()
@@ -1140,7 +1102,7 @@ MISSING = [f'spark-one/sensor-{i}' for i in range(22)]
             make_status(phase='done', running=False, chunks_done=1000, finished=int(NOW.timestamp())),
             [
                 'The history migration is done. It migrated history since 2024-03-01, and finished at ',
-                'Periods of 1 h without averages: 0. Fields without averages: 0.',
+                'Every field was migrated, with no gaps.',
                 'Check your graphs, and then remove the legacy history with:',
                 '    brewblox-ctl database remove-legacy-history',
             ],
@@ -1152,11 +1114,12 @@ MISSING = [f'spark-one/sensor-{i}' for i in range(22)]
         (
             make_status(phase='done', running=False, lost_chunks=LOST, missing_series=MISSING),
             [
-                'Periods of 1 h without averages: 25. Fields without averages: 22.',
-                '    period ending ',
+                '25 periods of 1 h could not be migrated:',
+                '    the period ending ',
                 '    ... and 5 more periods',
-                '    field spark-one/sensor-0',
-                '    field spark-one/sensor-19',
+                '22 fields could not be migrated:',
+                '    spark-one/sensor-0',
+                '    spark-one/sensor-19',
                 '    ... and 2 more fields',
             ],
         ),
@@ -1202,8 +1165,8 @@ def test_migrate_history_status_losses_limited():
 
     result = invoke(database.migrate_history, '--status')
 
-    assert result.output.count('    period ending ') == 20
-    assert result.output.count('    field ') == 20
+    assert result.output.count('    the period ending ') == 20
+    assert result.output.count('    spark-one/sensor-') == 20
     assert 'spark-one/sensor-20' not in result.output
 
 
@@ -1353,6 +1316,7 @@ def test_remove_legacy_history(
     m_confirm: Mock,
     m_select: Mock,
     m_warn: Mock,
+    m_info: Mock,
 ):
     reply('GET', (200, DONE))
 
@@ -1360,14 +1324,17 @@ def test_remove_legacy_history(
 
     m_confirm_mode.assert_called_once()
     # The lists
-    assert 'Periods of 1 h without averages: 2. Fields without averages: 1.' in result.output
-    assert result.output.count('    period ending ') == 2
-    assert '    field spark-one/Temp sensor/value[degC]' in result.output
-    m_warn.assert_any_call(
-        'This removes ./victoria-legacy. History since 2024-03-01 is then kept as averages of every 60s.'
+    assert '2 periods of 1 h could not be migrated:' in result.output
+    assert result.output.count('    the period ending ') == 2
+    assert '    spark-one/Temp sensor/value[degC]' in result.output
+    # What the migration kept, and what the removal deletes
+    m_info.assert_any_call(
+        'The migration copied your history since 2024-03-01 to the long-term database, with one value per minute.'
     )
+    m_warn.assert_any_call('This removes ./victoria-legacy, with the original history: every value as it was logged.')
     m_warn.assert_any_call('This cannot be undone.')
-    m_select.assert_called_once_with(matching(r'To copy \./victoria-legacy to another disk first'))
+    # No copy prompt: people who want a copy make it themselves
+    m_select.assert_not_called()
     m_confirm.assert_called_once_with('Do you want to remove ./victoria-legacy?', default=False)
 
     # Down, render, rm, up: an interrupted removal leaves no service that creates the directory again
@@ -1432,7 +1399,7 @@ def test_remove_legacy_history_force(removal: list, m_warn: Mock, m_info: Mock, 
     m_warn.assert_any_call(
         'This removes ./victoria-legacy, with the history from before the update that was not migrated.'
     )
-    assert 'Periods of 1 h without averages' not in result.output
+    assert 'could not be migrated' not in result.output
     assert removal == [
         'SUDO docker compose down ',
         'make_shared_compose',
@@ -1459,13 +1426,13 @@ def test_remove_legacy_history_force_discard_fails(removal: list, m_warn: Mock, 
     assert 'sudo rm -rf ./victoria-legacy' in removal
 
 
-def test_remove_legacy_history_force_done(removal: list, m_warn: Mock):
+def test_remove_legacy_history_force_done(removal: list, m_warn: Mock, m_info: Mock):
     reply('GET', (200, DONE))
 
     result = invoke(database.remove_legacy_history, '--force')
 
-    assert 'Periods of 1 h without averages: 2. Fields without averages: 1.' in result.output
-    m_warn.assert_any_call(matching(r'This removes \./victoria-legacy\. History since 2024-03-01 is then kept'))
+    assert '2 periods of 1 h could not be migrated:' in result.output
+    m_info.assert_any_call(matching(r'The migration copied your history since 2024-03-01 to the long-term database'))
     assert 'sudo rm -rf ./victoria-legacy' in removal
 
 
@@ -1537,137 +1504,6 @@ def test_remove_legacy_history_declined(
     m_make_shared_compose.assert_not_called()
 
 
-@pytest.fixture
-def backup_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, m_file_exists: Mock):
-    """A Brewblox directory with ./victoria-legacy, and a backup directory"""
-    home = tmp_path / 'brewblox'
-    (home / 'victoria-legacy').mkdir(parents=True)
-    backup = tmp_path / 'backup'
-    backup.mkdir()
-    monkeypatch.chdir(home)
-    m_file_exists.add_existing_files(const.VICTORIA_LEGACY_DIR)
-    return backup
-
-
-def test_remove_legacy_history_copy(removal: list, backup_dirs: Path, m_select: Mock, m_warn: Mock, m_info: Mock):
-    m_select.return_value = f' {backup_dirs} '
-    reply('GET', (200, DONE))
-
-    invoke(database.remove_legacy_history, '')
-
-    # tmp_path is one disk
-    m_warn.assert_any_call(
-        f'{backup_dirs} is on the same disk as ./victoria-legacy: the copy is lost if that disk fails.'
-    )
-    m_info.assert_any_call(f'Copying ./victoria-legacy to {backup_dirs} ...')
-    # Only the legacy database stops for the copy
-    assert removal == [
-        'SUDO docker compose stop victoria-legacy',
-        f'sudo cp -RH --preserve=timestamps -- ./victoria-legacy {backup_dirs}/victoria-legacy',
-        'SUDO docker compose down ',
-        'make_shared_compose',
-        'sudo rm -rf ./victoria-legacy',
-        'SUDO docker compose up -d ',
-    ]
-
-
-def test_remove_legacy_history_copy_other_disk(
-    removal: list,
-    backup_dirs: Path,
-    mocker: MockerFixture,
-    m_select: Mock,
-    m_warn: Mock,
-):
-    m_select.return_value = str(backup_dirs)
-    real_stat = os.stat
-
-    def other_disk(path, *args, **kwargs):
-        result = real_stat(path, *args, **kwargs)
-        if path == str(backup_dirs):
-            return SimpleNamespace(st_dev=result.st_dev + 1, st_mode=result.st_mode)
-        return result
-
-    mocker.patch.object(migration.os, 'stat', side_effect=other_disk)
-    reply('GET', (200, DONE))
-
-    invoke(database.remove_legacy_history, '')
-
-    assert not any('same disk' in str(c) for c in m_warn.call_args_list)
-    copy = f'sudo cp -RH --preserve=timestamps -- ./victoria-legacy {backup_dirs}/victoria-legacy'
-    assert removal.index(copy) < removal.index('sudo rm -rf ./victoria-legacy')
-
-
-def test_remove_legacy_history_copy_not_a_dir(
-    removal: list,
-    backup_dirs: Path,
-    m_select: Mock,
-    m_confirm: Mock,
-    m_error: Mock,
-):
-    target = backup_dirs / 'missing'
-    m_select.return_value = str(target)
-    reply('GET', (200, DONE))
-
-    result = invoke(database.remove_legacy_history, '', _err=True)
-
-    assert_exit(result, 1)
-    m_error.assert_any_call(f'{target} is not a directory. Nothing changed.')
-    m_confirm.assert_not_called()
-    assert removal == []
-
-
-def test_remove_legacy_history_copy_file(
-    removal: list,
-    backup_dirs: Path,
-    m_select: Mock,
-    m_confirm: Mock,
-):
-    target = backup_dirs / 'file'
-    target.write_text('')
-    m_select.return_value = str(target)
-    reply('GET', (200, DONE))
-
-    result = invoke(database.remove_legacy_history, '', _err=True)
-
-    assert_exit(result, 1)
-    m_confirm.assert_not_called()
-    assert removal == []
-
-
-def test_remove_legacy_history_copy_exists(
-    removal: list,
-    backup_dirs: Path,
-    m_select: Mock,
-    m_confirm: Mock,
-    m_error: Mock,
-):
-    (backup_dirs / 'victoria-legacy').mkdir()
-    m_select.return_value = str(backup_dirs)
-    reply('GET', (200, DONE))
-
-    result = invoke(database.remove_legacy_history, '', _err=True)
-
-    assert_exit(result, 1)
-    m_error.assert_any_call(f'{backup_dirs} already contains victoria-legacy. Nothing changed.')
-    m_confirm.assert_not_called()
-    assert removal == []
-
-
-def test_remove_legacy_history_copy_declined(
-    removal: list,
-    backup_dirs: Path,
-    m_select: Mock,
-    m_confirm: Mock,
-):
-    m_select.return_value = str(backup_dirs)
-    m_confirm.return_value = False
-    reply('GET', (200, DONE))
-
-    invoke(database.remove_legacy_history, '')
-
-    assert removal == []
-
-
 # remove-legacy-history: hardening after review
 
 
@@ -1695,7 +1531,7 @@ def test_remove_legacy_history_partial(removal: list, mocker: MockerFixture, m_w
     mocker.patch.object(migration, 'legacy_months', return_value={month(2023, 1): GiB, month(2026, 9): GiB})
     reply('GET', (200, DONE))
     invoke(database.remove_legacy_history, '')
-    m_warn.assert_any_call('History before 2024-03-01 was not migrated, and is removed.')
+    m_warn.assert_any_call('History before 2024-03-01 was not migrated.')
 
 
 def test_remove_legacy_history_complete(removal: list, mocker: MockerFixture, m_warn: Mock):
@@ -1703,62 +1539,6 @@ def test_remove_legacy_history_complete(removal: list, mocker: MockerFixture, m_
     reply('GET', (200, DONE))
     invoke(database.remove_legacy_history, '')
     assert not any('was not migrated' in c[0][0] for c in m_warn.call_args_list)
-
-
-def test_remove_legacy_history_copy_too_big(
-    removal: list,
-    backup_dirs: Path,
-    mocker: MockerFixture,
-    m_select: Mock,
-    m_free_disk_bytes: Mock,
-    m_confirm: Mock,
-    m_error: Mock,
-):
-    mocker.patch.object(migration, 'dir_size', return_value=2 * GiB)
-    m_free_disk_bytes.return_value = GiB
-    m_select.return_value = str(backup_dirs)
-    reply('GET', (200, DONE))
-
-    result = invoke(database.remove_legacy_history, '', _err=True)
-
-    assert_exit(result, 1)
-    m_error.assert_any_call(f'{backup_dirs} has 1.0 GB free, and the copy needs 2.0 GB. Nothing changed.')
-    m_free_disk_bytes.assert_called_with(str(backup_dirs))
-    m_confirm.assert_not_called()
-    assert removal == []
-
-
-def test_remove_legacy_history_copy_home(
-    removal: list,
-    backup_dirs: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    m_select: Mock,
-):
-    monkeypatch.setenv('HOME', str(backup_dirs.parent))
-    m_select.return_value = f'~/{backup_dirs.name}'
-    reply('GET', (200, DONE))
-    invoke(database.remove_legacy_history, '')
-    assert f'sudo cp -RH --preserve=timestamps -- ./victoria-legacy {backup_dirs}/victoria-legacy' in removal
-
-
-def test_remove_legacy_history_force_copy_then_discard(
-    removal: list, backup_dirs: Path, m_select: Mock, m_free_disk_bytes: Mock
-):
-    """A failed copy changes nothing: the unfinished migration is discarded after it"""
-    m_select.return_value = str(backup_dirs)
-    reply('GET', (200, make_status()))
-    events = removal
-
-    def on_delete(request, uri, headers):
-        events.append('DELETE')
-        return [200, {**headers, 'content-type': 'application/json'}, 'null']
-
-    httpretty.register_uri('DELETE', MIGRATE_URL, body=on_delete)
-
-    invoke(database.remove_legacy_history, '--force')
-
-    copy = f'sudo cp -RH --preserve=timestamps -- ./victoria-legacy {backup_dirs}/victoria-legacy'
-    assert events.index(copy) < events.index('DELETE') < events.index('make_shared_compose')
 
 
 @pytest.mark.parametrize('cancelled', [False, True])

@@ -139,10 +139,10 @@ def host_profile() -> HostProfile:
     """
     memory = utils.total_memory_bytes()
     if memory < SMALL_HOST_MEMORY or utils.is_armv7():
-        return HostProfile(small=True, memory_allowed_bytes='96MB', max_concurrent_requests=2)
+        return HostProfile(memory_allowed_bytes='96MB', max_concurrent_requests=2)
     if memory < LARGE_HOST_MEMORY and not utils.is_x86():
-        return HostProfile(small=False, memory_allowed_bytes='128MB', max_concurrent_requests=4)
-    return HostProfile(small=False, memory_allowed_bytes='256MB', max_concurrent_requests=4)
+        return HostProfile(memory_allowed_bytes='128MB', max_concurrent_requests=4)
+    return HostProfile(memory_allowed_bytes='256MB', max_concurrent_requests=4)
 
 
 def make_shared_compose(legacy_history: Optional[bool] = None):

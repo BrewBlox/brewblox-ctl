@@ -142,6 +142,8 @@ def upped_migrate(prev_version, legacy_history=None):
 
     if legacy_history is not None:
         migration.migrate_history_after_update(legacy_history)
+    else:
+        migration.remind_legacy_history()
 
 
 @cli.command()
@@ -196,7 +198,7 @@ def update(update_ctl, update_ctl_done, pull, migrate, prune, from_version):
         - Prune unused Docker images and volumes.
         - Start services.
         - Migrate service configuration.
-        - Offer to start the history migration.
+        - Offer to start the history migration, or show how far it is.
         - Write version number to .env file.
     """
     utils.check_config()
