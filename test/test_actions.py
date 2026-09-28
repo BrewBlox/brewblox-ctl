@@ -56,6 +56,8 @@ def test_make_traefik_config(m_write_file: Mock):
     actions.make_traefik_config()
     assert 'address: :1883/tcp' in m_write_file.call_args_list[0][0][1]
     assert 'accessControlAllowCredentials: true' in m_write_file.call_args_list[1][0][1]
+    # Only this project: a regex would also match other projects whose name starts the same, as brewblox-ui
+    assert 'constraints: "Label(`com.docker.compose.project`, `brewblox`)"' in m_write_file.call_args_list[0][0][1]
 
 
 @pytest.mark.parametrize(
