@@ -1933,3 +1933,49 @@ def test_copy_legacy_history_fails(m_sh: Mock, m_error: Mock):
         'SUDO docker compose start victoria-legacy',
     ]
     m_error.assert_called_with('Nothing was removed, and /media/usb stick/victoria-legacy was removed again.')
+
+
+INTERVAL_CHANGED = [
+    'The history migration stopped: it started with a sparse_interval of 60s, and now it is 30s.',
+    'To resume it where it stopped, set `victoria.sparse_interval` back to 60s in brewblox.yml, and run:',
+    '    brewblox-ctl config apply',
+    'Or discard it, and start again at 30s. The averages already made at 60s stay:',
+    f'    {migration.DISCARD_CMD}',
+    f'    {migration.MIGRATE_CMD}',
+]
+
+
+@pytest.mark.parametrize(
+    'status',
+    [
+        make_status(running=False, last_error='The migration started with sparse_interval 60s, now it is 30s'),
+        # Cancelled: a resume would be refused
+        make_status(running=False, cancelled=True),
+        # After a restart of history, before it wrote the reason
+        make_status(running=False),
+    ],
+)
+def test_print_migration_status_interval_changed(capsys, m_get_config, m_file_exists: Mock, status: dict):
+    """Setting the interval back resumes the migration: the status offers that, and the discard"""
+    m_get_config.victoria.sparse_interval = '30s'
+    m_file_exists.add_existing_files(const.VICTORIA_LEGACY_DIR)
+    migration.print_migration_status(status)
+    assert stdout(capsys) == INTERVAL_CHANGED
+
+
+def test_print_migration_status_interval_same(capsys, m_get_config, m_file_exists: Mock):
+    # The other stop (the legacy database grew after a rollback): only a discard gets past it
+    m_get_config.victoria.sparse_interval = '1m'
+    m_file_exists.add_existing_files(const.VICTORIA_LEGACY_DIR)
+    migration.print_migration_status(make_status(running=False, last_error='The legacy database has newer samples'))
+    out = stdout(capsys)
+    assert out[0] == 'The history migration stopped: The legacy database has newer samples'
+    assert 'brewblox-ctl config apply' not in '\n'.join(out)
+    assert out[-2:] == [f'    {migration.DISCARD_CMD}', f'    {migration.MIGRATE_CMD}']
+
+
+def test_print_migration_status_interval_running(capsys, m_get_config, m_file_exists: Mock):
+    # A running migration is not stopped, whatever the configuration says now
+    m_get_config.victoria.sparse_interval = '30s'
+    migration.print_migration_status(make_status())
+    assert 'brewblox-ctl config apply' not in '\n'.join(stdout(capsys))

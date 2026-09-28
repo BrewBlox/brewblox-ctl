@@ -1759,3 +1759,23 @@ def test_remove_legacy_history_force_copy_then_discard(
 
     copy = f'sudo cp -RH --preserve=timestamps -- ./victoria-legacy {backup_dirs}/victoria-legacy'
     assert events.index(copy) < events.index('DELETE') < events.index('make_shared_compose')
+
+
+@pytest.mark.parametrize('cancelled', [False, True])
+def test_migrate_history_interval_changed(
+    legacy, m_legacy_months: Mock, m_get_config: CtlConfig, m_error: Mock, cancelled: bool
+):
+    """History refuses to resume with another sparse_interval: offer both ways out, and do not send the start"""
+    m_get_config.victoria.sparse_interval = '30s'
+    stored = make_status(running=False, cancelled=cancelled, sparse_interval=60)
+    if not cancelled:
+        stored['last_error'] = 'The migration started with sparse_interval 60s, now it is 30s'
+    reply('GET', (200, stored))
+
+    result = invoke(database.migrate_history, '', _err=True)
+
+    assert_exit(result, 1)
+    assert 'set `victoria.sparse_interval` back to 60s in brewblox.yml' in result.output
+    assert 'brewblox-ctl config apply' in result.output
+    assert 'start again at 30s' in result.output
+    assert sent() == [('GET', MIGRATE_PATH)]

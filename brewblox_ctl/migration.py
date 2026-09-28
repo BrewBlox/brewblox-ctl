@@ -20,7 +20,7 @@ import requests
 from packaging.version import Version
 
 from . import actions, const, utils
-from .models import parse_retention
+from .models import parse_interval, parse_retention
 
 
 def migrate_ghcr_images():
@@ -641,6 +641,11 @@ def print_migration_losses(status: dict, limit: int = 20):
         click.echo(f'    ... and {len(missing) - limit} more fields')
 
 
+def interval_changed(status: dict) -> bool:
+    """Whether `victoria.sparse_interval` changed since the migration started"""
+    return status['sparse_interval'] != parse_interval(utils.get_config().victoria.sparse_interval)
+
+
 def print_migration_status(status: Optional[dict]):
     legacy = utils.file_exists(const.VICTORIA_LEGACY_DIR)
 
@@ -686,6 +691,20 @@ def print_migration_status(status: Optional[dict]):
             click.echo(f'The history migration (started at {started}) is averaging history since {since}: {progress}.')
         if status.get('last_error'):
             click.echo(f'It tries again after an error: {status["last_error"]}')
+        return
+
+    if interval_changed(status):
+        # History does not resume it: the averages would be on two grids
+        old = status['sparse_interval']
+        new = parse_interval(utils.get_config().victoria.sparse_interval)
+        click.echo(f'The history migration stopped: it started with a sparse_interval of {old}s, and now it is {new}s.')
+        click.echo(
+            f'To resume it where it stopped, set `victoria.sparse_interval` back to {old}s in brewblox.yml, and run:'
+        )
+        click.echo('    brewblox-ctl config apply')
+        click.echo(f'Or discard it, and start again at {new}s. The averages already made at {old}s stay:')
+        click.echo(f'    {DISCARD_CMD}')
+        click.echo(f'    {MIGRATE_CMD}')
         return
 
     if status.get('cancelled'):
@@ -928,8 +947,9 @@ def _migrate_history(dense_days: Optional[int]):
             utils.error(f'    {DISCARD_CMD}')
             raise SystemExit(1)
 
-        if not status.get('cancelled'):
-            # Stopped after an error that only a discard gets past, or not resumed yet after a restart
+        if not status.get('cancelled') or interval_changed(status):
+            # Stopped after an error, or not resumed yet after a restart.
+            # With another sparse_interval, history refuses to resume it.
             print_migration_status(status)
             raise SystemExit(1)
 
