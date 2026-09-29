@@ -375,27 +375,38 @@ def legacy_months(legacy_dir: str) -> Dict[datetime, int]:
     The monthly partitions of the legacy database, and their size on disk.
 
     The database writes them as root. If they cannot be read, `du` reads them with sudo.
+    No partitions are only believed when sudo finds none either:
+    a false "no history" leads to advice that removes it.
     """
     months: Dict[datetime, int] = defaultdict(int)
     try:
         for kind in ['small', 'big']:
-            base = Path(legacy_dir, 'data', kind)
-            if not base.is_dir():
+            try:
+                # Not Path.is_dir(): from Python 3.14 on, it answers False for a directory it cannot read
+                entries = sorted(os.scandir(Path(legacy_dir, 'data', kind)), key=lambda v: v.name)
+            except (FileNotFoundError, NotADirectoryError):
                 continue
-            for entry in sorted(os.scandir(base), key=lambda v: v.name):
+            for entry in entries:
                 match = PARTITION_NAME.fullmatch(entry.name)
                 if match and entry.is_dir(follow_symlinks=False) and 1 <= int(match[2]) <= 12:
                     month = datetime(int(match[1]), int(match[2]), 1, tzinfo=timezone.utc)
                     months[month] += _disk_usage(entry.path)
     except PermissionError:
-        months.clear()
-        dirs = f'{legacy_dir}/data/small/*/ {legacy_dir}/data/big/*/'
-        output = _sudo_read(f'for d in {dirs}; do [ -d "$d" ] && du -sk "$d"; done; true')
-        for line in output.splitlines():
-            match = PARTITION_DU_LINE.fullmatch(line)
-            if match and 1 <= int(match[3]) <= 12:
-                month = datetime(int(match[2]), int(match[3]), 1, tzinfo=timezone.utc)
-                months[month] += int(match[1]) * 1024
+        return _legacy_months_sudo(legacy_dir)
+    if not months:
+        return _legacy_months_sudo(legacy_dir)
+    return dict(months)
+
+
+def _legacy_months_sudo(legacy_dir: str) -> Dict[datetime, int]:
+    months: Dict[datetime, int] = defaultdict(int)
+    dirs = f'{legacy_dir}/data/small/*/ {legacy_dir}/data/big/*/'
+    output = _sudo_read(f'for d in {dirs}; do [ -d "$d" ] && du -sk "$d"; done; true')
+    for line in output.splitlines():
+        match = PARTITION_DU_LINE.fullmatch(line)
+        if match and 1 <= int(match[3]) <= 12:
+            month = datetime(int(match[2]), int(match[3]), 1, tzinfo=timezone.utc)
+            months[month] += int(match[1]) * 1024
     return dict(months)
 
 

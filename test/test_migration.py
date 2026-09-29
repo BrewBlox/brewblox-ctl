@@ -646,6 +646,47 @@ def test_legacy_months_unreadable(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     m_sh_read.assert_called_once_with(DU_CMD)
 
 
+@pytest.mark.skipif(os.geteuid() == 0, reason='root reads every directory')
+def test_legacy_months_data_unreadable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, m_sh_read: Mock):
+    """
+    The database made its directories mode 000, as on a NAS.
+    From Python 3.14, Path.is_dir() says False for data/small there: sudo must still read it.
+    """
+    monkeypatch.chdir(tmp_path)
+    legacy = tmp_path / 'victoria-legacy'
+    write_partition(legacy, 'small', '2019_03', 1000)
+    data = legacy / 'data'
+    data.chmod(0)
+    m_sh_read.return_value = DU_OUTPUT
+    try:
+        months = migration.legacy_months('./victoria-legacy')
+    finally:
+        data.chmod(0o755)
+    assert months == DU_MONTHS
+    m_sh_read.assert_called_once_with(DU_CMD)
+
+
+@pytest.mark.parametrize('layout', ['empty', 'no data', 'other names'])
+def test_legacy_months_none_confirmed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, m_sh_read: Mock, layout: str):
+    """No partitions is only believed when sudo finds none either: the advice for none removes the history"""
+    monkeypatch.chdir(tmp_path)
+    legacy = tmp_path / 'victoria-legacy'
+    legacy.mkdir()
+    if layout == 'empty':
+        (legacy / 'data' / 'small').mkdir(parents=True)
+    elif layout == 'other names':
+        (legacy / 'data' / 'small' / 'snapshots').mkdir(parents=True)
+        (legacy / 'data' / 'big').write_text('')  # not a directory
+
+    m_sh_read.return_value = ''
+    assert migration.legacy_months('./victoria-legacy') == {}
+    m_sh_read.assert_called_once_with(DU_CMD)
+
+    # Python saw nothing, but root does
+    m_sh_read.return_value = DU_OUTPUT
+    assert migration.legacy_months('./victoria-legacy') == DU_MONTHS
+
+
 @pytest.mark.parametrize('vanished', ['file', 'part'])
 def test_legacy_months_vanished(tmp_path: Path, mocker: MockerFixture, m_sh: Mock, vanished: str):
     """
