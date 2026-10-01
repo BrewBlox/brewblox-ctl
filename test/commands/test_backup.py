@@ -5,7 +5,7 @@ Tests brewblox_ctl.commands.backup
 import json
 import zipfile
 from pathlib import Path
-from unittest.mock import Mock, call
+from unittest.mock import ANY, Mock, call
 
 import httpretty
 import pytest
@@ -258,11 +258,13 @@ def test_load_backup_empty(m_sh: Mock, m_zipf):
     assert m_sh.call_count == 1  # Only the update
 
 
-def test_load_backup(mocker: MockerFixture, m_zipf):
+def test_load_backup(mocker: MockerFixture, m_zipf, m_load_dotenv: Mock):
     m_tmp = mocker.patch(TESTED + '.NamedTemporaryFile', wraps=backup.NamedTemporaryFile)
     invoke(backup.load, 'fname')
     assert m_zipf.read.call_count == 7
     assert m_tmp.call_count == 6
+    # The restored .env replaces the values loaded at startup
+    m_load_dotenv.assert_called_once_with(ANY, override=True)
 
 
 def test_load_backup_none(m_sh, m_zipf):

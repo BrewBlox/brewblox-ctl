@@ -40,6 +40,8 @@ def make_dotenv(version: str):
     template = JINJA_ENV.get_template('env.j2')
     content = template.render(config=config, version=version)
     utils.write_file('.env', content)
+    # This process loaded the previous .env at startup, and the commands it runs would inherit those values
+    utils.loadenv(content)
 
 
 def make_config_dirs():

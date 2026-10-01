@@ -77,6 +77,13 @@ def m_setenv(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
+def m_loadenv(monkeypatch: pytest.MonkeyPatch):
+    m = Mock(spec=utils.loadenv)
+    monkeypatch.setattr(utils, 'loadenv', m)
+    return m
+
+
+@pytest.fixture(autouse=True)
 def m_file_exists(monkeypatch: pytest.MonkeyPatch):
     existing_files = set()
 
