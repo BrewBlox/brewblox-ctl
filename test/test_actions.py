@@ -27,9 +27,14 @@ LARGE = HostProfile(small=False, memory_allowed_bytes='256MB', max_concurrent_re
 VM_COMMAND = '--envflag.enable=true --envflag.prefix=VM_'
 
 
-def test_make_dotenv(m_write_file: Mock):
+def test_make_dotenv(m_write_file: Mock, m_loadenv: Mock, m_get_config: CtlConfig):
+    m_get_config.release = 'develop'
     actions.make_dotenv('1.2.3')
-    assert 'BREWBLOX_CFG_VERSION=1.2.3' in m_write_file.call_args_list[0][0][1]
+    content = m_write_file.call_args_list[0][0][1]
+    assert 'BREWBLOX_CFG_VERSION=1.2.3' in content
+    assert 'BREWBLOX_RELEASE=develop' in content
+    # Commands run after this use the new values, not the ones loaded at startup
+    m_loadenv.assert_called_once_with(content)
 
 
 def test_make_config_dirs(m_sh: Mock):

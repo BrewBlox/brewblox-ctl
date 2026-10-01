@@ -164,6 +164,16 @@ def setenv(key, value, dotenv_path=None):
         dotenv.set_key(dotenv_path, key, str(value), quote_mode='never')
 
 
+def loadenv(content: str):
+    """
+    Sets the values from .env file content in this process.
+    Commands that brewblox-ctl runs inherit them, and Docker Compose prefers them to the .env file.
+    """
+    for key, value in dotenv.dotenv_values(stream=StringIO(content)).items():
+        if value is not None:
+            os.environ[key] = value
+
+
 def file_exists(path: PathLike_):
     return Path(path).exists()
 

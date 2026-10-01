@@ -208,7 +208,8 @@ def load(archive, load_env, load_compose, load_datastore, load_spark, load_node_
             utils.sh(f'cp -f {tmp.name} .env')
 
         utils.info('Reading .env values')
-        load_dotenv(Path('.env').resolve())
+        # The restored values replace the ones loaded at startup
+        load_dotenv(Path('.env').resolve(), override=True)
 
     if load_compose:
         if 'docker-compose.yml' in available:
